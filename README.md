@@ -2,7 +2,7 @@
 
 A web application that replaces a spreadsheet-based recruitment tracker and adds employee lifecycle tracking after hiring: candidates, phone screening, interviews, offers, joining, evaluation, probation, junior and senior stages, with reminders and reports.
 
-**Current state: sign-in works; the six modules are screens only.** Users sign in with an email and password, every page and API route requires a signed-in user, and signing out ends the session on the server. The six recruitment modules have their screens but are not connected to data yet, and no page shows real or sample data.
+**Current state: sign-in and Module 1 (Candidate Management) work end to end.** Users sign in with an email and password, and every page and API route requires a signed-in user. Candidates can be added, listed, searched, filtered, viewed and edited, with a warning for likely duplicates. Modules 2 to 6 have their screens but are not connected to data yet. The database holds no real or sample candidates.
 
 ## Stack
 
@@ -28,7 +28,9 @@ backend/
     middleware/        shared Express middleware (sign-in and permission checks)
     modules/auth/      sign-in, sign-out, sessions and password hashing
     modules/audit/     writes the audit log
-    modules/           the six recruitment modules (documentation only so far)
+    modules/lookups/   the closed lists used by dropdowns
+    modules/candidates/ Module 1: routes, rules, validation and SQL
+    modules/           modules 2 to 6 (documentation only so far)
     app.js             builds the Express app
     server.js          starts the server
   scripts/             database setup commands
@@ -150,6 +152,7 @@ The backend tests connect to the development database named in `.env`, so Postgr
 
 - Development database: `recruitment_system_dev`
 - Migration 001 creates the identity tables: `roles`, `permissions`, `role_permissions`, `users`, `user_credentials`, `user_sessions` and `audit_log`. `schema_migrations` records which migrations have run.
-- No recruitment tables exist yet. They are added as further numbered SQL files in `database/migrations/` once their design is approved.
+- Migration 002 creates the candidate tables: `positions`, `sources`, `pipeline_stages`, `candidates`, `pipeline_status` and `stage_history`. The position and source lists start empty; an administrator adds the approved values under Administration → Positions & Sources.
+- Tables for the other modules are added as further numbered SQL files in `database/migrations/` once their design is approved.
 - A migration file is never edited after it has been applied; changes go in a new file.
 - Real candidate data must not be loaded into a development database without approval.

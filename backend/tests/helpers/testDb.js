@@ -38,15 +38,25 @@ export function randomPassword() {
   return `pw-${randomBytes(12).toString('base64url')}`;
 }
 
-export async function createTestUser(pool, { isActive = true } = {}) {
+// Adds a role holding exactly the given permissions, for permission tests.
+export async function createTestRole(pool, code, permissions = []) {
+  await pool.query('INSERT INTO roles (code, name) VALUES ($1, $1)', [code]);
+  await pool.query(
+    `INSERT INTO role_permissions (role_id, permission_id)
+     SELECT r.id, p.id FROM roles r, permissions p WHERE r.code = $1 AND p.code = ANY($2)`,
+    [code, permissions],
+  );
+}
+
+export async function createTestUser(pool, { isActive = true, roleCode = 'main_user' } = {}) {
   const email = `user-${randomBytes(5).toString('hex')}@example.test`;
   const password = randomPassword();
 
   const { rows } = await pool.query(
     `INSERT INTO users (email, full_name, role_id, is_active)
-     VALUES ($1, 'Test User', (SELECT id FROM roles WHERE code = 'main_user'), $2)
+     VALUES ($1, 'Test User', (SELECT id FROM roles WHERE code = $3), $2)
      RETURNING id`,
-    [email, isActive],
+    [email, isActive, roleCode],
   );
   const id = Number(rows[0].id);
   await pool.query('INSERT INTO user_credentials (user_id, password_hash) VALUES ($1, $2)', [

@@ -1,11 +1,13 @@
 # Feature modules
 
-Two supporting modules are implemented:
+Implemented:
 
 - `auth/` — sign-in, sign-out, sessions and password hashing.
 - `audit/` — writes the audit log.
+- `lookups/` — the closed lists used by dropdowns (positions, sources, pipeline stages).
+- `candidates/` — Module 1, Candidate Management.
 
-The six recruitment modules below are **not implemented yet:** each folder holds only a README describing what will go there. They have no routes, services, queries or database tables.
+Modules 2 to 6 below are **not implemented yet:** each folder holds only a README describing what will go there. They have no routes, services, queries or database tables.
 
 | Module                   | Backend folder   | Frontend folder                          |
 | ------------------------ | ---------------- | ---------------------------------------- |

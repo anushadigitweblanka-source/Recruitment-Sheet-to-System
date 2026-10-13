@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { attachUser, requireAuth } from '../middleware/auth.js';
 import { authRouter } from '../modules/auth/auth.routes.js';
+import { candidatesRouter } from '../modules/candidates/candidates.routes.js';
+import { lookupsRouter } from '../modules/lookups/lookups.routes.js';
 import { healthRouter } from './health.js';
 
 // Every API route is mounted here, under /api.
@@ -22,6 +24,10 @@ export function apiRouter(deps) {
   // Everything below this line requires a signed-in user. Feature modules are
   // mounted here, so a new route is protected unless it is deliberately opened.
   router.use(requireAuth);
+
+  // Each of these also checks a specific permission on every route.
+  router.use('/candidates', candidatesRouter(deps));
+  router.use('/lookups', lookupsRouter(deps));
 
   return router;
 }

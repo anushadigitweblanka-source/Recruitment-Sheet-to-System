@@ -438,8 +438,49 @@ a {
   background: var(--color-info-bg);
 }
 
+.notice--success {
+  color: var(--color-success-text);
+  background: var(--color-success-bg);
+}
+
+.notice--danger {
+  color: var(--color-danger-text);
+  background: var(--color-danger-bg);
+}
+
 .notice__title {
   font-weight: 700;
+}
+
+.notice__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.notice a {
+  color: inherit;
+  font-weight: 600;
+}
+
+.duplicate-list {
+  padding-left: 20px;
+  margin: 8px 0;
+}
+
+.duplicate-list li {
+  margin-bottom: 4px;
+}
+
+.duplicate-list__detail,
+.duplicate-list__reason {
+  margin-left: 8px;
+  font-size: 0.875rem;
+}
+
+.duplicate-list__reason {
+  font-style: italic;
 }
 
 .notice code {
@@ -720,6 +761,75 @@ a.button {
   color: var(--color-text-muted);
 }
 
+.field__required {
+  font-weight: 400;
+}
+
+.field__error {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-danger-text);
+}
+
+.field--invalid .field__control {
+  border-color: var(--color-danger-text);
+}
+
+/* ---------- Tables: row actions and paging ---------- */
+
+.table-actions {
+  display: inline-flex;
+  gap: 12px;
+}
+
+.pagination {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 16px;
+}
+
+.pagination__summary,
+.pagination__page {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}
+
+.pagination__buttons {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.back-link {
+  margin-top: 16px;
+}
+
+/* ---------- Lookup lists (positions, sources) ---------- */
+
+.lookup-list {
+  padding: 0;
+  margin: 0 0 16px;
+  list-style: none;
+}
+
+.lookup-list li {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.lookup-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+}
+
 .field--checkbox {
   flex-direction: row;
   flex-wrap: wrap;
@@ -812,6 +922,9 @@ a.button {
 
 .detail-list dd {
   margin: 2px 0 0;
+  /* Keeps the line breaks of an address, and stops long text overflowing. */
+  white-space: pre-line;
+  overflow-wrap: anywhere;
 }
 
 /* ---------- Lifecycle timeline ---------- */

@@ -164,8 +164,9 @@ describe('no data is shown before features are connected', () => {
     expect(values.every((value) => value === '--')).toBe(true);
   });
 
-  test('record detail pages show "--" for every value', () => {
-    for (const path of ['/candidates/1', '/phone-interviews/1', '/interviews/1', '/offers/1']) {
+  // Candidates are connected to the backend and are tested in candidates.test.jsx.
+  test('detail pages of unconnected modules show "--" for every value', () => {
+    for (const path of ['/phone-interviews/1', '/interviews/1', '/offers/1']) {
       const values = [...renderAt(path).matchAll(/<dd>(.*?)<\/dd>/g)].map((match) => match[1]);
 
       expect(values.length, path).toBeGreaterThan(0);
@@ -229,8 +230,10 @@ describe('module rules visible in the UI', () => {
     expect(renderAt('/notifications')).toContain('send_at &lt;= current time AND sent_at IS NULL');
   });
 
-  test('every Save button is disabled', () => {
-    const forms = allPages.filter((page) => /new$|edit$|evaluate$/.test(page.path));
+  test('Save is disabled on the forms of modules that are not connected yet', () => {
+    const forms = allPages.filter(
+      (page) => /new$|edit$|evaluate$/.test(page.path) && !page.path.startsWith('/candidates'),
+    );
 
     expect(forms.length).toBeGreaterThan(0);
     for (const page of forms) {

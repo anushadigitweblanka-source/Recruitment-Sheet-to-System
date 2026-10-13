@@ -53,8 +53,8 @@ describe('password hashing', () => {
   });
 });
 
-describe('migration 001', () => {
-  test('creates exactly the identity tables and no recruitment tables', async () => {
+describe('migrations', () => {
+  test('create exactly the identity and candidate tables, and nothing for later modules', async () => {
     const { rows } = await db.pool.query(
       'SELECT tablename FROM pg_tables WHERE schemaname = $1 ORDER BY tablename',
       [db.schema],
@@ -64,10 +64,16 @@ describe('migration 001', () => {
       rows.map((row) => row.tablename),
       [
         'audit_log',
+        'candidates',
         'permissions',
+        'pipeline_stages',
+        'pipeline_status',
+        'positions',
         'role_permissions',
         'roles',
         'schema_migrations',
+        'sources',
+        'stage_history',
         'user_credentials',
         'user_sessions',
         'users',

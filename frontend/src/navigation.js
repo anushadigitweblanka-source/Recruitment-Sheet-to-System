@@ -6,6 +6,7 @@ import { notificationsModule } from './modules/notifications/index.js';
 import { offersModule } from './modules/offers/index.js';
 import { phoneInterviewsModule } from './modules/phone-interviews/index.js';
 import DashboardPage from './pages/DashboardPage.jsx';
+import LookupsPage from './pages/LookupsPage.jsx';
 import PlaceholderPage from './pages/PlaceholderPage.jsx';
 import SystemStatusPage from './pages/SystemStatusPage.jsx';
 
@@ -67,6 +68,13 @@ export const sections = [
         label: 'Roles & Permissions',
         description: 'What each role is allowed to see and do.',
         component: PlaceholderPage,
+        nav: true,
+      },
+      {
+        path: '/admin/lookups',
+        label: 'Positions & Sources',
+        description: 'The approved lists used in the Applied Position and Source dropdowns.',
+        component: LookupsPage,
         nav: true,
       },
       {

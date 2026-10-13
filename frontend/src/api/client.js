@@ -22,14 +22,14 @@ async function request(path, options) {
   return { ok: res.ok, status: res.status, body };
 }
 
-export function apiGet(path) {
-  return request(path);
-}
-
-export function apiPost(path, data) {
+function send(method, path, data) {
   return request(path, {
-    method: 'POST',
+    method,
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data ?? {}),
   });
 }
+
+export const apiGet = (path) => request(path);
+export const apiPost = (path, data) => send('POST', path, data);
+export const apiPut = (path, data) => send('PUT', path, data);
