@@ -68,9 +68,9 @@ test('GET /api/health returns 503 when the database is unreachable', async () =>
   }
 });
 
-test('unknown API routes return 404 as JSON', async () => {
+test('other API routes are closed to visitors who are not signed in', async () => {
   const res = await fetch(`${baseUrl}/api/does-not-exist`);
 
-  assert.equal(res.status, 404);
-  assert.deepEqual(await res.json(), { error: 'Not found' });
+  assert.equal(res.status, 401);
+  assert.deepEqual(await res.json(), { error: 'Not signed in.' });
 });

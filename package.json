@@ -18,6 +18,8 @@
     "build": "npm run build -w frontend",
     "start": "npm run start -w backend",
     "test": "npm run test --workspaces",
+    "db:migrate": "npm run migrate -w backend",
+    "db:create-dev-admin": "npm run create-dev-admin -w backend",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check ."

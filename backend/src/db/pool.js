@@ -7,6 +7,9 @@ export function createPool(dbConfig) {
     database: dbConfig.database,
     user: dbConfig.user,
     password: dbConfig.password,
+    // Optional: work inside one named schema instead of the default. The tests
+    // use this to run against a throwaway schema.
+    options: dbConfig.schema ? `-c search_path=${dbConfig.schema}` : undefined,
     max: 10,
     idleTimeoutMillis: 30_000,
     connectionTimeoutMillis: 5_000,

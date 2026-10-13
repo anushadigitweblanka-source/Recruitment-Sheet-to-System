@@ -6,7 +6,7 @@ export default function NotFoundPage() {
     <>
       <PageHeader title="Page not found" description="There is no page at this address." />
       <p>
-        <Link to="/">Go to the dashboard</Link>
+        <Link to="/dashboard">Go to the dashboard</Link>
       </p>
     </>
   );

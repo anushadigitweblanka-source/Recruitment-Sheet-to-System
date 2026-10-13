@@ -2,13 +2,31 @@ import { renderToString } from 'react-dom/server';
 import { MemoryRouter } from 'react-router';
 import { describe, expect, test } from 'vitest';
 import App from '../src/App.jsx';
+import { AuthContext } from '../src/auth/AuthContext.jsx';
 import { allPages, findPage, modules } from '../src/navigation.js';
+
+// These tests look at the pages as a signed-in user sees them.
+// Signing in, signing out and redirects are covered in auth.test.jsx.
+const SIGNED_IN = {
+  status: 'authenticated',
+  user: {
+    id: 1,
+    email: 'test.user@example.test',
+    fullName: 'Test User',
+    role: { code: 'main_user', name: 'Main User' },
+    permissions: [],
+  },
+  login: async () => ({ ok: true }),
+  logout: async () => ({ ok: true }),
+};
 
 function renderAt(path) {
   return renderToString(
-    <MemoryRouter initialEntries={[path]}>
-      <App />
-    </MemoryRouter>,
+    <AuthContext.Provider value={SIGNED_IN}>
+      <MemoryRouter initialEntries={[path]}>
+        <App />
+      </MemoryRouter>
+    </AuthContext.Provider>,
   );
 }
 
@@ -79,13 +97,13 @@ describe('the six modules', () => {
       '2 Phone Interview',
       '3 Direct Interview',
       '4 Offer Management',
-      '5 Employee Lifecycle',
+      '5 Employee Lifecycle Dashboard',
       '6 Email Notifications',
     ]);
   });
 
   test('each appears in the sidebar with its number', () => {
-    const html = renderAt('/');
+    const html = renderAt('/dashboard');
     for (const module of modules) {
       expect(html).toContain(`Module <!-- -->${module.number}</span>${module.title}`);
     }
@@ -108,7 +126,7 @@ describe('routes', () => {
   });
 
   test('the sidebar links to every sidebar page', () => {
-    const html = renderAt('/');
+    const html = renderAt('/dashboard');
 
     for (const page of allPages.filter((p) => p.nav)) {
       expect(html, page.path).toContain(`href="${page.path}"`);
@@ -137,7 +155,7 @@ describe('no data is shown before features are connected', () => {
   );
 
   test('the dashboard shows "--" for all ten metrics', () => {
-    const html = renderAt('/');
+    const html = renderAt('/dashboard');
     const values = [...html.matchAll(/<p class="stat-card__value">(.*?)<\/p>/g)].map(
       (match) => match[1],
     );
@@ -223,7 +241,22 @@ describe('module rules visible in the UI', () => {
 });
 
 describe('header', () => {
-  test('shows the placeholder user, not a real person', () => {
-    expect(renderAt('/')).toContain('Development User');
+  test('shows the signed-in user and a Logout button', () => {
+    const html = renderAt('/dashboard');
+
+    expect(html).toContain('Test User');
+    expect(html).toContain('test.user@example.test');
+    expect(html).not.toContain('Development User');
+    expect(html).toMatch(/<button[^>]*>Logout<\/button>/);
+  });
+
+  test('the sidebar ends with Logout, after Administration', () => {
+    const html = renderAt('/dashboard');
+    const order = ['>Dashboard<', '>Reports<', '>Administration<', 'sidebar__logout'].map((text) =>
+      html.indexOf(text),
+    );
+
+    expect(order.every((position) => position > -1)).toBe(true);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
   });
 });

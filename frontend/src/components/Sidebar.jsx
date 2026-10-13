@@ -1,7 +1,7 @@
 import { Link, useLocation } from 'react-router';
 import { findPage, sections } from '../navigation.js';
 
-export default function Sidebar({ isOpen }) {
+export default function Sidebar({ isOpen, onLogout, isLoggingOut }) {
   const { pathname } = useLocation();
   const currentPage = findPage(pathname);
   // A details or form page highlights the list it belongs to.
@@ -41,6 +41,17 @@ export default function Sidebar({ isOpen }) {
             </div>
           );
         })}
+
+        <div className="sidebar__section sidebar__section--logout">
+          <button
+            type="button"
+            className="sidebar__link sidebar__logout"
+            onClick={onLogout}
+            disabled={isLoggingOut}
+          >
+            Logout
+          </button>
+        </div>
       </nav>
     </aside>
   );

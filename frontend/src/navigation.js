@@ -28,7 +28,7 @@ export const sections = [
   {
     pages: [
       {
-        path: '/',
+        path: '/dashboard',
         label: 'Dashboard',
         description: 'Recruitment and employee figures at a glance.',
         component: DashboardPage,
@@ -83,10 +83,6 @@ export const sections = [
         component: PlaceholderPage,
         nav: true,
       },
-    ],
-  },
-  {
-    pages: [
       {
         path: '/admin/system-status',
         label: 'System Status',

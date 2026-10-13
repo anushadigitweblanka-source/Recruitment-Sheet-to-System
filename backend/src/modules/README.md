@@ -1,6 +1,11 @@
 # Feature modules
 
-One folder per module. **Nothing is implemented yet:** each folder holds only a README describing what will go there. No routes, services, queries or database tables exist.
+Two supporting modules are implemented:
+
+- `auth/` — sign-in, sign-out, sessions and password hashing.
+- `audit/` — writes the audit log.
+
+The six recruitment modules below are **not implemented yet:** each folder holds only a README describing what will go there. They have no routes, services, queries or database tables.
 
 | Module                   | Backend folder   | Frontend folder                          |
 | ------------------------ | ---------------- | ---------------------------------------- |

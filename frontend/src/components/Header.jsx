@@ -1,4 +1,4 @@
-export default function Header({ page, isMenuOpen, onMenuToggle }) {
+export default function Header({ page, user, isMenuOpen, onMenuToggle, onLogout, isLoggingOut }) {
   return (
     <header className="app-header">
       <button
@@ -19,12 +19,17 @@ export default function Header({ page, isMenuOpen, onMenuToggle }) {
         <span>{page ? page.label : 'Page not found'}</span>
       </p>
 
-      {/* Placeholder until sign-in is built. Not a real person. */}
       <div className="app-header__user">
         <span className="app-header__avatar" aria-hidden="true">
-          D
+          {user.fullName.charAt(0).toUpperCase()}
         </span>
-        <span>Development User</span>
+        <span className="app-header__identity">
+          <span className="app-header__name">{user.fullName}</span>
+          <span className="app-header__email">{user.email}</span>
+        </span>
+        <button type="button" className="button" onClick={onLogout} disabled={isLoggingOut}>
+          Logout
+        </button>
       </div>
     </header>
   );

@@ -5,7 +5,7 @@ import EmployeePhasePage from './EmployeePhasePage.jsx';
 
 export const employeesModule = {
   number: 5,
-  title: 'Employee Lifecycle',
+  title: 'Employee Lifecycle Dashboard',
   pages: [
     {
       path: '/employees',

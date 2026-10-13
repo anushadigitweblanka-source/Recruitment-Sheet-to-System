@@ -1,6 +1,6 @@
 # Authentication Decision
 
-**Status: waiting for mentor approval. Nothing described here has been built.**
+**Status: Option A (application email and password) was approved for the development system and has been built.** The sign-off lines at the end are still to be completed. Whether company sign-in replaces it before go-live remains open.
 
 ## Why this decision is needed
 

@@ -6,9 +6,12 @@
   "scripts": {
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
-    "test": "node --test"
+    "test": "node --test",
+    "migrate": "node scripts/migrate.js",
+    "create-dev-admin": "node scripts/create-dev-admin.js"
   },
   "dependencies": {
+    "argon2": "^0.45.1",
     "express": "^5.3.0",
     "pg": "^8.23.1"
   }
