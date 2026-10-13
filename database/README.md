@@ -19,9 +19,10 @@ npm run db:migrate
 | ------------------------------ | ----------------------------------------------------------------------------------------------------- |
 | `001_identity_foundation.sql`  | `roles`, `permissions`, `role_permissions`, `users`, `user_credentials`, `user_sessions`, `audit_log` |
 | `002_candidate_management.sql` | `positions`, `sources`, `pipeline_stages`, `candidates`, `pipeline_status`, `stage_history`           |
+| `003_phone_screens.sql`        | `phone_screens`                                                                                       |
 
 `positions` and `sources` start empty; an administrator adds the approved values in the application. `pipeline_stages` holds the twelve stages listed in the task guide.
 
-Tables for phone screens, interviews, offers, employees and notifications do not exist yet. Their design is in `docs/database-schema-proposal.md` and is waiting for the decisions listed in `docs/mentor-approval-required.md`.
+Tables for direct interviews, offers, employees and notifications do not exist yet. Their design is in `docs/database-schema-proposal.md` and is waiting for the decisions listed in `docs/mentor-approval-required.md`.
 
 The application connects through `backend/src/db/pool.js` using the `DB_*` variables in `.env`.

@@ -1,3 +1,4 @@
+import { inTransaction } from '../../db/transaction.js';
 import { recordAudit } from '../audit/audit.js';
 import {
   EDITABLE_COLUMNS,
@@ -56,21 +57,6 @@ function findDuplicates(db, values, excludeId = null) {
     positionId: values.positionId,
     excludeId,
   });
-}
-
-async function inTransaction(pool, work) {
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    const result = await work(client);
-    await client.query('COMMIT');
-    return result;
-  } catch (err) {
-    await client.query('ROLLBACK');
-    throw err;
-  } finally {
-    client.release();
-  }
 }
 
 // Two people saving the same Candidate ID at the same moment: the database's

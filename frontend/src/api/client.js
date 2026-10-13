@@ -33,3 +33,4 @@ function send(method, path, data) {
 export const apiGet = (path) => request(path);
 export const apiPost = (path, data) => send('POST', path, data);
 export const apiPut = (path, data) => send('PUT', path, data);
+export const apiPatch = (path, data) => send('PATCH', path, data);

@@ -2,6 +2,8 @@ import PhoneInterviewDetailsPage from './PhoneInterviewDetailsPage.jsx';
 import PhoneInterviewFormPage from './PhoneInterviewFormPage.jsx';
 import PhoneInterviewListPage from './PhoneInterviewListPage.jsx';
 
+// The :id in these addresses is the candidate's id: a phone interview is
+// always opened for a particular candidate, whether or not one exists yet.
 export const phoneInterviewsModule = {
   number: 2,
   title: 'Phone Interview',
@@ -9,7 +11,7 @@ export const phoneInterviewsModule = {
     {
       path: '/phone-interviews',
       label: 'Phone Interview List',
-      description: 'Phone screening results and direct interview dates.',
+      description: 'Every candidate, with the result of their phone interview.',
       component: PhoneInterviewListPage,
       nav: true,
     },

@@ -164,9 +164,10 @@ describe('no data is shown before features are connected', () => {
     expect(values.every((value) => value === '--')).toBe(true);
   });
 
-  // Candidates are connected to the backend and are tested in candidates.test.jsx.
+  // Candidates and phone interviews are connected to the backend and have
+  // their own test files.
   test('detail pages of unconnected modules show "--" for every value', () => {
-    for (const path of ['/phone-interviews/1', '/interviews/1', '/offers/1']) {
+    for (const path of ['/interviews/1', '/offers/1']) {
       const values = [...renderAt(path).matchAll(/<dd>(.*?)<\/dd>/g)].map((match) => match[1]);
 
       expect(values.length, path).toBeGreaterThan(0);
@@ -232,7 +233,10 @@ describe('module rules visible in the UI', () => {
 
   test('Save is disabled on the forms of modules that are not connected yet', () => {
     const forms = allPages.filter(
-      (page) => /new$|edit$|evaluate$/.test(page.path) && !page.path.startsWith('/candidates'),
+      (page) =>
+        /new$|edit$|evaluate$/.test(page.path) &&
+        !page.path.startsWith('/candidates') &&
+        !page.path.startsWith('/phone-interviews'),
     );
 
     expect(forms.length).toBeGreaterThan(0);

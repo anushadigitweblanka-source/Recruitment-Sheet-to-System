@@ -6,8 +6,10 @@ Implemented:
 - `audit/` — writes the audit log.
 - `lookups/` — the closed lists used by dropdowns (positions, sources, pipeline stages).
 - `candidates/` — Module 1, Candidate Management.
+- `pipeline/` — the one place that moves a candidate between stages.
+- `phone-screens/` — Module 2, Phone Interview.
 
-Modules 2 to 6 below are **not implemented yet:** each folder holds only a README describing what will go there. They have no routes, services, queries or database tables.
+Modules 3 to 6 below are **not implemented yet:** each folder holds only a README describing what will go there. They have no routes, services, queries or database tables.
 
 | Module                   | Backend folder   | Frontend folder                          |
 | ------------------------ | ---------------- | ---------------------------------------- |

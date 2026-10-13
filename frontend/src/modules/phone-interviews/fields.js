@@ -5,35 +5,21 @@ export const PHONE_INTERVIEW_COLUMNS = [
   { key: 'called', label: 'Called' },
   { key: 'response', label: 'Response' },
   { key: 'result', label: 'Result' },
+  { key: 'review', label: 'Review' },
   { key: 'interviewAt', label: 'Interview Date/Time' },
   { key: 'mailStatus', label: 'Mail Status' },
   { key: 'actions', label: 'Actions' },
 ];
 
-// "Selected" and "Not Selected" are the two results the task guide names.
-// The Response list has not been approved, so it is left undefined.
-export const PHONE_INTERVIEW_FIELDS = [
-  { name: 'candidateCode', label: 'Candidate ID', readOnly: true },
-  { name: 'candidateName', label: 'Candidate Name', readOnly: true },
-  { name: 'phone', label: 'Phone', type: 'tel', readOnly: true },
-  { name: 'called', label: 'Called', type: 'checkbox' },
-  { name: 'response', label: 'Response', type: 'select', pending: true },
-  {
-    name: 'result',
-    label: 'Result',
-    type: 'select',
-    options: [
-      { value: 'selected', label: 'Selected' },
-      { value: 'not_selected', label: 'Not Selected' },
-    ],
-  },
-  { name: 'interviewAt', label: 'Interview Date/Time', type: 'datetime-local' },
-  {
-    name: 'mailStatus',
-    label: 'Mail Status',
-    readOnly: true,
-    hint: 'Set automatically from the email log; never typed by hand.',
-  },
-  { name: 'review', label: 'Review', type: 'textarea', wide: true },
-  { name: 'hrNotes', label: 'HR Notes', type: 'textarea', wide: true },
+// The two results named in the task guide.
+export const RESULT_OPTIONS = [
+  { value: 'selected', label: 'Selected' },
+  { value: 'not_selected', label: 'Not Selected' },
 ];
+
+export const RESULT_LABELS = { selected: 'Selected', not_selected: 'Not Selected' };
+export const RESULT_TONES = { selected: 'success', not_selected: 'danger' };
+
+// Email sending is not built, so there is no mail status to show yet. When it
+// is built, the status will be read from the email log, never typed by hand.
+export const MAIL_STATUS_NOT_AVAILABLE = 'Not available yet';
