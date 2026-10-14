@@ -11,7 +11,9 @@ import { recordAudit } from '../audit/audit.js';
 // Returns null when the candidate does not exist.
 export async function lockPipeline(db, candidateId) {
   const { rows } = await db.query(
-    `SELECT ps.current_stage, ps.reject_reason, st.name AS stage_name
+    `SELECT ps.current_stage, ps.reject_reason, ps.hold_reason,
+            to_char(ps.next_followup_date, 'YYYY-MM-DD') AS next_followup_date,
+            st.name AS stage_name
        FROM pipeline_status ps
        JOIN pipeline_stages st ON st.code = ps.current_stage
       WHERE ps.candidate_id = $1
@@ -23,6 +25,8 @@ export async function lockPipeline(db, candidateId) {
     stage: rows[0].current_stage,
     stageName: rows[0].stage_name,
     rejectReason: rows[0].reject_reason,
+    holdReason: rows[0].hold_reason,
+    nextFollowupDate: rows[0].next_followup_date,
   };
 }
 
@@ -31,10 +35,11 @@ export async function lockPipeline(db, candidateId) {
 // is already in that stage (nothing is written).
 //
 // reason: required by the database when the stage is "rejected" or "on_hold".
+// nextFollowupDate: optional, kept only while the candidate is on hold.
 // source: which part of the application made the change, for the audit log.
 export async function changeStage(
   db,
-  { candidateId, fromStage, toStage, reason = null, userId, source },
+  { candidateId, fromStage, toStage, reason = null, nextFollowupDate = null, userId, source },
 ) {
   if (fromStage === toStage) return false;
 
@@ -43,10 +48,15 @@ export async function changeStage(
         SET current_stage = $2,
             reject_reason = CASE WHEN $2 = 'rejected' THEN $3 ELSE NULL END,
             hold_reason = CASE WHEN $2 = 'on_hold' THEN $3 ELSE NULL END,
+            next_followup_date = CASE
+              WHEN $2 = 'on_hold' THEN $5::date
+              WHEN current_stage = 'on_hold' THEN NULL
+              ELSE next_followup_date
+            END,
             stage_changed_at = now(),
             updated_by = $4
       WHERE candidate_id = $1`,
-    [candidateId, toStage, reason, userId],
+    [candidateId, toStage, reason, userId, nextFollowupDate],
   );
   await db.query(
     `INSERT INTO stage_history (candidate_id, from_stage, to_stage, reason, changed_by)
@@ -71,5 +81,15 @@ export async function updateRejectReason(db, { candidateId, reason, userId }) {
     `UPDATE pipeline_status SET reject_reason = $2, updated_by = $3
       WHERE candidate_id = $1 AND current_stage = 'rejected'`,
     [candidateId, reason, userId],
+  );
+}
+
+// Corrects the hold reason or the follow-up date without changing the stage.
+export async function updateHoldDetails(db, { candidateId, reason, nextFollowupDate, userId }) {
+  await db.query(
+    `UPDATE pipeline_status
+        SET hold_reason = $2, next_followup_date = $3::date, updated_by = $4
+      WHERE candidate_id = $1 AND current_stage = 'on_hold'`,
+    [candidateId, reason, nextFollowupDate, userId],
   );
 }

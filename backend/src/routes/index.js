@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { attachUser, requireAuth } from '../middleware/auth.js';
 import { authRouter } from '../modules/auth/auth.routes.js';
 import { candidatesRouter } from '../modules/candidates/candidates.routes.js';
+import { interviewsRouter } from '../modules/interviews/interviews.routes.js';
 import { lookupsRouter } from '../modules/lookups/lookups.routes.js';
 import { phoneScreensRouter } from '../modules/phone-screens/phoneScreens.routes.js';
 import { healthRouter } from './health.js';
@@ -30,6 +31,7 @@ export function apiRouter(deps) {
   router.use('/candidates', candidatesRouter(deps));
   router.use('/lookups', lookupsRouter(deps));
   router.use(phoneScreensRouter(deps));
+  router.use('/interviews', interviewsRouter(deps));
 
   return router;
 }

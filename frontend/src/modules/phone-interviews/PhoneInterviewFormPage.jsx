@@ -10,7 +10,7 @@ import PageHeader from '../../components/PageHeader.jsx';
 import { useApi } from '../../hooks/useApi.js';
 import { fromOfficeInput, toOfficeInput } from '../../utils/format.js';
 import { createPhoneInterview, getPhoneInterview, updatePhoneInterview } from './api.js';
-import CandidateSummary from './CandidateSummary.jsx';
+import CandidateSummary from '../../components/CandidateSummary.jsx';
 import { MAIL_STATUS_NOT_AVAILABLE, RESULT_OPTIONS } from './fields.js';
 
 const EMPTY_VALUES = { called: false, result: '', interviewAt: '', rejectReason: '', review: '' };

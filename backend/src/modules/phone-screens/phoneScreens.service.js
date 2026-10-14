@@ -63,6 +63,22 @@ async function applyOutcome(db, { candidateId, pipeline, before, after, rejectRe
   const plan = planStageChange({ pipeline, before, after });
   if (plan.error) return plan;
 
+  // Once a direct interview has been recorded, the phone interview's outcome
+  // is settled: the candidate was selected and given a slot, and their stage
+  // now belongs to the direct interview. Comparing stages is not enough to
+  // detect a change here, because both interviews can end in "Rejected".
+  const interviewed = await db.query('SELECT 1 FROM interviews WHERE candidate_id = $1 LIMIT 1', [
+    candidateId,
+  ]);
+  if (interviewed.rowCount > 0) {
+    const outcomeChanged = stageFor(before ?? {}) !== stageFor(after);
+    if (!outcomeChanged) return {};
+    return {
+      error:
+        'A direct interview has been recorded for this candidate, so the phone interview result can no longer be changed.',
+    };
+  }
+
   if (plan.toStage) {
     await changeStage(db, {
       candidateId,

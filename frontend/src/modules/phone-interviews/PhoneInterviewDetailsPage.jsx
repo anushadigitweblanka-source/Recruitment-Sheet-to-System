@@ -9,7 +9,7 @@ import StatusBadge from '../../components/StatusBadge.jsx';
 import { useApi } from '../../hooks/useApi.js';
 import { formatDateTime } from '../../utils/format.js';
 import { getPhoneInterview } from './api.js';
-import CandidateSummary from './CandidateSummary.jsx';
+import CandidateSummary from '../../components/CandidateSummary.jsx';
 import { MAIL_STATUS_NOT_AVAILABLE, RESULT_LABELS, RESULT_TONES } from './fields.js';
 
 const FIELDS = [

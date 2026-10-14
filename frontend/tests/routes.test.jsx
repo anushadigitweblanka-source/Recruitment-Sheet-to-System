@@ -164,10 +164,10 @@ describe('no data is shown before features are connected', () => {
     expect(values.every((value) => value === '--')).toBe(true);
   });
 
-  // Candidates and phone interviews are connected to the backend and have
-  // their own test files.
+  // Candidates, phone interviews and direct interviews are connected to the
+  // backend and have their own test files.
   test('detail pages of unconnected modules show "--" for every value', () => {
-    for (const path of ['/interviews/1', '/offers/1']) {
+    for (const path of ['/offers/1']) {
       const values = [...renderAt(path).matchAll(/<dd>(.*?)<\/dd>/g)].map((match) => match[1]);
 
       expect(values.length, path).toBeGreaterThan(0);
@@ -180,20 +180,6 @@ describe('no data is shown before features are connected', () => {
 });
 
 describe('module rules visible in the UI', () => {
-  test('the interview evaluation has five score inputs limited to 0-10', () => {
-    const html = renderAt('/interviews/1/evaluate');
-    const scoreInputs = html.match(/<input [^>]*type="number"[^>]*>/g) ?? [];
-
-    expect(scoreInputs).toHaveLength(5);
-    for (const input of scoreInputs) {
-      expect(input).toContain('min="0"');
-      expect(input).toContain('max="10"');
-    }
-    for (const label of ['Technical', 'AI', 'Communication', 'Confidence', 'Culture Fit']) {
-      expect(html).toContain(`>${label}</label>`);
-    }
-  });
-
   test('offer screens have no salary field and say why', () => {
     for (const path of ['/offers', '/offers/new', '/offers/1']) {
       const html = renderAt(path);
@@ -236,7 +222,8 @@ describe('module rules visible in the UI', () => {
       (page) =>
         /new$|edit$|evaluate$/.test(page.path) &&
         !page.path.startsWith('/candidates') &&
-        !page.path.startsWith('/phone-interviews'),
+        !page.path.startsWith('/phone-interviews') &&
+        !page.path.startsWith('/interviews'),
     );
 
     expect(forms.length).toBeGreaterThan(0);

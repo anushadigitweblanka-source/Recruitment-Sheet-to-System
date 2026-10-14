@@ -2,7 +2,9 @@
 
 A web application that replaces a spreadsheet-based recruitment tracker and adds employee lifecycle tracking after hiring: candidates, phone screening, interviews, offers, joining, evaluation, probation, junior and senior stages, with reminders and reports.
 
-**Current state: sign-in, Module 1 (Candidate Management) and Module 2 (Phone Interview) work end to end.** Users sign in with an email and password, and every page and API route requires a signed-in user. Candidates can be added, listed, searched, filtered, viewed and edited, with a warning for likely duplicates. A phone interview can be recorded for each candidate, and its result moves the candidate to the next stage with a history of every change. Modules 3 to 6 have their screens but are not connected to data yet. The database holds no real or sample candidates.
+**Current state: sign-in, Module 1 (Candidate Management), Module 2 (Phone Interview) and Module 3 (Direct Interview) work end to end.** Users sign in with an email and password, and every page and API route requires a signed-in user. Candidates can be added, listed, searched, filtered, viewed and edited, with a warning for likely duplicates. A phone interview can be recorded for each candidate, and its result moves the candidate to the next stage with a history of every change. A direct interview can then be recorded with attendance, five scores (0 to 10 each, with the total out of 50 calculated by the database) and a status of Selected, Not Selected or On Hold, which again moves the candidate's stage. Selecting a candidate does not create an offer; that belongs to Module 4. Modules 4 to 6 have their screens but are not connected to data yet. The database holds no real or sample candidates.
+
+Some rules in Modules 2 and 3 are still waiting for the mentor's confirmation. They are listed under "MENTOR CONFIRMATION REQUIRED" in `backend/src/modules/phone-screens/README.md` and `backend/src/modules/interviews/README.md`.
 
 ## Stack
 
@@ -31,8 +33,9 @@ backend/
     modules/lookups/   the closed lists used by dropdowns
     modules/candidates/ Module 1: routes, rules, validation and SQL
     modules/phone-screens/ Module 2: the same four files
+    modules/interviews/ Module 3: the same four files
     modules/pipeline/  the one place that changes a candidate's stage
-    modules/           modules 3 to 6 (documentation only so far)
+    modules/           modules 4 to 6 (documentation only so far)
     app.js             builds the Express app
     server.js          starts the server
   scripts/             database setup commands
@@ -156,6 +159,7 @@ The backend tests connect to the development database named in `.env`, so Postgr
 - Migration 001 creates the identity tables: `roles`, `permissions`, `role_permissions`, `users`, `user_credentials`, `user_sessions` and `audit_log`. `schema_migrations` records which migrations have run.
 - Migration 002 creates the candidate tables: `positions`, `sources`, `pipeline_stages`, `candidates`, `pipeline_status` and `stage_history`. The position and source lists start empty; an administrator adds the approved values under Administration → Positions & Sources.
 - Migration 003 creates `phone_screens`.
+- Migration 004 creates `interviews` (direct interviews) and nothing else.
 - Tables for the other modules are added as further numbered SQL files in `database/migrations/` once their design is approved.
 - A migration file is never edited after it has been applied; changes go in a new file.
 - Real candidate data must not be loaded into a development database without approval.

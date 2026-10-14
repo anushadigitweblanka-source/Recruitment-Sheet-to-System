@@ -1,6 +1,6 @@
 import { Link } from 'react-router';
-import DetailList from '../../components/DetailList.jsx';
-import StatusBadge from '../../components/StatusBadge.jsx';
+import DetailList from './DetailList.jsx';
+import StatusBadge from './StatusBadge.jsx';
 
 const FIELDS = [
   { name: 'candidateCode', label: 'Candidate ID' },
@@ -10,7 +10,7 @@ const FIELDS = [
   { name: 'stage', label: 'Current Status' },
 ];
 
-// Who the phone interview is about, shown above the form and the details.
+// Who a phone or direct interview is about, shown above its form and details.
 export default function CandidateSummary({ candidate }) {
   return (
     <section className="panel" aria-label="Candidate">

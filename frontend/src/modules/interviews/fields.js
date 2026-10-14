@@ -1,4 +1,4 @@
-import { MAX_TOTAL, SCORE_CRITERIA } from './scoring.js';
+import { MAX_TOTAL } from './scoring.js';
 
 export const INTERVIEW_COLUMNS = [
   { key: 'candidate', label: 'Candidate' },
@@ -11,33 +11,25 @@ export const INTERVIEW_COLUMNS = [
   { key: 'actions', label: 'Actions' },
 ];
 
-// Attendance and Recommendation lists have not been approved yet.
-export const INTERVIEW_HEADER_FIELDS = [
-  { name: 'candidate', label: 'Candidate', readOnly: true },
-  { name: 'scheduledAt', label: 'Interview Date/Time', type: 'datetime-local' },
-  { name: 'attendance', label: 'Attendance', type: 'select', pending: true },
-  { name: 'interviewer', label: 'Interviewer' },
+export const ATTENDANCE_OPTIONS = [
+  { value: 'attended', label: 'Attended' },
+  { value: 'not_attended', label: 'Not Attended' },
 ];
+export const ATTENDANCE_LABELS = { attended: 'Attended', not_attended: 'Not Attended' };
 
-// The three decisions the task guide names for a direct interview.
-export const INTERVIEW_OUTCOME_FIELDS = [
-  { name: 'recommendation', label: 'Recommendation', type: 'select', pending: true },
-  {
-    name: 'status',
-    label: 'Status',
-    type: 'select',
-    options: [
-      { value: 'selected', label: 'Selected' },
-      { value: 'not_selected', label: 'Not Selected' },
-      { value: 'on_hold', label: 'On Hold' },
-    ],
-  },
-  { name: 'remarks', label: 'Remarks', type: 'textarea', wide: true },
+// The three decisions the task guide names for a direct interview. The guide
+// calls this field "status".
+export const DECISION_OPTIONS = [
+  { value: 'selected', label: 'Selected' },
+  { value: 'not_selected', label: 'Not Selected' },
+  { value: 'on_hold', label: 'On Hold' },
 ];
+export const DECISION_LABELS = {
+  selected: 'Selected',
+  not_selected: 'Not Selected',
+  on_hold: 'On Hold',
+};
+export const DECISION_TONES = { selected: 'success', not_selected: 'danger', on_hold: 'warning' };
 
-export const INTERVIEW_DETAIL_FIELDS = [
-  ...INTERVIEW_HEADER_FIELDS,
-  ...SCORE_CRITERIA,
-  { name: 'total', label: `Total / ${MAX_TOTAL}` },
-  ...INTERVIEW_OUTCOME_FIELDS,
-];
+export const formatTotal = (total) =>
+  total === null || total === undefined ? null : `${total} / ${MAX_TOTAL}`;

@@ -8,8 +8,9 @@ Implemented:
 - `candidates/` — Module 1, Candidate Management.
 - `pipeline/` — the one place that moves a candidate between stages.
 - `phone-screens/` — Module 2, Phone Interview.
+- `interviews/` — Module 3, Direct Interview.
 
-Modules 3 to 6 below are **not implemented yet:** each folder holds only a README describing what will go there. They have no routes, services, queries or database tables.
+Modules 4 to 6 below are **not implemented yet:** each folder holds only a README describing what will go there. They have no routes, services, queries or database tables.
 
 | Module                   | Backend folder   | Frontend folder                          |
 | ------------------------ | ---------------- | ---------------------------------------- |
@@ -31,4 +32,6 @@ modules/candidates/
   candidates.repository.js  SQL queries, using the shared pool
 ```
 
-The table design for every module is in `docs/database-schema-proposal.md`. The decisions that must be answered first are in `docs/mentor-approval-required.md`.
+Modules 2 and 3 also have a `*.validation.js` file for field checks.
+
+The table design for every module is in `docs/database-schema-proposal.md`. The decisions that must be answered first are in `docs/mentor-approval-required.md`. Decisions still open for a built module are listed under "MENTOR CONFIRMATION REQUIRED" in that module's README.

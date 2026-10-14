@@ -9,14 +9,22 @@ export const interviewsModule = {
     {
       path: '/interviews',
       label: 'Interview List',
-      description: 'Direct interviews, scores out of 50 and decisions.',
+      description: 'Candidates with a direct interview, or waiting for one.',
       component: InterviewListPage,
       nav: true,
     },
     {
+      // Opened as /interviews/new?candidate=12 from the list.
+      path: '/interviews/new',
+      label: 'New Interview Evaluation',
+      description: 'Score the candidate on five criteria and record the decision.',
+      component: InterviewEvaluationPage,
+      navParent: '/interviews',
+    },
+    {
       path: '/interviews/:id',
       label: 'Interview Details',
-      description: 'Scores, recommendation and decision for one interview.',
+      description: 'Scores, total and decision for one interview.',
       component: InterviewDetailsPage,
       navParent: '/interviews',
     },

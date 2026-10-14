@@ -65,6 +65,7 @@ describe('migrations', () => {
       [
         'audit_log',
         'candidates',
+        'interviews',
         'permissions',
         'phone_screens',
         'pipeline_stages',
