@@ -12,7 +12,7 @@ Implemented:
 - `offers/` — Module 4, Offer Management: offers, offer status, joining date, attendance and the stage changes they cause. Salary is not implemented and email status is not stored; both wait for later decisions and modules.
 - `employees/` — Module 5, Employee Lifecycle: the employee record created when an offer is marked attended, the four phases, gate decisions, extensions, discontinuation, termination and phase history. The junior end date is not calculated until its rule is confirmed.
 
-Module 6 below is **not implemented yet:** its folder holds only a README describing what will go there. It has no routes, services, queries or database tables.
+- `notifications/` — Module 6, Email Notifications: the notification schedule, editable email templates, the email log, the 15-minute sending job, duplicate-send prevention and explicit resend. **No real email is sent:** no mail provider is approved, so delivery runs through a development adapter. Automatic reminder creation waits for the recipient rules.
 
 | Module                   | Backend folder   | Frontend folder                          |
 | ------------------------ | ---------------- | ---------------------------------------- |

@@ -23,6 +23,8 @@ npm run db:migrate
 | `004_interviews.sql`           | `interviews`                                                                                          |
 | `005_offers.sql`               | `offers`                                                                                              |
 | `006_employee_lifecycle.sql`   | `settings`, `employees`, `phase_history`                                                              |
+| `007_offer_work_mode.sql`      | nothing; adds the Work Mode check constraint on `offers`                                              |
+| `008_email_notifications.sql`  | `notifications`, `email_templates`, `email_log`                                                       |
 
 `positions` and `sources` start empty; an administrator adds the approved values in the application. `pipeline_stages` holds the twelve stages listed in the task guide.
 
@@ -64,6 +66,14 @@ Migration 006 creates these three tables and nothing else: no notification, emai
 
 The open decisions behind these choices are listed in `backend/src/modules/employees/README.md`.
 
-Tables for notifications and email do not exist yet. Their design is in `docs/database-schema-proposal.md` and is waiting for the decisions listed in `docs/mentor-approval-required.md`.
+### `notifications`, `email_templates` and `email_log` (migration 008)
+
+Migration 008 creates these three tables and nothing else: no salary, team lead or company account table, and no WhatsApp/SMS channel column (out of scope by mentor decision 10).
+
+- `notifications` is the schedule: candidate, type (the six reminder types), the subject link matching the type (phase, interview, offer, or none for a CV chase), `due_at` (the deadline), `send_at` (due minus 24 hours), `sent_at`, recipients, status (`pending`, `sent`, `failed`, `cancelled`), attempts and last error. The database enforces one live reminder of a type per subject, `send_at <= due_at`, and that `sent` and `sent_at` always agree.
+- `email_templates`: one editable template per type with subject, body, `send_mode` (`auto`/`review`) and `is_active`. No content is seeded.
+- `email_log` is the delivery record: what was actually sent, to whom, with status (`queued`, `sent`, `failed`), error, `is_resend` and who sent it. A partial unique index refuses a second non-resend send of the same template to the same candidate; a failed attempt does not block a retry, and a resend is its own marked row.
+
+The open decisions behind these choices are listed in `backend/src/modules/notifications/README.md`.
 
 The application connects through `backend/src/db/pool.js` using the `DB_*` variables in `.env`.

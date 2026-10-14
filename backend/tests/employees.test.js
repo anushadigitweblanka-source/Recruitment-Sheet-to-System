@@ -772,12 +772,12 @@ describe('audit log', () => {
 });
 
 describe('scope', () => {
-  test('migration 006 adds no salary, notification, email or account table', async () => {
+  test('no salary, team lead or company account table exists', async () => {
     const { rows } = await db.pool.query(
       `SELECT table_name FROM information_schema.tables
         WHERE table_schema = $1
-          AND (table_name ILIKE '%salary%' OR table_name IN ('notifications', 'email_templates',
-               'email_log', 'team_leads', 'company_accounts'))`,
+          AND (table_name ILIKE '%salary%'
+               OR table_name IN ('team_leads', 'company_accounts'))`,
       [db.schema],
     );
     assert.deepEqual(rows, []);

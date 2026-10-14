@@ -776,6 +776,22 @@ a.button {
   gap: 12px;
 }
 
+/* A button that looks like the links around it, for actions inside tables. */
+.button-link {
+  padding: 0;
+  font: inherit;
+  color: var(--color-accent);
+  text-decoration: underline;
+  cursor: pointer;
+  background: none;
+  border: none;
+}
+
+.button-link:disabled {
+  color: var(--color-text-muted);
+  cursor: default;
+}
+
 .pagination {
   display: flex;
   flex-wrap: wrap;

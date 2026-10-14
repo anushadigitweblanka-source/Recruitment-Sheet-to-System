@@ -908,12 +908,11 @@ describe('salary is not part of this module', () => {
     assert.doesNotMatch(rows[0].stored, /salary|123456/i);
   });
 
-  test('the offers table exists, and no notification, email or account table', async () => {
+  test('the offers table exists, and no team lead or company account table', async () => {
     const { rows } = await db.pool.query(
       `SELECT table_name FROM information_schema.tables
         WHERE table_schema = $1
-          AND table_name IN ('offers', 'notifications', 'email_templates', 'email_log',
-                             'team_leads', 'company_accounts')`,
+          AND table_name IN ('offers', 'team_leads', 'company_accounts')`,
       [db.schema],
     );
 
