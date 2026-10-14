@@ -22,7 +22,8 @@
     "db:create-dev-admin": "npm run create-dev-admin -w backend",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "import:dry-run": "npm run import:dry-run -w backend --"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

@@ -8,10 +8,12 @@
     "start": "node src/server.js",
     "test": "node --test",
     "migrate": "node scripts/migrate.js",
-    "create-dev-admin": "node scripts/create-dev-admin.js"
+    "create-dev-admin": "node scripts/create-dev-admin.js",
+    "import:dry-run": "node scripts/import-dry-run.js"
   },
   "dependencies": {
     "argon2": "^0.45.1",
+    "exceljs": "^4.4.0",
     "express": "^5.3.0",
     "pg": "^8.23.1"
   }
