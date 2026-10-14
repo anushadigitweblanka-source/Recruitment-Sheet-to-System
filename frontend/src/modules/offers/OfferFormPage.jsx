@@ -12,12 +12,13 @@ import PageHeader from '../../components/PageHeader.jsx';
 import { useApi } from '../../hooks/useApi.js';
 import { getCandidate } from '../candidates/api.js';
 import { createOffer, getOffer, listOffers, updateOffer } from './api.js';
-import { ATTENDED_OPTIONS, OFFER_STATUS_OPTIONS } from './fields.js';
+import { ATTENDED_OPTIONS, OFFER_STATUS_OPTIONS, WORK_MODE_OPTIONS } from './fields.js';
 import SalaryPendingNotice from './SalaryPendingNotice.jsx';
 
 const EMPTY_VALUES = {
   positionId: '',
   offerDate: '',
+  workMode: '',
   location: '',
   offerStatus: '',
   onboardingDate: '',
@@ -64,6 +65,7 @@ function toFormValues(data) {
   return {
     positionId: text(offer.positionId),
     offerDate: text(offer.offerDate),
+    workMode: text(offer.workMode),
     location: text(offer.location),
     offerStatus: text(offer.offerStatus),
     onboardingDate: text(offer.onboardingDate),
@@ -86,11 +88,11 @@ function validate(values) {
   return errors;
 }
 
-// Work Mode is never sent: its values have not been approved yet.
 function toPayload(values) {
   return {
     positionId: Number(values.positionId),
     offerDate: values.offerDate || null,
+    workMode: values.workMode || null,
     location: values.location,
     offerStatus: values.offerStatus || null,
     onboardingDate: values.onboardingDate || null,
@@ -307,9 +309,12 @@ function OfferForm({ id, candidateId, header }) {
             required
             options={positionOptions}
             hint={
-              positionOptions.length === 0
-                ? 'No positions exist yet. Add them under Administration → Positions & Sources.'
-                : undefined
+              positionOptions.length === 0 ? (
+                <>
+                  No positions exist yet. Add them under{' '}
+                  <Link to="/admin/lookups">Administration → Positions &amp; Sources</Link>.
+                </>
+              ) : undefined
             }
             {...field('positionId')}
           />
@@ -317,9 +322,9 @@ function OfferForm({ id, candidateId, header }) {
           <FormField
             label="Work Mode"
             type="select"
-            name="workMode"
-            pending
-            error={errors.workMode}
+            options={WORK_MODE_OPTIONS}
+            hint="Office is a temporary value that requires mentor confirmation."
+            {...field('workMode')}
           />
           <FormField label="Location" maxLength={200} {...field('location')} />
           <FormField

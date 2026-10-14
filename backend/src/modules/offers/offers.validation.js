@@ -7,6 +7,11 @@
 // The two values backed by the task guide's stage list.
 export const OFFER_STATUSES = ['sent', 'accepted'];
 
+// "Office" is approved as a temporary Work Mode value that still requires
+// mentor confirmation. A confirmed list replaces this one, together with the
+// check constraint from migration 007.
+export const WORK_MODES = ['office'];
+
 const MAX_LOCATION = 200;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -46,11 +51,10 @@ export function validateOffer(input) {
 
   values.offerDate = optionalDate(source, 'offerDate', 'Offer Date', errors);
 
-  // The list of allowed Work Mode values has not been approved, so no value
-  // is accepted yet.
   values.workMode = null;
   if (!isBlank(source.workMode)) {
-    errors.workMode = 'Work Mode values have not been approved yet, so none can be saved.';
+    if (WORK_MODES.includes(source.workMode)) values.workMode = source.workMode;
+    else errors.workMode = 'Work Mode must be Office.';
   }
 
   values.location = null;

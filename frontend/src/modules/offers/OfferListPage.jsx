@@ -19,6 +19,7 @@ import {
   OFFER_STATUS_OPTIONS,
   OFFER_STATUS_TONES,
   attendedLabel,
+  workModeLabel,
 } from './fields.js';
 
 const PAGE_SIZE = 20;
@@ -40,7 +41,7 @@ function toRow({ candidate, offer }) {
     candidate: offer ? <Link to={`/offers/${offer.id}`}>{name}</Link> : name,
     position: (offer ? offer.position : candidate.position) ?? '--',
     offerDate: formatDate(offer?.offerDate) ?? '--',
-    workMode: offer?.workMode ?? '--',
+    workMode: workModeLabel(offer?.workMode) ?? '--',
     location: offer?.location ?? '--',
     offerStatus: offer?.offerStatus ? (
       <StatusBadge tone={OFFER_STATUS_TONES[offer.offerStatus]}>

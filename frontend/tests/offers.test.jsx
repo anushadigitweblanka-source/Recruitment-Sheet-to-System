@@ -75,7 +75,13 @@ const stageFor = (body) =>
 
 // A pretend backend that keeps offers in memory and applies the same stage
 // rules as the real one.
-function fakeBackend({ entries = [], listFails = 0, hang = false, refuse = null } = {}) {
+function fakeBackend({
+  entries = [],
+  positions = POSITIONS,
+  listFails = 0,
+  hang = false,
+  refuse = null,
+} = {}) {
   const state = { entries: entries.map((e) => structuredClone(e)), calls: [], listFails };
   const json = (status, data) => ({ ok: status < 400, status, json: async () => data });
 
@@ -86,6 +92,7 @@ function fakeBackend({ entries = [], listFails = 0, hang = false, refuse = null 
       positionId: body.positionId,
       position: position.name,
       offerDate: body.offerDate,
+      workMode: body.workMode,
       location: body.location || null,
       offerStatus: body.offerStatus,
       onboardingDate: body.onboardingDate,
@@ -163,7 +170,7 @@ function fakeBackend({ entries = [], listFails = 0, hang = false, refuse = null 
         const { position, ...rest } = found.candidate;
         return json(200, { candidate: { ...rest, position: { id: 1, name: position } } });
       }
-      if (path === '/lookups/positions') return json(200, { items: POSITIONS });
+      if (path === '/lookups/positions') return json(200, { items: positions });
       return json(404, { error: 'Not found' });
     }),
   );
@@ -220,6 +227,7 @@ describe('offer list', () => {
           2,
           offerRecord(402, {
             offerDate: '2026-11-05',
+            workMode: 'office',
             location: 'Sample Office',
             offerStatus: 'accepted',
             onboardingDate: '2026-11-16',
@@ -249,6 +257,7 @@ describe('offer list', () => {
 
     const joined = screen.getByText('TEST-002 — Sample Person 2').closest('tr');
     expect(within(joined).getByText('05 Nov 2026')).toBeTruthy();
+    expect(within(joined).getByText('Office')).toBeTruthy();
     expect(within(joined).getByText('Sample Office')).toBeTruthy();
     expect(within(joined).getByText('Accepted')).toBeTruthy();
     expect(within(joined).getByText('16 Nov 2026')).toBeTruthy();
@@ -380,9 +389,27 @@ describe('create offer', () => {
     expect(optionsOf('Offer Status')).toEqual(['Select…', 'Sent', 'Accepted']);
     expect(optionsOf('Attended')).toEqual(['Select…', 'Yes', 'No']);
 
+    // Office is the only Work Mode approved so far, as a temporary value.
     const workMode = screen.getByLabelText('Work Mode');
-    expect(workMode.disabled).toBe(true);
-    expect([...workMode.options].map((o) => o.textContent)).toEqual(['Not defined yet']);
+    expect(workMode.disabled).toBe(false);
+    expect(optionsOf('Work Mode')).toEqual(['Select…', 'Office']);
+    expect(
+      screen.getByText('Office is a temporary value that requires mentor confirmation.'),
+    ).toBeTruthy();
+  });
+
+  test('with no positions yet, explains where to add them with a working link', async () => {
+    fakeBackend({ entries: [entry(1)], positions: [] });
+    open('/offers/new?candidate=1');
+    await formReady();
+
+    expect(optionsOf(/^Position Offered/)).toEqual(['Select…']);
+    expect(screen.getByText(/No positions exist yet/)).toBeTruthy();
+    expect(
+      screen
+        .getByRole('link', { name: 'Administration → Positions & Sources' })
+        .getAttribute('href'),
+    ).toBe('/admin/lookups');
   });
 
   test('has no salary field and says why', async () => {
@@ -432,6 +459,7 @@ describe('create offer', () => {
 
     fireEvent.change(screen.getByLabelText(/^Position Offered/), { target: { value: '2' } });
     type('Offer Date', '2026-11-05');
+    fireEvent.change(screen.getByLabelText('Work Mode'), { target: { value: 'office' } });
     type('Location', 'Sample Office');
     fireEvent.change(screen.getByLabelText('Offer Status'), { target: { value: 'sent' } });
     save();
@@ -445,13 +473,14 @@ describe('create offer', () => {
       candidateId: 1,
       positionId: 2,
       offerDate: '2026-11-05',
+      workMode: 'office',
       location: 'Sample Office',
       offerStatus: 'sent',
       onboardingDate: null,
       attended: null,
     });
-    // Neither salary nor the unapproved Work Mode is ever sent.
-    expect(Object.keys(sent).some((key) => /salary|workMode/i.test(key))).toBe(false);
+    // Salary is never sent.
+    expect(Object.keys(sent).some((key) => /salary/i.test(key))).toBe(false);
   });
 
   test('shows a refusal from the backend next to the field, and stays on the form', async () => {
@@ -493,13 +522,18 @@ describe('edit offer', () => {
   test('loads the offer and records acceptance, joining date and attendance', async () => {
     const backend = fakeBackend({
       entries: [
-        entry(1, offerRecord(401, { offerStatus: 'sent', offerDate: '2026-11-05' }), 'offer_sent'),
+        entry(
+          1,
+          offerRecord(401, { offerStatus: 'sent', offerDate: '2026-11-05', workMode: 'office' }),
+          'offer_sent',
+        ),
       ],
     });
     open('/offers/401/edit');
 
     await waitFor(() => expect(screen.getByLabelText('Offer Status').value).toBe('sent'));
     expect(screen.getByLabelText('Offer Date').value).toBe('2026-11-05');
+    expect(screen.getByLabelText('Work Mode').value).toBe('office');
 
     fireEvent.change(screen.getByLabelText('Offer Status'), { target: { value: 'accepted' } });
     type('Onboarding Date', '2026-11-16');
@@ -511,6 +545,7 @@ describe('edit offer', () => {
       offerStatus: 'accepted',
       onboardingDate: '2026-11-16',
       attended: true,
+      workMode: 'office',
     });
   });
 
@@ -533,6 +568,7 @@ describe('offer details', () => {
           1,
           offerRecord(401, {
             offerDate: '2026-11-05',
+            workMode: 'office',
             location: 'Sample Office',
             offerStatus: 'accepted',
             onboardingDate: '2026-11-16',
@@ -548,7 +584,7 @@ describe('offer details', () => {
     const value = (label) => within(screen.getByText(label).closest('div')).getByRole('definition');
     expect(value('Position Offered').textContent).toBe('Sample Position A');
     expect(value('Offer Date').textContent).toBe('05 Nov 2026');
-    expect(value('Work Mode').textContent).toBe('--');
+    expect(value('Work Mode').textContent).toBe('Office');
     expect(value('Location').textContent).toBe('Sample Office');
     expect(value('Offer Status').textContent).toBe('Accepted');
     expect(value('Email Status').textContent).toBe('Not available yet');

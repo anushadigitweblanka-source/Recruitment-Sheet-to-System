@@ -48,7 +48,7 @@ Columns: `id`, `candidate_id`, `position_id`, `offer_date`, `work_mode`, `locati
 - `candidate_id` and `position_id` are required foreign keys (to `candidates` and to the approved `positions` list). `candidate_id` is indexed but not unique; the application keeps one offer per candidate for now.
 - `offer_status` is `sent`, `accepted` or empty (not sent yet). These two values are a working choice from the guide's stage list, awaiting the mentor's confirmation; adding a value means a new migration.
 - `attended` is true, false or empty, and can only be set when `onboarding_date` is filled and `offer_status` is `accepted`.
-- `work_mode` has no enforced list because its values are not approved yet. `location` is plain text.
+- `work_mode` is `office` or empty (migration 007). "Office" is a temporary value awaiting mentor confirmation; the confirmed list replaces the constraint in a new migration. `location` is plain text.
 - **No salary.** There is no salary column and no `offer_salary` table until the salary design is approved. Email status is not a column; it will be read from the email log.
 
 The open decisions behind these choices are listed in `backend/src/modules/offers/README.md`.

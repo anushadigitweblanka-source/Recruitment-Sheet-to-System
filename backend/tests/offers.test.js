@@ -351,16 +351,22 @@ describe('validation', () => {
     }
   });
 
-  test('does not accept a Work Mode value while the list is unapproved', async () => {
-    const candidate = await selectedCandidate();
-    const res = await create({
-      candidateId: candidate.id,
-      positionId: position.id,
-      workMode: 'Remote',
-    });
+  test('accepts Office as the Work Mode and returns it on later reads', async () => {
+    const { id, body } = await offered({ workMode: 'office' });
 
-    assert.equal(res.status, 422);
-    assert.match(res.body.fields.workMode, /not been approved/);
+    assert.equal(body.offer.workMode, 'office');
+    assert.equal((await view(id)).body.offer.workMode, 'office');
+  });
+
+  test('only Office is a Work Mode; no other value is accepted', async () => {
+    const candidate = await selectedCandidate();
+
+    for (const workMode of ['Remote', 'remote', 'hybrid', 'Office']) {
+      const res = await create({ candidateId: candidate.id, positionId: position.id, workMode });
+      assert.equal(res.status, 422, workMode);
+      assert.match(res.body.fields.workMode, /must be Office/);
+    }
+    assert.equal(await offerCount(candidate.id), 0);
   });
 
   test('attendance needs an onboarding date and an accepted offer', async () => {
@@ -395,6 +401,7 @@ describe('validation', () => {
       );
 
     await assert.rejects(insert('offer_status', `'rejected'`), /offers_offer_status_valid/);
+    await assert.rejects(insert('work_mode', `'Remote'`), /offers_work_mode_valid/);
     await assert.rejects(
       insert('attended', 'true'),
       /offers_attended_needs_accepted_and_date/,
@@ -595,6 +602,22 @@ describe('changing and viewing an offer', () => {
     assert.equal(res.body.offer.position, 'Sample Position B');
     assert.equal(res.body.offer.offerDate, '2026-11-05');
     assert.equal(res.body.offer.location, 'Sample Office');
+  });
+
+  test('the Work Mode can be set, changed back to empty, and is kept across edits', async () => {
+    const { id } = await offered();
+
+    const set = await change(id, { workMode: 'office' });
+    assert.equal(set.status, 200);
+    assert.equal(set.body.offer.workMode, 'office');
+
+    // An unrelated edit leaves it alone.
+    await change(id, { location: 'Sample Office' });
+    assert.equal((await view(id)).body.offer.workMode, 'office');
+
+    const cleared = await change(id, { workMode: null });
+    assert.equal(cleared.status, 200);
+    assert.equal(cleared.body.offer.workMode, null);
   });
 
   test('validates the change, and saves nothing when it fails', async () => {

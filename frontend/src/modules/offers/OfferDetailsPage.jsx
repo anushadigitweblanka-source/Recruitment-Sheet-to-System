@@ -15,6 +15,7 @@ import {
   OFFER_STATUS_LABELS,
   OFFER_STATUS_TONES,
   attendedLabel,
+  workModeLabel,
 } from './fields.js';
 import SalaryPendingNotice from './SalaryPendingNotice.jsx';
 
@@ -34,7 +35,7 @@ function toDisplayValues({ offer }) {
   return {
     position: offer.position,
     offerDate: formatDate(offer.offerDate),
-    workMode: offer.workMode,
+    workMode: workModeLabel(offer.workMode),
     location: offer.location,
     offerStatus: offer.offerStatus ? (
       <StatusBadge tone={OFFER_STATUS_TONES[offer.offerStatus]}>

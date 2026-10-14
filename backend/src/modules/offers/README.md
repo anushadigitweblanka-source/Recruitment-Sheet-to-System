@@ -26,7 +26,7 @@ Table: `offers` (migration 005). Stage changes go through `../pipeline/pipeline.
 - **Location** is optional text, at most 200 characters.
 - **Offer Status** is `sent`, `accepted` or empty (not sent yet).
 - **Attended** is Yes, No or empty. It can be recorded only once the Offer Status is Accepted and the Onboarding Date is set.
-- **Work Mode** has no approved list of values, so no value is accepted yet. The column exists for when the list is approved.
+- **Work Mode** is `office` or empty. **Office** is a temporary value that still requires mentor confirmation; the confirmed list replaces it (and the constraint from migration 007) when it arrives.
 - **Email Status** is not stored. It is to be read from the email log (Module 6), which does not exist yet, so the screens show "Not available yet".
 
 The database repeats the status list and the attendance rule as constraints, so they hold even if the application is bypassed.
@@ -83,8 +83,8 @@ None of the items below has been approved. Each describes what the application d
    - The guide gives it no stage. Today it is recorded and the candidate's stage does not change (stays at Offer Accepted).
    - To confirm: what should happen.
 6. **Work Mode values.**
-   - No approved list (decision 6), so the field is shown but disabled and nothing can be saved in it.
-   - To confirm: the list of values.
+   - No confirmed list yet (decision 6). **Office** is accepted as a temporary value (migration 007) so the field works; no other value is accepted.
+   - To confirm: the full list of values, and whether "Office" stays on it.
 7. **One offer or several per candidate.**
    - The table allows several (no unique rule on `candidate_id`), so a history of offers stays possible. The application allows one: a second is refused with a pointer to the first.
    - To confirm: whether a candidate can receive more than one offer, for example after declining.

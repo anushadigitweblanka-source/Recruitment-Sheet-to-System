@@ -24,6 +24,13 @@ export const OFFER_STATUS_OPTIONS = [
 export const OFFER_STATUS_LABELS = { sent: 'Sent', accepted: 'Accepted' };
 export const OFFER_STATUS_TONES = { sent: 'info', accepted: 'success' };
 
+// "Office" is approved as a temporary Work Mode value that still requires
+// mentor confirmation. A confirmed list replaces this one.
+export const WORK_MODE_OPTIONS = [{ value: 'office', label: 'Office' }];
+export const WORK_MODE_LABELS = { office: 'Office' };
+export const workModeLabel = (workMode) =>
+  workMode ? (WORK_MODE_LABELS[workMode] ?? workMode) : null;
+
 export const ATTENDED_OPTIONS = [
   { value: 'yes', label: 'Yes' },
   { value: 'no', label: 'No' },
