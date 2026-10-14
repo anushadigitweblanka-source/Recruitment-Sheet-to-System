@@ -9,6 +9,7 @@ import { lookupsRouter } from '../modules/lookups/lookups.routes.js';
 import { notificationsRouter } from '../modules/notifications/notifications.routes.js';
 import { offersRouter } from '../modules/offers/offers.routes.js';
 import { phoneScreensRouter } from '../modules/phone-screens/phoneScreens.routes.js';
+import { reportsRouter } from '../modules/reports/reports.routes.js';
 import { healthRouter } from './health.js';
 
 // Every API route is mounted here, under /api.
@@ -38,6 +39,7 @@ export function apiRouter(deps) {
   router.use(phoneScreensRouter(deps));
   router.use('/interviews', interviewsRouter(deps));
   router.use('/offers', offersRouter(deps));
+  router.use('/reports', reportsRouter(deps));
   router.use('/employees', employeesRouter(deps));
   // Mounted at the root: it serves /notifications, /email-templates and /email-log.
   router.use(notificationsRouter(deps));

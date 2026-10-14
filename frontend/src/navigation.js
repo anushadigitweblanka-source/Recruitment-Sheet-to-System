@@ -8,6 +8,7 @@ import { phoneInterviewsModule } from './modules/phone-interviews/index.js';
 import DashboardPage from './pages/DashboardPage.jsx';
 import LookupsPage from './pages/LookupsPage.jsx';
 import PlaceholderPage from './pages/PlaceholderPage.jsx';
+import ReportsPage from './modules/reports/ReportsPage.jsx';
 import SystemStatusPage from './pages/SystemStatusPage.jsx';
 
 // The six official modules, in order. Each module folder declares its own pages.
@@ -47,8 +48,8 @@ export const sections = [
       {
         path: '/reports',
         label: 'Reports',
-        description: 'Recruitment and employee reports, with export.',
-        component: PlaceholderPage,
+        description: 'Recruitment and employee reports. Exports come later.',
+        component: ReportsPage,
         nav: true,
       },
     ],
