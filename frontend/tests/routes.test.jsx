@@ -51,6 +51,7 @@ const REQUIRED_ROUTES = [
   '/employees',
   '/employees/:id',
   '/employees/:id/lifecycle',
+  '/employees/:id/edit',
   '/notifications',
   '/email-templates',
   '/email-log',
@@ -103,11 +104,12 @@ describe('the six modules', () => {
     ]);
   });
 
-  test('each appears in the sidebar with its number', () => {
+  test('each appears in the sidebar by its name, without its number', () => {
     const html = renderAt('/dashboard');
     for (const module of modules) {
-      expect(html).toContain(`Module <!-- -->${module.number}</span>${module.title}`);
+      expect(html).toContain(`<p class="sidebar__heading">${module.title}</p>`);
     }
+    expect(html).not.toContain('sidebar__module');
   });
 });
 

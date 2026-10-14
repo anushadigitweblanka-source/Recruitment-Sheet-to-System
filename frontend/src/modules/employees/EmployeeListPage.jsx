@@ -1,8 +1,5 @@
-import DataTable from '../../components/DataTable.jsx';
-import FilterBar, { FilterSelect } from '../../components/FilterBar.jsx';
 import PageHeader from '../../components/PageHeader.jsx';
-import SearchInput from '../../components/SearchInput.jsx';
-import { EMPLOYEE_COLUMNS } from './fields.js';
+import EmployeeTable from './EmployeeTable.jsx';
 import LifecycleTimeline from './LifecycleTimeline.jsx';
 
 export default function EmployeeListPage({ page }) {
@@ -17,20 +14,11 @@ export default function EmployeeListPage({ page }) {
         <LifecycleTimeline />
       </section>
 
-      <section className="panel">
-        <FilterBar label="Employee filters">
-          <SearchInput label="Search" placeholder="Employee or candidate ID" disabled />
-          <FilterSelect label="Track" disabled />
-          <FilterSelect label="Current Phase" disabled />
-        </FilterBar>
-
-        <DataTable
-          caption="Employees"
-          columns={EMPLOYEE_COLUMNS}
-          emptyTitle="Feature not connected yet"
-          emptyMessage="Employees will be listed here once the feature is built."
-        />
-      </section>
+      <EmployeeTable
+        caption="Employees"
+        emptyTitle="No employees yet"
+        emptyMessage="An employee is added automatically when their offer is marked Attended = Yes."
+      />
     </>
   );
 }

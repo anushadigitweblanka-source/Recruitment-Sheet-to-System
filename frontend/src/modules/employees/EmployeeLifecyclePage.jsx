@@ -1,12 +1,19 @@
 import { Link, useParams } from 'react-router';
-import DataTable from '../../components/DataTable.jsx';
+import EmptyState from '../../components/EmptyState.jsx';
+import ErrorState from '../../components/ErrorState.jsx';
+import LoadingState from '../../components/LoadingState.jsx';
 import PageHeader from '../../components/PageHeader.jsx';
-import { PHASE_HISTORY_COLUMNS } from './fields.js';
+import { useApi } from '../../hooks/useApi.js';
+import { formatDate } from '../../utils/format.js';
+import { getEmployee } from './api.js';
+import { PhaseHistoryTable, outcomeBadge } from './display.jsx';
 import LifecycleMentorNotice from './LifecycleMentorNotice.jsx';
 import LifecycleTimeline from './LifecycleTimeline.jsx';
 
 export default function EmployeeLifecyclePage({ page }) {
   const { id } = useParams();
+  const loaded = useApi(() => getEmployee(id), [id]);
+  const data = loaded.status === 'ready' ? loaded.data : null;
 
   return (
     <>
@@ -24,25 +31,38 @@ export default function EmployeeLifecyclePage({ page }) {
 
       <section className="panel" aria-labelledby="timeline-title">
         <h2 id="timeline-title" className="panel__title">
-          Timeline
+          Timeline{data ? ` — ${data.candidate.fullName}` : ''}
         </h2>
-        <LifecycleTimeline />
-        <p className="panel__note">
-          No employee is loaded, so no phase is marked as current and no dates are shown.
-        </p>
+        <LifecycleTimeline employee={data?.employee} phases={data?.phases} />
+        {data && (
+          <p className="panel__note">
+            Joined {formatDate(data.employee.joinDate)}. Outcome:{' '}
+            {outcomeBadge(data.employee.status)}
+          </p>
+        )}
+        {loaded.status === 'loading' && <LoadingState message="Loading lifecycle…" />}
       </section>
 
-      <section className="panel" aria-labelledby="history-title">
-        <h2 id="history-title" className="panel__title">
-          Phase history
-        </h2>
-        <DataTable
-          caption="Phase history"
-          columns={PHASE_HISTORY_COLUMNS}
-          emptyTitle="Feature not connected yet"
-          emptyMessage="Each phase and its gate decision will be listed here once the feature is built."
-        />
-      </section>
+      {loaded.status === 'error' && (
+        <ErrorState title="The lifecycle could not be loaded" onRetry={loaded.reload} />
+      )}
+      {loaded.status === 'forbidden' && (
+        <ErrorState title="You do not have permission to view employees" />
+      )}
+      {loaded.status === 'not-found' && (
+        <section className="panel">
+          <EmptyState title="Employee not found" message="There is no employee at this address." />
+        </section>
+      )}
+
+      {data && (
+        <section className="panel" aria-labelledby="history-title">
+          <h2 id="history-title" className="panel__title">
+            Phase history
+          </h2>
+          <PhaseHistoryTable phases={data.phases} />
+        </section>
+      )}
     </>
   );
 }

@@ -1,5 +1,6 @@
 import { inTransaction } from '../../db/transaction.js';
 import { recordAudit } from '../audit/audit.js';
+import { createEmployeeOnJoin, employeeIdForCandidate } from '../employees/employees.service.js';
 import { changeStage, lockPipeline } from '../pipeline/pipeline.js';
 import {
   EDITABLE_COLUMNS,
@@ -35,6 +36,17 @@ const STAGE_BEFORE_OFFER = 'selected';
 const STAGES_OFFER_CAN_LEAVE = [STAGE_BEFORE_OFFER, 'offer_sent', 'offer_accepted', 'joined'];
 
 const invalid = (fields) => ({ ok: false, reason: 'validation', fields });
+
+// The offer fields an employee record is created from.
+const JOINING_FIELDS = ['offerStatus', 'onboardingDate', 'attended'];
+
+// "Attended = Yes creates the employee and the 7-day evaluation" (Module 5).
+// Runs inside the offer's transaction; a second call never adds a second employee.
+async function createEmployeeIfJoined(db, { candidateId, values, user }) {
+  if (values.attended === true) {
+    await createEmployeeOnJoin(db, { candidateId, joinDate: values.onboardingDate, user });
+  }
+}
 
 // Applies whatever stage change this save causes. Returns { error } when the
 // change must be refused.
@@ -115,6 +127,7 @@ export async function createOffer(pool, user, input) {
       user,
     });
     if (applied.error) throw refuse(applied.error);
+    await createEmployeeIfJoined(db, { candidateId, values, user });
     return { ok: true, id };
   });
 
@@ -146,6 +159,17 @@ export async function editOffer(pool, user, id, input) {
   const outcome = await saving(pool, async (db) => {
     const pipeline = await lockPipeline(db, candidateId);
 
+    // Once the employee record exists, the joining it was created from is
+    // settled: its lifecycle dates start from this onboarding date.
+    if (
+      JOINING_FIELDS.some((name) => name in changes) &&
+      (await employeeIdForCandidate(db, candidateId))
+    ) {
+      throw refuse(
+        'An employee record has been created from this offer, so its status, onboarding date and attendance can no longer be changed.',
+      );
+    }
+
     // The position already on the offer stays valid even if it was switched
     // off since; a newly chosen one must be in use.
     if ('positionId' in changes) {
@@ -174,6 +198,7 @@ export async function editOffer(pool, user, id, input) {
       user,
     });
     if (applied.error) throw refuse(applied.error);
+    await createEmployeeIfJoined(db, { candidateId, values, user });
     return { ok: true };
   });
 

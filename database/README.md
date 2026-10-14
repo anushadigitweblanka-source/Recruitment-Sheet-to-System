@@ -22,6 +22,7 @@ npm run db:migrate
 | `003_phone_screens.sql`        | `phone_screens`                                                                                       |
 | `004_interviews.sql`           | `interviews`                                                                                          |
 | `005_offers.sql`               | `offers`                                                                                              |
+| `006_employee_lifecycle.sql`   | `settings`, `employees`, `phase_history`                                                              |
 
 `positions` and `sources` start empty; an administrator adds the approved values in the application. `pipeline_stages` holds the twelve stages listed in the task guide.
 
@@ -53,6 +54,16 @@ Columns: `id`, `candidate_id`, `position_id`, `offer_date`, `work_mode`, `locati
 
 The open decisions behind these choices are listed in `backend/src/modules/offers/README.md`.
 
-Tables for employees and notifications do not exist yet. Their design is in `docs/database-schema-proposal.md` and is waiting for the decisions listed in `docs/mentor-approval-required.md`.
+### `employees`, `phase_history` and `settings` (migration 006)
+
+Migration 006 creates these three tables and nothing else: no notification, email, salary or company account table.
+
+- `settings` holds the phase lengths from the task guide as editable values: `evaluation_days` = 7, `probation_months` = 3, `probation_max_extension_months` = 1, `junior_months` = 9 (stored but not used until the junior rule is confirmed).
+- `employees`: one row per candidate who joined (unique `candidate_id`), with `join_date`, `track` (`intern`, `staff` or empty), `current_phase`, `phase_start`, `phase_end`, `status` (`active`, `discontinued`, `terminated`) and the exit date, reason and who recorded a termination. Leaving requires a date and a reason; an active employee has neither.
+- `phase_history`: one row per phase and per probation extension, with its dates, gate `result` (`pass`, `extend`, `discontinue`), reason, review link, who decided and when. The database allows only one open phase per employee, allows Extend only for probation, gives senior no gate and no end date, and requires a reason to discontinue.
+
+The open decisions behind these choices are listed in `backend/src/modules/employees/README.md`.
+
+Tables for notifications and email do not exist yet. Their design is in `docs/database-schema-proposal.md` and is waiting for the decisions listed in `docs/mentor-approval-required.md`.
 
 The application connects through `backend/src/db/pool.js` using the `DB_*` variables in `.env`.

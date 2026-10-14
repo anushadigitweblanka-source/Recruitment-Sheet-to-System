@@ -58,7 +58,7 @@ Once an offer exists for a candidate, the direct interview's result can no longe
 
 ## Not part of this module
 
-- Attended = Yes moves the candidate to Joined and nothing more. **No employee or 7-day evaluation is created here.** The guide says Attended = Yes creates both; that belongs to Module 5 – Employee Lifecycle.
+- Attended = Yes moves the candidate to Joined, and in the same transaction Module 5 creates the employee record and the 7-day evaluation, as the guide says. Once that employee exists, this offer's status, onboarding date and attendance can no longer be changed; its position, offer date and location can. See `../employees/README.md`.
 - No mail is sent and no email status is recorded; that belongs to Module 6.
 
 ## MENTOR CONFIRMATION REQUIRED

@@ -14,14 +14,7 @@ export default function Sidebar({ isOpen, onLogout, isLoggingOut }) {
           const links = section.pages.filter((page) => page.nav);
           return (
             <div key={links[0].path} className="sidebar__section">
-              {section.title && (
-                <p className="sidebar__heading">
-                  {section.moduleNumber && (
-                    <span className="sidebar__module">Module {section.moduleNumber}</span>
-                  )}
-                  {section.title}
-                </p>
-              )}
+              {section.title && <p className="sidebar__heading">{section.title}</p>}
               <ul className="sidebar__list">
                 {links.map((page) => {
                   const isActive = page.path === activePath;

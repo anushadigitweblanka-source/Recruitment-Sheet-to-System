@@ -1,11 +1,12 @@
-import DataTable from '../../components/DataTable.jsx';
 import PageHeader from '../../components/PageHeader.jsx';
-import { EMPLOYEE_COLUMNS } from './fields.js';
+import EmployeeTable from './EmployeeTable.jsx';
 import LifecycleMentorNotice from './LifecycleMentorNotice.jsx';
 import LifecycleTimeline from './LifecycleTimeline.jsx';
 
 // One page per phase (and one for exits). `page.phase` names the timeline step
-// to highlight; the exit page has none.
+// to highlight; `page.filter` is what the list always shows. Each employee is
+// in exactly one of these pages: active employees by their current phase,
+// everyone who has left on the exit page.
 export default function EmployeePhasePage({ page }) {
   return (
     <>
@@ -20,14 +21,17 @@ export default function EmployeePhasePage({ page }) {
         </>
       )}
 
-      <section className="panel">
-        <DataTable
-          caption={page.label}
-          columns={EMPLOYEE_COLUMNS}
-          emptyTitle="Feature not connected yet"
-          emptyMessage="Employees will be listed here once the feature is built."
-        />
-      </section>
+      <EmployeeTable
+        caption={page.label}
+        fixed={page.filter}
+        filters={page.phase ? ['track'] : ['track', 'phase', 'status']}
+        emptyTitle={page.phase ? `No one is in ${page.phase.toLowerCase()} now` : 'No one has left'}
+        emptyMessage={
+          page.phase
+            ? 'Active employees in this phase are listed here.'
+            : 'Discontinued and terminated employees are listed here.'
+        }
+      />
     </>
   );
 }

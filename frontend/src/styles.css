@@ -256,12 +256,6 @@ a {
   text-transform: uppercase;
 }
 
-.sidebar__module {
-  display: block;
-  font-size: 0.6875rem;
-  color: var(--color-accent);
-}
-
 .sidebar__list {
   padding: 0;
   margin: 0;
@@ -981,6 +975,34 @@ a.button {
 .timeline__step--current .timeline__marker {
   background: var(--color-accent);
   border-color: var(--color-accent);
+}
+
+/* A phase that was passed. */
+.timeline__step--done {
+  color: var(--color-text);
+}
+
+.timeline__step--done .timeline__marker {
+  background: var(--color-success-bg);
+  border-color: var(--color-success-text);
+}
+
+/* The phase in which the employee left. */
+.timeline__step--exited {
+  font-weight: 700;
+  color: var(--color-danger-text);
+}
+
+.timeline__step--exited .timeline__marker {
+  background: var(--color-danger-bg);
+  border-color: var(--color-danger-text);
+}
+
+.timeline__state {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 400;
+  color: var(--color-text-muted);
 }
 
 /* ---------- Tablet and below: sidebar becomes a slide-in menu ---------- */
