@@ -1,11 +1,11 @@
-# Current Handover (2026-10-14, after the Report Exports build)
+# Current Handover (2026-10-14, after the Settings + Audit Log build)
 
 ## State
 
-- origin/main: `97a56ae` (recruitment reports) on top of `4428ed7` (dashboard), `ce312c0` (acceptance), `f05c5ae` (data maps), `10377c0` (import dry-run framework), `cebbb09`, `a2f5ba5` (Module 6).
-- **Uncommitted, awaiting the user's review before any commit:** the Report Exports (reports.export.js + export route, pdfkit dependency, ExportButtons on every report tab, 12 backend + 5 frontend tests), their docs (documentation/report-exports.md, validation/report-exports-validation.md), this handover update, and the local-only prompts. The Reports module itself is pushed at 97a56ae.
-- Modules: Authentication + 1–6 complete (Module 6 still has 5 open mentor decisions; automatic notification creation OFF). Dashboard and Reports now live from the database (/api/dashboard/summary and /api/reports/*, candidates.view). Excel/CSV/PDF exports are now built for every report (same datasets and filters as the screens). The scheduled weekly email remains not started (mentor-blocked recipients).
-- Test suite: 392 backend + 322 frontend = 714 green; build/lint/format clean.
+- origin/main: `cec7d82` (report exports) on top of `97a56ae` (reports), `4428ed7` (dashboard), `ce312c0` (acceptance), `f05c5ae` (data maps), `10377c0` (import dry-run framework), `cebbb09`, `a2f5ba5` (Module 6).
+- **Uncommitted, awaiting the user's review before any commit:** the Settings admin + Audit Log viewer (backend/src/modules/settings/, backend/src/modules/audit/audit.routes.js, mounts, SettingsPage + AuditLogPage replacing two placeholders, api/admin.js, 13 backend + 6 frontend tests), their docs (documentation/admin-settings.md, documentation/audit-log.md, validation/admin-settings-audit-validation.md), this handover update, and the local-only prompts. Exports are pushed at cec7d82.
+- Modules: Authentication + 1–6 complete (Module 6 still has 5 open mentor decisions; automatic notification creation OFF). Dashboard and Reports now live from the database (/api/dashboard/summary and /api/reports/*, candidates.view). Excel/CSV/PDF exports are built for every report. Settings admin (/admin/settings) and the Audit Log viewer (/admin/audit-log) are now real pages (admin.manage). Remaining placeholders: Users and Roles & Permissions. The scheduled weekly email remains not started (mentor-blocked recipients).
+- Test suite: 405 backend + 328 frontend = 733 green; build/lint/format clean.
 - Database: dev only, migrations 001–008. Local candidates `2002` and `2003` are pre-existing records that must not be modified — verified untouched.
 - No real recruitment data imported; no mail provider; no salary anywhere.
 

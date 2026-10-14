@@ -7,8 +7,10 @@ import { offersModule } from './modules/offers/index.js';
 import { phoneInterviewsModule } from './modules/phone-interviews/index.js';
 import DashboardPage from './pages/DashboardPage.jsx';
 import LookupsPage from './pages/LookupsPage.jsx';
+import AuditLogPage from './pages/AuditLogPage.jsx';
 import PlaceholderPage from './pages/PlaceholderPage.jsx';
 import ReportsPage from './modules/reports/ReportsPage.jsx';
+import SettingsPage from './pages/SettingsPage.jsx';
 import SystemStatusPage from './pages/SystemStatusPage.jsx';
 
 // The six official modules, in order. Each module folder declares its own pages.
@@ -82,14 +84,14 @@ export const sections = [
         path: '/admin/settings',
         label: 'Settings',
         description: 'Phase durations and other application settings.',
-        component: PlaceholderPage,
+        component: SettingsPage,
         nav: true,
       },
       {
         path: '/admin/audit-log',
         label: 'Audit Log',
         description: 'Who changed what, and when.',
-        component: PlaceholderPage,
+        component: AuditLogPage,
         nav: true,
       },
       {

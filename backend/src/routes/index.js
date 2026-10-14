@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { attachUser, requireAuth } from '../middleware/auth.js';
+import { auditRouter } from '../modules/audit/audit.routes.js';
 import { authRouter } from '../modules/auth/auth.routes.js';
 import { candidatesRouter } from '../modules/candidates/candidates.routes.js';
 import { dashboardRouter } from '../modules/dashboard/dashboard.routes.js';
@@ -10,6 +11,7 @@ import { notificationsRouter } from '../modules/notifications/notifications.rout
 import { offersRouter } from '../modules/offers/offers.routes.js';
 import { phoneScreensRouter } from '../modules/phone-screens/phoneScreens.routes.js';
 import { reportsRouter } from '../modules/reports/reports.routes.js';
+import { settingsRouter } from '../modules/settings/settings.routes.js';
 import { healthRouter } from './health.js';
 
 // Every API route is mounted here, under /api.
@@ -40,6 +42,8 @@ export function apiRouter(deps) {
   router.use('/interviews', interviewsRouter(deps));
   router.use('/offers', offersRouter(deps));
   router.use('/reports', reportsRouter(deps));
+  router.use('/admin/settings', settingsRouter(deps));
+  router.use('/admin/audit-log', auditRouter(deps));
   router.use('/employees', employeesRouter(deps));
   // Mounted at the root: it serves /notifications, /email-templates and /email-log.
   router.use(notificationsRouter(deps));
