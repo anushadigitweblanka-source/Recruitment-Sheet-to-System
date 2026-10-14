@@ -15,6 +15,8 @@ export const offersModule = {
       nav: true,
     },
     {
+      // Opened as /offers/new?candidate=12 from the list, or on its own to
+      // choose from the candidates waiting for an offer.
       path: '/offers/new',
       label: 'Create Offer',
       description: 'Prepare an offer for a selected candidate.',
@@ -26,6 +28,13 @@ export const offersModule = {
       label: 'Offer Details',
       description: 'Position, work mode, status and joining details for one offer.',
       component: OfferDetailsPage,
+      navParent: '/offers',
+    },
+    {
+      path: '/offers/:id/edit',
+      label: 'Edit Offer',
+      description: 'Update the offer, its status, the joining date and attendance.',
+      component: OfferFormPage,
       navParent: '/offers',
     },
   ],

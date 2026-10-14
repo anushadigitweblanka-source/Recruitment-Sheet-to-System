@@ -47,6 +47,7 @@ const REQUIRED_ROUTES = [
   '/offers',
   '/offers/new',
   '/offers/:id',
+  '/offers/:id/edit',
   '/employees',
   '/employees/:id',
   '/employees/:id/lifecycle',
@@ -163,25 +164,11 @@ describe('no data is shown before features are connected', () => {
     expect(values).toHaveLength(10);
     expect(values.every((value) => value === '--')).toBe(true);
   });
-
-  // Candidates, phone interviews and direct interviews are connected to the
-  // backend and have their own test files.
-  test('detail pages of unconnected modules show "--" for every value', () => {
-    for (const path of ['/offers/1']) {
-      const values = [...renderAt(path).matchAll(/<dd>(.*?)<\/dd>/g)].map((match) => match[1]);
-
-      expect(values.length, path).toBeGreaterThan(0);
-      expect(
-        values.every((value) => value === '--'),
-        path,
-      ).toBe(true);
-    }
-  });
 });
 
 describe('module rules visible in the UI', () => {
   test('offer screens have no salary field and say why', () => {
-    for (const path of ['/offers', '/offers/new', '/offers/1']) {
+    for (const path of ['/offers', '/offers/new', '/offers/1', '/offers/1/edit']) {
       const html = renderAt(path);
       const controls = html.match(/<(input|select|textarea) [^>]*>/g) ?? [];
 
@@ -215,22 +202,6 @@ describe('module rules visible in the UI', () => {
 
   test('the notifications page states the confirmed sending rule', () => {
     expect(renderAt('/notifications')).toContain('send_at &lt;= current time AND sent_at IS NULL');
-  });
-
-  test('Save is disabled on the forms of modules that are not connected yet', () => {
-    const forms = allPages.filter(
-      (page) =>
-        /new$|edit$|evaluate$/.test(page.path) &&
-        !page.path.startsWith('/candidates') &&
-        !page.path.startsWith('/phone-interviews') &&
-        !page.path.startsWith('/interviews'),
-    );
-
-    expect(forms.length).toBeGreaterThan(0);
-    for (const page of forms) {
-      const html = renderAt(addressOf(page));
-      expect(html, page.path).toMatch(/<button type="submit"[^>]*disabled=""[^>]*>Save/);
-    }
   });
 });
 

@@ -2,9 +2,9 @@
 
 A web application that replaces a spreadsheet-based recruitment tracker and adds employee lifecycle tracking after hiring: candidates, phone screening, interviews, offers, joining, evaluation, probation, junior and senior stages, with reminders and reports.
 
-**Current state: sign-in, Module 1 (Candidate Management), Module 2 (Phone Interview) and Module 3 (Direct Interview) work end to end.** Users sign in with an email and password, and every page and API route requires a signed-in user. Candidates can be added, listed, searched, filtered, viewed and edited, with a warning for likely duplicates. A phone interview can be recorded for each candidate, and its result moves the candidate to the next stage with a history of every change. A direct interview can then be recorded with attendance, five scores (0 to 10 each, with the total out of 50 calculated by the database) and a status of Selected, Not Selected or On Hold, which again moves the candidate's stage. Selecting a candidate does not create an offer; that belongs to Module 4. Modules 4 to 6 have their screens but are not connected to data yet. The database holds no real or sample candidates.
+**Current state: sign-in, Module 1 (Candidate Management), Module 2 (Phone Interview), Module 3 (Direct Interview) and Module 4 (Offer Management) work end to end.** Users sign in with an email and password, and every page and API route requires a signed-in user. Candidates can be added, listed, searched, filtered, viewed and edited, with a warning for likely duplicates. A phone interview can be recorded for each candidate, and its result moves the candidate to the next stage with a history of every change. A direct interview can then be recorded with attendance, five scores (0 to 10 each, with the total out of 50 calculated by the database) and a status of Selected, Not Selected or On Hold, which again moves the candidate's stage. A selected candidate then appears in the Offer List, where HR creates the offer by hand (no offer is created automatically) with the position, offer date, location, offer status (Sent or Accepted), joining date and attendance. The Offer List, Create Offer, Offer Details and Edit Offer screens are connected, and the offer moves the candidate on to Offer Sent, Offer Accepted and Joined, with a history of every change. **Salary is not implemented**: there is no salary field, column or table until its design is approved. Email status is not stored with the offer; it will be read from the email log, so the screens show "Not available yet". Modules 5 (Employee Lifecycle) and 6 (Email Notifications) have their screens but are not implemented. No real recruitment data has been imported.
 
-Some rules in Modules 2 and 3 are still waiting for the mentor's confirmation. They are listed under "MENTOR CONFIRMATION REQUIRED" in `backend/src/modules/phone-screens/README.md` and `backend/src/modules/interviews/README.md`.
+Some rules in Modules 2, 3 and 4 are still waiting for the mentor's confirmation. They are listed under "MENTOR CONFIRMATION REQUIRED" in `backend/src/modules/phone-screens/README.md`, `backend/src/modules/interviews/README.md` and `backend/src/modules/offers/README.md`.
 
 ## Stack
 
@@ -34,8 +34,9 @@ backend/
     modules/candidates/ Module 1: routes, rules, validation and SQL
     modules/phone-screens/ Module 2: the same four files
     modules/interviews/ Module 3: the same four files
+    modules/offers/    Module 4: the same four files
     modules/pipeline/  the one place that changes a candidate's stage
-    modules/           modules 4 to 6 (documentation only so far)
+    modules/           modules 5 and 6 (documentation only so far)
     app.js             builds the Express app
     server.js          starts the server
   scripts/             database setup commands
@@ -160,6 +161,7 @@ The backend tests connect to the development database named in `.env`, so Postgr
 - Migration 002 creates the candidate tables: `positions`, `sources`, `pipeline_stages`, `candidates`, `pipeline_status` and `stage_history`. The position and source lists start empty; an administrator adds the approved values under Administration → Positions & Sources.
 - Migration 003 creates `phone_screens`.
 - Migration 004 creates `interviews` (direct interviews) and nothing else.
+- Migration 005 creates `offers` and nothing else. It has no salary column, and no salary table exists.
 - Tables for the other modules are added as further numbered SQL files in `database/migrations/` once their design is approved.
 - A migration file is never edited after it has been applied; changes go in a new file.
 - Real candidate data must not be loaded into a development database without approval.

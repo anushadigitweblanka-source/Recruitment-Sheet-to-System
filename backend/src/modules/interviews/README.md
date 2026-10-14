@@ -51,7 +51,9 @@ Once a direct interview exists for a candidate, the phone interview's result can
 
 ## Not part of this module
 
-Selecting a candidate moves them to the **Selected** stage and nothing more. **No offer is created here.** Creating the offer, automatically or by hand, belongs to Module 4 – Offer Management.
+Selecting a candidate moves them to the **Selected** stage and nothing more. **No offer is created here.** A selected candidate appears in the Module 4 Offer List, where HR creates the offer.
+
+Once an offer exists for the candidate, the decision, attendance and scores can no longer change the outcome: such a change is refused and nothing is saved. Remarks and other fields can still be edited.
 
 ## MENTOR CONFIRMATION REQUIRED
 
@@ -60,4 +62,4 @@ Selecting a candidate moves them to the **Selected** stage and nothing more. **N
 - **Recommendation values.** No approved list, so nothing can be saved in this field yet.
 - **Interviewer storage.** Stored as plain text (`interviewer_name`), as in the workbook, because interviewers do not have logins. To be confirmed whether it should link to a user, and whether an interview can have several interviewers.
 - **One direct interview per candidate, or several?** The table allows several (for example after a no-show). The application keeps one for now and refuses a second with a pointer to the first.
-- **Automatic offer creation.** Whether Selected should create an offer record automatically. Left to Module 4; nothing is created today.
+- **Automatic offer creation.** Whether Selected should create an offer record automatically. Tracked in `../offers/README.md`; no record is created automatically today.

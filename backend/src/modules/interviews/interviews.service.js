@@ -62,6 +62,22 @@ async function applyOutcome(db, { candidateId, pipeline, before, after, reasons,
   // Clearing everything that had been recorded puts the candidate back to waiting.
   const toStage = outcomeChanged ? (newStage ?? (before ? STAGE_BEFORE_INTERVIEW : null)) : null;
 
+  // Once an offer has been created, the interview's outcome is settled: the
+  // candidate was selected, and their stage now belongs to the offer. An
+  // offer that has not been sent yet leaves the stage at "Selected", so
+  // comparing stages is not enough to detect this.
+  if (before && outcomeChanged) {
+    const offered = await db.query('SELECT 1 FROM offers WHERE candidate_id = $1 LIMIT 1', [
+      candidateId,
+    ]);
+    if (offered.rowCount > 0) {
+      return {
+        error:
+          'An offer has been created for this candidate, so the interview result can no longer be changed.',
+      };
+    }
+  }
+
   if (toStage && toStage !== pipeline.stage) {
     if (!STAGES_INTERVIEW_CAN_LEAVE.includes(pipeline.stage)) {
       return {

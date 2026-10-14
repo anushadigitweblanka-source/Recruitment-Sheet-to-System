@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, useLocation } from 'react-router';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import App from '../src/App.jsx';
@@ -178,6 +178,12 @@ function open(path) {
 }
 
 const save = () => fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+// The form appears one step before its starting values are filled in, so wait
+// for that step too. Otherwise typing straight away can be overwritten.
+const formReady = async () => {
+  await screen.findByLabelText('Result');
+  await act(async () => {});
+};
 const callsTo = (backend, method, path) =>
   backend.calls.filter((call) => call.method === method && call.path === path);
 
@@ -324,7 +330,7 @@ describe('phone interview form', () => {
   test('offers only Selected and Not Selected, and no made-up Response values', async () => {
     fakeBackend({ entries: [entry(1)] });
     open('/phone-interviews/1/edit');
-    await screen.findByLabelText('Result');
+    await formReady();
 
     expect([...screen.getByLabelText('Result').options].map((o) => o.textContent)).toEqual([
       'Select…',
@@ -365,7 +371,7 @@ describe('phone interview form', () => {
   test('Not Selected asks for a reason and is stopped without one', async () => {
     const backend = fakeBackend({ entries: [entry(1)] });
     open('/phone-interviews/1/edit');
-    await screen.findByLabelText('Result');
+    await formReady();
 
     expect(screen.queryByLabelText(/^Reason for rejection/)).toBeNull();
     fireEvent.change(screen.getByLabelText('Result'), { target: { value: 'not_selected' } });
@@ -383,7 +389,7 @@ describe('phone interview form', () => {
   test('records a new phone interview and shows the new status', async () => {
     const backend = fakeBackend({ entries: [entry(1)] });
     open('/phone-interviews/1/edit');
-    await screen.findByLabelText('Result');
+    await formReady();
 
     fireEvent.click(screen.getByLabelText('Called'));
     fireEvent.change(screen.getByLabelText('Result'), { target: { value: 'selected' } });
@@ -415,7 +421,7 @@ describe('phone interview form', () => {
   test('saving a call with no result yet sends no result', async () => {
     const backend = fakeBackend({ entries: [entry(1)] });
     open('/phone-interviews/1/edit');
-    await screen.findByLabelText('Result');
+    await formReady();
 
     fireEvent.click(screen.getByLabelText('Called'));
     save();

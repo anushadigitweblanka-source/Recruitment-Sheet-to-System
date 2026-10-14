@@ -15,20 +15,22 @@ export const OFFER_COLUMNS = [
   { key: 'actions', label: 'Actions' },
 ];
 
-// Position, Work Mode and Offer Status lists have not been approved yet.
-export const OFFER_FIELDS = [
-  { name: 'candidate', label: 'Candidate', readOnly: true },
-  { name: 'position', label: 'Position', type: 'select', pending: true },
-  { name: 'offerDate', label: 'Offer Date', type: 'date' },
-  { name: 'workMode', label: 'Work Mode', type: 'select', pending: true },
-  { name: 'location', label: 'Location' },
-  { name: 'offerStatus', label: 'Offer Status', type: 'select', pending: true },
-  {
-    name: 'emailStatus',
-    label: 'Email Status',
-    readOnly: true,
-    hint: 'Set automatically from the email log; never typed by hand.',
-  },
-  { name: 'onboardingDate', label: 'Onboarding Date', type: 'date' },
-  { name: 'attended', label: 'Attended', type: 'checkbox' },
+// The two statuses backed by the task guide's stage list ("Offer Sent",
+// "Offer Accepted"). No other value has been approved.
+export const OFFER_STATUS_OPTIONS = [
+  { value: 'sent', label: 'Sent' },
+  { value: 'accepted', label: 'Accepted' },
 ];
+export const OFFER_STATUS_LABELS = { sent: 'Sent', accepted: 'Accepted' };
+export const OFFER_STATUS_TONES = { sent: 'info', accepted: 'success' };
+
+export const ATTENDED_OPTIONS = [
+  { value: 'yes', label: 'Yes' },
+  { value: 'no', label: 'No' },
+];
+export const attendedLabel = (attended) =>
+  attended === true ? 'Yes' : attended === false ? 'No' : null;
+
+// Email status is read from the email log, which belongs to Module 6 and does
+// not exist yet. It is never typed by hand and never stored with the offer.
+export const EMAIL_STATUS_UNAVAILABLE = 'Not available yet';
