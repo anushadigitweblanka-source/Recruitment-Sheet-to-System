@@ -157,14 +157,13 @@ describe('no data is shown before features are connected', () => {
     },
   );
 
-  test('the dashboard shows "--" for all ten metrics', () => {
+  test('the dashboard shows no figures before its data has loaded', () => {
+    // The dashboard is connected to the database (see dashboard.test.jsx).
+    // Rendered before the API answers, it must show a loading state and no
+    // made-up numbers.
     const html = renderAt('/dashboard');
-    const values = [...html.matchAll(/<p class="stat-card__value">(.*?)<\/p>/g)].map(
-      (match) => match[1],
-    );
-
-    expect(values).toHaveLength(10);
-    expect(values.every((value) => value === '--')).toBe(true);
+    expect(html).toContain('Loading dashboard…');
+    expect(html).not.toContain('stat-card__value');
   });
 });
 

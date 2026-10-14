@@ -335,10 +335,17 @@ describe('duplicate warnings', () => {
   });
 
   test('phone and email are not unique in the database', async () => {
+    // Queried from pg_index directly, not the pg_indexes view: the view runs
+    // pg_get_indexdef() over every index in the database, which fails if a
+    // parallel test file drops its throwaway schema mid-scan.
     const { rows } = await db.pool.query(
-      `SELECT indexname FROM pg_indexes
-        WHERE schemaname = $1 AND tablename = 'candidates' AND indexdef LIKE 'CREATE UNIQUE%'
-        ORDER BY indexname`,
+      `SELECT c.relname AS indexname
+         FROM pg_index i
+         JOIN pg_class c ON c.oid = i.indexrelid
+         JOIN pg_class t ON t.oid = i.indrelid
+         JOIN pg_namespace n ON n.oid = t.relnamespace
+        WHERE n.nspname = $1 AND t.relname = 'candidates' AND i.indisunique
+        ORDER BY 1`,
       [db.schema],
     );
 
