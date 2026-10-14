@@ -18,3 +18,15 @@ export const positionReport = () => apiGet('/reports/positions');
 export const weeklyReport = (filters) => apiGet(withQuery('/reports/weekly', filters));
 export const onboardingReport = (filters) => apiGet(withQuery('/reports/onboarding', filters));
 export const exitReport = (filters) => apiGet(withQuery('/reports/exit', filters));
+
+// Downloads one report as a file. The session travels in the cookie like
+// every other call; no token is handled here. Returns { ok, filename, blob }.
+export async function exportReport(report, format, filters) {
+  const path = withQuery(`/reports/${report}/export`, { ...filters, format });
+  const res = await fetch(`/api${path}`, { headers: { Accept: '*/*' } });
+  if (!res.ok) return { ok: false, status: res.status };
+
+  const disposition = res.headers.get('content-disposition') ?? '';
+  const filename = /filename="([^"]+)"/.exec(disposition)?.[1] ?? `${report}-export.${format}`;
+  return { ok: true, filename, blob: await res.blob() };
+}

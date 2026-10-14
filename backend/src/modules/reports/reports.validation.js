@@ -41,7 +41,6 @@ const COLOMBO_WEEKDAY = new Intl.DateTimeFormat('en-US', {
   weekday: 'short',
 });
 
-const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 const addDays = (isoText, days) => {

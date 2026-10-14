@@ -14,6 +14,7 @@ import { formatDate, formatDateTime } from '../../utils/format.js';
 import {
   candidateStatusReport,
   exitReport,
+  exportReport,
   funnelReport,
   onboardingReport,
   positionReport,
@@ -53,6 +54,64 @@ function ReportState({ result, children }) {
 
 const toOptions = (items, value = (item) => item.id) =>
   (items ?? []).map((item) => ({ value: String(value(item)), label: item.name }));
+
+// Export buttons for one report. The file is built by the backend from the
+// SAME dataset and filters as the table on screen, and downloads in place.
+const EXPORT_FORMATS = [
+  ['xlsx', 'Export Excel'],
+  ['csv', 'Export CSV'],
+  ['pdf', 'Export PDF'],
+];
+
+function ExportButtons({ report, filters = {} }) {
+  const [busy, setBusy] = useState(null);
+  const [failed, setFailed] = useState(false);
+
+  const download = async (format) => {
+    setBusy(format);
+    setFailed(false);
+    try {
+      const res = await exportReport(report, format, filters);
+      if (!res.ok) {
+        setFailed(true);
+        return;
+      }
+      const url = URL.createObjectURL(res.blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = res.filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      setFailed(true);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <div className="filter-bar" role="group" aria-label="Export">
+      {EXPORT_FORMATS.map(([format, label]) => (
+        <button
+          key={format}
+          type="button"
+          className="button button--secondary"
+          disabled={busy !== null}
+          onClick={() => download(format)}
+        >
+          {busy === format ? 'Preparing…' : label}
+        </button>
+      ))}
+      {failed && (
+        <Notice tone="danger" role="alert">
+          The export could not be prepared. Try again.
+        </Notice>
+      )}
+    </div>
+  );
+}
 
 function CandidateStatusReport({ lookups }) {
   const [filters, setFilters] = useState({
@@ -103,6 +162,16 @@ function CandidateStatusReport({ lookups }) {
           onChange={(event) => setFilter('to', event.target.value)}
         />
       </FilterBar>
+      <ExportButtons
+        report="candidate-status"
+        filters={{
+          stage: filters.stage,
+          positionId: filters.positionId,
+          sourceId: filters.sourceId,
+          from: filters.from,
+          to: filters.to,
+        }}
+      />
       <ReportState result={result}>
         {(data) => (
           <>
@@ -161,6 +230,7 @@ function FunnelReport() {
           onChange={(event) => setRange((old) => ({ ...old, to: event.target.value }))}
         />
       </FilterBar>
+      <ExportButtons report="funnel" filters={range} />
       <ReportState result={result}>
         {(data) => (
           <DataTable
@@ -185,28 +255,31 @@ function FunnelReport() {
   );
 }
 
-function BreakdownReport({ load, caption, nameLabel }) {
+function BreakdownReport({ load, caption, nameLabel, report }) {
   const result = useApi(load, []);
   return (
-    <ReportState result={result}>
-      {(data) => (
-        <DataTable
-          caption={caption}
-          columns={[
-            { key: 'name', label: nameLabel },
-            { key: 'total', label: 'Candidates' },
-            { key: 'inProgress', label: 'In progress' },
-            { key: 'hired', label: 'Joined' },
-            { key: 'rejected', label: 'Rejected' },
-            { key: 'onHold', label: 'On hold' },
-            { key: 'unresponsive', label: 'No show / no response' },
-          ]}
-          rows={data.items.map((row, index) => ({ id: index, ...row }))}
-          emptyTitle="No candidates yet"
-          emptyMessage="There are no candidates to report on."
-        />
-      )}
-    </ReportState>
+    <>
+      <ExportButtons report={report} />
+      <ReportState result={result}>
+        {(data) => (
+          <DataTable
+            caption={caption}
+            columns={[
+              { key: 'name', label: nameLabel },
+              { key: 'total', label: 'Candidates' },
+              { key: 'inProgress', label: 'In progress' },
+              { key: 'hired', label: 'Joined' },
+              { key: 'rejected', label: 'Rejected' },
+              { key: 'onHold', label: 'On hold' },
+              { key: 'unresponsive', label: 'No show / no response' },
+            ]}
+            rows={data.items.map((row, index) => ({ id: index, ...row }))}
+            emptyTitle="No candidates yet"
+            emptyMessage="There are no candidates to report on."
+          />
+        )}
+      </ReportState>
+    </>
   );
 }
 
@@ -230,6 +303,7 @@ function WeeklyReport() {
           onChange={(event) => setWeekStart(event.target.value)}
         />
       </FilterBar>
+      <ExportButtons report="weekly" filters={weekStart ? { weekStart } : {}} />
       <ReportState result={result}>
         {(data) => (
           <>
@@ -264,7 +338,7 @@ function WeeklyReport() {
   );
 }
 
-function RangeListReport({ load, caption, columns, mapRow, empty, rangeLabels }) {
+function RangeListReport({ load, caption, columns, mapRow, empty, rangeLabels, report }) {
   const [range, setRange] = useState({ from: '', to: '' });
   const result = useApi(() => load(range), [range.from, range.to]);
 
@@ -284,6 +358,7 @@ function RangeListReport({ load, caption, columns, mapRow, empty, rangeLabels })
           onChange={(event) => setRange((old) => ({ ...old, to: event.target.value }))}
         />
       </FilterBar>
+      <ExportButtons report={report} filters={range} />
       <ReportState result={result}>
         {(data) => (
           <DataTable
@@ -339,15 +414,26 @@ export default function ReportsPage({ page }) {
         {tab === 'status' && <CandidateStatusReport lookups={lists} />}
         {tab === 'funnel' && <FunnelReport />}
         {tab === 'sources' && (
-          <BreakdownReport load={sourceReport} caption="Source report" nameLabel="Source" />
+          <BreakdownReport
+            load={sourceReport}
+            caption="Source report"
+            nameLabel="Source"
+            report="sources"
+          />
         )}
         {tab === 'positions' && (
-          <BreakdownReport load={positionReport} caption="Position report" nameLabel="Position" />
+          <BreakdownReport
+            load={positionReport}
+            caption="Position report"
+            nameLabel="Position"
+            report="positions"
+          />
         )}
         {tab === 'weekly' && <WeeklyReport />}
         {tab === 'onboarding' && (
           <RangeListReport
             load={onboardingReport}
+            report="onboarding"
             caption="Onboarding report"
             rangeLabels={['Joined from', 'Joined to']}
             columns={[
@@ -374,6 +460,7 @@ export default function ReportsPage({ page }) {
         {tab === 'exit' && (
           <RangeListReport
             load={exitReport}
+            report="exit"
             caption="Exit report"
             rangeLabels={['Exit from', 'Exit to']}
             columns={[
