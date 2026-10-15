@@ -12,6 +12,8 @@ import { recordAudit } from '../audit/audit.js';
 // route, report, export, mail, notification or log.
 
 const MAX_SALARY = 9_999_999_999.99;
+// One page of the Offer List.
+const MAX_BATCH = 100;
 
 const positiveId = (raw) => {
   const id = Number(raw);
@@ -28,6 +30,52 @@ export function salaryRouter({ pool }) {
   const router = Router();
   const canView = requirePermission('salary.view');
   const canEdit = requirePermission('salary.edit');
+
+  // The salaries of the candidates on one page of the Offer List, so the list
+  // does not make one request per row. The general offers list never carries
+  // salary; it arrives only through this route, behind salary.view. Each
+  // candidate read is audited exactly like a single view, without the amount.
+  router.get('/', canView, async (req, res) => {
+    const ids = [
+      ...new Set(
+        String(req.query.candidateIds ?? '')
+          .split(',')
+          .map((part) => positiveId(part.trim()))
+          .filter(Boolean),
+      ),
+    ];
+    if (ids.length === 0 || ids.length > MAX_BATCH) {
+      return res.status(422).json({
+        error: 'validation_failed',
+        message: `Give between 1 and ${MAX_BATCH} candidate ids.`,
+        fields: { candidateIds: `Give between 1 and ${MAX_BATCH} candidate ids.` },
+      });
+    }
+
+    const { rows } = await pool.query(
+      `SELECT c.id AS candidate_id, s.salary_lkr, s.updated_at
+         FROM candidates c LEFT JOIN offer_salary s ON s.candidate_id = c.id
+        WHERE c.id = ANY($1)`,
+      [ids],
+    );
+    await inTransaction(pool, async (db) => {
+      for (const row of rows) {
+        await recordAudit(db, {
+          actorUserId: req.user.id,
+          action: 'SALARY_VIEW',
+          entityType: 'offer_salary',
+          entityId: Number(row.candidate_id),
+          details: { found: row.salary_lkr !== null, source: 'offer_list' },
+        });
+      }
+    });
+    res.json({
+      items: rows.map((row) => ({
+        candidateId: Number(row.candidate_id),
+        salaryLkr: row.salary_lkr === null ? null : Number(row.salary_lkr),
+      })),
+    });
+  });
 
   router.get('/:candidateId', canView, async (req, res) => {
     const candidateId = positiveId(req.params.candidateId);

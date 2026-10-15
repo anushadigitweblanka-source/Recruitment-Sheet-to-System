@@ -1,10 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
+import { listSalaries, saveSalary } from '../../api/stage11.js';
+import { useAuth } from '../../auth/AuthContext.jsx';
 import DataTable from '../../components/DataTable.jsx';
 import ErrorState from '../../components/ErrorState.jsx';
 import FilterBar, { FilterSelect } from '../../components/FilterBar.jsx';
 import FormField from '../../components/FormField.jsx';
 import LoadingState from '../../components/LoadingState.jsx';
+import Notice from '../../components/Notice.jsx';
 import PageHeader from '../../components/PageHeader.jsx';
 import Pagination from '../../components/Pagination.jsx';
 import SearchInput from '../../components/SearchInput.jsx';
@@ -23,6 +26,76 @@ import {
 } from './fields.js';
 
 const PAGE_SIZE = 20;
+
+const LKR = new Intl.NumberFormat('en-LK', {
+  style: 'currency',
+  currency: 'LKR',
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+// The salary column sits before Email Status. It exists only for people who
+// hold salary.view; for everyone else the column, the values and the actions
+// are not built at all.
+const SALARY_COLUMN = { key: 'salary', label: 'Offered Salary (LKR)' };
+function columnsFor(showSalary) {
+  if (!showSalary) return OFFER_COLUMNS;
+  const at = OFFER_COLUMNS.findIndex((column) => column.key === 'emailStatus');
+  return [...OFFER_COLUMNS.slice(0, at), SALARY_COLUMN, ...OFFER_COLUMNS.slice(at)];
+}
+
+// Inline editor for one row. Saving uses the existing salary endpoint, which
+// checks salary.edit and audits the change without the amount.
+function SalaryEditor({ candidateId, name, initial, onSaved, onCancel }) {
+  const [value, setValue] = useState(initial === null ? '' : String(initial));
+  const [error, setError] = useState(null);
+  const [saving, setSaving] = useState(false);
+
+  async function save() {
+    setSaving(true);
+    setError(null);
+    const res = await saveSalary(candidateId, value.trim()).catch(() => null);
+    setSaving(false);
+    if (res?.ok) onSaved(res.body.salary.salaryLkr);
+    else if (res?.status === 422)
+      setError(res.body.fields?.salaryLkr ?? 'The amount is not valid.');
+    else if (res?.status === 403) setError('Only the Main User can change salary.');
+    else setError('The salary could not be saved. Try again.');
+  }
+
+  return (
+    <div className="salary-editor">
+      <FormField
+        label={`Salary (LKR) for ${name}`}
+        type="number"
+        min="0"
+        step="0.01"
+        value={value}
+        onChange={(event) => setValue(event.target.value)}
+        disabled={saving}
+        error={error}
+      />
+      <span className="table-actions">
+        <button
+          type="button"
+          className="button button--primary"
+          disabled={saving || value.trim() === ''}
+          onClick={save}
+        >
+          {saving ? 'Saving…' : 'Save'}
+        </button>
+        <button
+          type="button"
+          className="button button--secondary"
+          disabled={saving}
+          onClick={onCancel}
+        >
+          Cancel
+        </button>
+      </span>
+    </div>
+  );
+}
 const SEARCH_DELAY_MS = 300;
 
 const STATUS_FILTER_OPTIONS = [
@@ -33,7 +106,8 @@ const STATUS_FILTER_OPTIONS = [
 // One row per candidate. A selected candidate waiting for their offer has no
 // offer record yet: the row shows the position they applied for and offers
 // "Prepare offer".
-function toRow({ candidate, offer }) {
+// `salary` is { show, canEdit, amounts, editingId, setEditingId, onSaved }.
+function toRow({ candidate, offer }, salary) {
   const name = `${candidate.candidateCode} — ${candidate.fullName}`;
 
   return {
@@ -50,6 +124,29 @@ function toRow({ candidate, offer }) {
     ) : (
       <StatusBadge>{offer ? 'Not sent' : 'No offer yet'}</StatusBadge>
     ),
+    ...(salary.show
+      ? {
+          salary: offer ? (
+            salary.editingId === candidate.id ? (
+              <SalaryEditor
+                candidateId={candidate.id}
+                name={candidate.fullName}
+                initial={salary.amounts[candidate.id] ?? null}
+                onSaved={(amount) => salary.onSaved(candidate.id, amount)}
+                onCancel={() => salary.setEditingId(null)}
+              />
+            ) : salary.amounts[candidate.id] === undefined ? (
+              '…'
+            ) : salary.amounts[candidate.id] === null ? (
+              'Not Set'
+            ) : (
+              LKR.format(salary.amounts[candidate.id])
+            )
+          ) : (
+            '--'
+          ),
+        }
+      : {}),
     emailStatus: EMAIL_STATUS_UNAVAILABLE,
     onboardingDate: formatDate(offer?.onboardingDate) ?? '--',
     attended: attendedLabel(offer?.attended) ?? '--',
@@ -66,6 +163,16 @@ function toRow({ candidate, offer }) {
             >
               Edit
             </Link>
+            {salary.show && salary.canEdit && salary.amounts[candidate.id] !== undefined && (
+              <button
+                type="button"
+                className="button-link"
+                onClick={() => salary.setEditingId(candidate.id)}
+                aria-label={`${salary.amounts[candidate.id] === null ? 'Add' : 'Edit'} salary of ${candidate.fullName}`}
+              >
+                {salary.amounts[candidate.id] === null ? 'Add Salary' : 'Edit Salary'}
+              </button>
+            )}
           </>
         ) : (
           <Link
@@ -81,6 +188,12 @@ function toRow({ candidate, offer }) {
 }
 
 export default function OfferListPage({ page }) {
+  const { user } = useAuth();
+  const showSalary = Boolean(user?.permissions?.includes('salary.view'));
+  const canEditSalary = Boolean(user?.permissions?.includes('salary.edit'));
+  const [amounts, setAmounts] = useState({});
+  const [editingId, setEditingId] = useState(null);
+  const [salaryFailed, setSalaryFailed] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [filters, setFilters] = useState({
     search: '',
@@ -113,6 +226,49 @@ export default function OfferListPage({ page }) {
       filters.page,
     ],
   );
+  // The salaries of the offers on this page come from the Main-User-only
+  // salary route, never from the offers list. Without salary.view nothing is
+  // requested.
+  const offerCandidateIds = useMemo(
+    () =>
+      list.status === 'ready'
+        ? list.data.items.filter((row) => row.offer).map((row) => row.candidate.id)
+        : [],
+    [list.status, list.data],
+  );
+  useEffect(() => {
+    if (!showSalary || offerCandidateIds.length === 0) return undefined;
+    let cancelled = false;
+    setSalaryFailed(false);
+    listSalaries(offerCandidateIds)
+      .then((res) => {
+        if (cancelled) return;
+        if (!res.ok) {
+          setSalaryFailed(true);
+          return;
+        }
+        setAmounts(Object.fromEntries(res.body.items.map((i) => [i.candidateId, i.salaryLkr])));
+      })
+      .catch(() => {
+        if (!cancelled) setSalaryFailed(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [showSalary, offerCandidateIds]);
+
+  const salary = {
+    show: showSalary,
+    canEdit: canEditSalary,
+    amounts,
+    editingId,
+    setEditingId,
+    onSaved: (candidateId, amount) => {
+      setAmounts((old) => ({ ...old, [candidateId]: amount }));
+      setEditingId(null);
+    },
+  };
+
   const isFiltered = Boolean(
     filters.search || filters.offerStatus || filters.onboardingFrom || filters.onboardingTo,
   );
@@ -176,10 +332,15 @@ export default function OfferListPage({ page }) {
 
         {list.status === 'ready' && (
           <>
+            {showSalary && salaryFailed && (
+              <Notice tone="danger" role="alert">
+                The salaries could not be loaded.
+              </Notice>
+            )}
             <DataTable
               caption="Offers"
-              columns={OFFER_COLUMNS}
-              rows={list.data.items.map(toRow)}
+              columns={columnsFor(showSalary)}
+              rows={list.data.items.map((row) => toRow(row, salary))}
               emptyTitle={isFiltered ? 'No offers match' : 'No offers yet'}
               emptyMessage={
                 isFiltered

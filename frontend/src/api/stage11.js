@@ -2,6 +2,9 @@ import { apiDelete, apiGet, apiPatch, apiPost, apiPut, apiPutFile } from './clie
 
 // Salary (Main User only; the server refuses everyone else).
 export const getSalary = (candidateId) => apiGet(`/salary/${candidateId}`);
+// The salaries of the candidates on one Offer List page (Main User only).
+export const listSalaries = (candidateIds) =>
+  apiGet(`/salary?candidateIds=${candidateIds.join(',')}`);
 export const saveSalary = (candidateId, salaryLkr) =>
   apiPut(`/salary/${candidateId}`, { salaryLkr });
 

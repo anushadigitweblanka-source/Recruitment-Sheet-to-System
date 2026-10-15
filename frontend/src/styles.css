@@ -1084,3 +1084,10 @@ a.button {
     transition: none;
   }
 }
+
+/* The inline salary editor in the Offer List: a narrow field with its buttons. */
+.salary-editor {
+  display: grid;
+  gap: 8px;
+  min-width: 11rem;
+}
