@@ -314,7 +314,7 @@ export default function InterviewEvaluationPage({ page }) {
             hint={
               absent
                 ? 'Not available for a candidate who did not attend.'
-                : 'Selected moves the candidate to Selected, Not Selected to Rejected, and On Hold to On Hold.'
+                : 'Selected moves the candidate to Selected and creates their offer in the Offer Tracker automatically. Not Selected moves them to Rejected, and On Hold to On Hold.'
             }
             {...field('decision')}
             disabled={saving || absent}

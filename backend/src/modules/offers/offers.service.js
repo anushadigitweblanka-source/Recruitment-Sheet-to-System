@@ -82,6 +82,51 @@ function saving(pool, work) {
 }
 const refuse = (message) => Object.assign(new Error(message), { refusedResult: true });
 
+// The acceptance checklist's "Selecting 'Selected' in the interview must
+// create an offer row automatically". Runs inside the direct interview's
+// transaction, after the stage change to "Selected"; a second call never adds
+// a second offer. The row holds only what is known: the candidate and their
+// applied position. Offer date, work mode, location, status, onboarding date
+// and attendance stay empty until someone records them - nothing is invented,
+// and no salary exists anywhere. A candidate without an applied position gets
+// no automatic row (offers.position_id cannot be empty, and choosing a
+// position for them would be inventing data): they stay at "Selected" in the
+// offer tracker until an offer is created by hand.
+export async function createOfferOnSelection(db, { candidateId, user }) {
+  const existing = await offerIdForCandidate(db, candidateId);
+  if (existing) return existing;
+
+  const { rows } = await db.query('SELECT position_id FROM candidates WHERE id = $1', [
+    candidateId,
+  ]);
+  if (!rows[0]?.position_id) return null;
+  const positionId = Number(rows[0].position_id);
+
+  const id = await insertOffer(
+    db,
+    candidateId,
+    {
+      positionId,
+      offerDate: null,
+      workMode: null,
+      location: null,
+      offerStatus: null,
+      onboardingDate: null,
+      attended: null,
+    },
+    user.id,
+  );
+  await recordAudit(db, {
+    actorUserId: user.id,
+    action: 'OFFER_CREATE',
+    entityType: 'offers',
+    entityId: id,
+    newValues: { candidateId, positionId },
+    details: { source: 'direct_interview' },
+  });
+  return id;
+}
+
 export async function createOffer(pool, user, input) {
   const candidateId = Number(input?.candidateId);
   if (!Number.isInteger(candidateId) || candidateId < 1) {

@@ -20,6 +20,7 @@ Table: `offers` (migration 005). Stage changes go through `../pipeline/pipeline.
 ## Rules
 
 - An offer can be created only for a candidate at **Selected**, the stage a direct interview result of Selected puts them in. Rejected, On Hold, Not Attended and every other stage are refused by the backend.
+- **Automatic creation (acceptance checklist):** saving a direct interview decision of Selected creates the offer row itself, inside the interview's transaction — candidate plus their applied position, every other field empty. A candidate without an applied position gets no automatic row (the offer's position cannot be empty and would have to be invented): they stay at Selected as "waiting" for a manual offer. The automatic offer is audited as `OFFER_CREATE` with source `direct_interview`. See `documentation/offer-management.md`.
 - One offer per candidate for now; a second is refused with a pointer to the first.
 - **Position** is required and must be an approved position that is in use. It defaults to the position the candidate applied for. A position switched off later stays valid on an offer that already has it.
 - **Offer Date** and **Onboarding Date** (the joining date) are optional real dates.

@@ -1,5 +1,6 @@
 import { inTransaction } from '../../db/transaction.js';
 import { recordAudit } from '../audit/audit.js';
+import { createOfferOnSelection } from '../offers/offers.service.js';
 import {
   changeStage,
   lockPipeline,
@@ -93,6 +94,13 @@ async function applyOutcome(db, { candidateId, pipeline, before, after, reasons,
       userId: user.id,
       source: 'direct_interview',
     });
+    // "Selected goes to Offer Tracker": the Selected decision itself creates
+    // the offer row, in this same transaction. The offer is never deleted by
+    // a later interview change - once it exists, the check above refuses any
+    // change to the interview's outcome instead.
+    if (toStage === 'selected') {
+      await createOfferOnSelection(db, { candidateId, user });
+    }
     return {};
   }
 
