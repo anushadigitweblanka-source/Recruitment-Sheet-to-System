@@ -25,7 +25,7 @@ Active employees whose **stored** `phase_end` falls within the next 7 days (`cur
 
 ## Mentor-dependent limitations
 
-- A **junior** whose end date awaits the 9-month confirmation has `phase_end NULL` and is simply excluded from deadlines — no date is invented. The page's empty-state text says so.
+- A **junior** phase with no stored end date (created before the end date was calculated) has `phase_end NULL` and is simply excluded from deadlines — no date is invented. Newer junior phases carry a calculated end and appear like any other phase.
 - **Senior** has no end date by design and never appears as a deadline.
 - "Upcoming Reviews"-style team-lead information (the old placeholder column) is not shown: no team-lead record exists yet (mentor decision).
 

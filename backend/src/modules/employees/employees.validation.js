@@ -99,8 +99,9 @@ export function validateDecision(input, { phase, joinDate, extensionLatest }) {
     }
   }
 
-  // The junior phase has no calculated end date, so a pass needs the date
-  // it actually ended; the senior phase starts the next day.
+  // A junior phase that has no stored end date (created before the date was
+  // calculated) needs the date it actually ended; the senior phase starts the
+  // next day. A stored end date is used as it is.
   if (values.result === 'pass' && phase.phase === 'junior' && !phase.endDate) {
     values.endDate = requiredDate(source, 'endDate', 'Junior end date', errors);
     if (values.endDate && values.endDate < phase.startDate) {

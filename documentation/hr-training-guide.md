@@ -28,7 +28,7 @@ This is the whole system in one story. One fictional candidate goes from applyin
 
 **9. Probation → Pass.** Same page, when probation ends: **Pass** (or Extend, by up to 1 month total, if more time is needed). **Junior** starts the next day.
 
-**10. Junior → Pass → Senior.** The junior phase has **no automatic end date** (a pending mentor decision on the 9-month rule) — when the time comes, record **Pass and type the junior end date yourself**. **Senior** starts the next day and has no end date.
+**10. Junior → Pass → Senior.** When probation passes, the junior phase gets its **end date automatically** (9 months from its start, the day before the same date 9 months on). On the day, record **Pass**; you do not type a date. **Senior** starts the next day and has no end date. (Only an older junior phase with no stored end date still asks you to type it.)
 
 Open the **Lifecycle Timeline**: the whole journey is there, every phase with its dates and decisions, nothing overwritten.
 

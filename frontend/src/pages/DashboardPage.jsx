@@ -164,7 +164,7 @@ export default function DashboardPage({ page }) {
                 columns={DEADLINE_COLUMNS}
                 rows={deadlineRows}
                 emptyTitle="No deadlines in the next 7 days"
-                emptyMessage="No active employee has a phase ending within 7 days. A junior whose end date awaits the 9-month confirmation is not shown."
+                emptyMessage="No active employee has a phase ending within 7 days. A junior phase with no stored end date is not shown."
               />
             </section>
           </div>

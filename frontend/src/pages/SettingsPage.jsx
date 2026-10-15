@@ -120,9 +120,10 @@ export default function SettingsPage({ page }) {
 
       <Notice tone="info" title="Where these values are used">
         The phase durations are read at every lifecycle gate decision, so a change takes effect on
-        the next decision. The junior end date stays uncalculated until the 9-month rule is
-        confirmed by HR. The address, venue and template-link settings are read by the mail
-        automation. Every change is written to the audit log.
+        the next decision. The junior end date is calculated from the junior months when probation
+        passes (the project owner's implementation decision; HR confirmation is pending). The
+        address, venue and template-link settings are read by the mail automation. Every change is
+        written to the audit log.
       </Notice>
 
       {result.status === 'loading' && <LoadingState message="Loading settings…" />}

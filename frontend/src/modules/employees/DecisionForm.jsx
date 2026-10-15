@@ -132,7 +132,7 @@ export default function DecisionForm({ employeeId, decision, onSaved }) {
             label="Junior end date"
             type="date"
             required
-            hint="Not calculated: whether the 9 months count from the end of probation or from the join date is waiting for mentor confirmation."
+            hint="This junior phase has no stored end date (it was created before the end date was calculated). Enter the date it ended."
             {...field('endDate')}
           />
         )}

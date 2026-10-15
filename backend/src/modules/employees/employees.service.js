@@ -32,7 +32,7 @@ import {
   validateTermination,
   validateTrack,
 } from './employees.validation.js';
-import { evaluationEnd, monthsPhaseEnd, nextPhaseStart } from './lifecycleDates.js';
+import { evaluationEnd, juniorPhaseEnd, monthsPhaseEnd, nextPhaseStart } from './lifecycleDates.js';
 
 // Every function here returns one of:
 //   { ok: true, data }                               data = employee details
@@ -131,7 +131,8 @@ export async function getEmployee(pool, id) {
       phaseId: open.id,
       phase: open.phase,
       allowedResults: RESULTS_BY_PHASE[open.phase],
-      // A junior pass needs its end date entered; it is not calculated.
+      // A junior phase created before the end date was calculated has none, and
+      // its pass still needs the date entered; newer ones carry their own.
       needsEndDate: open.phase === 'junior' && !open.endDate,
       extensionLatestEnd:
         open.phase === 'probation' ? await extensionLatestEnd(pool, employee.id, settings) : null,
@@ -288,6 +289,19 @@ export async function recordDecision(pool, user, id, input) {
     });
     const next = NEXT_PHASE[phase.phase];
     const startDate = nextPhaseStart(endDate ?? phase.endDate);
+    // Junior starts the day after probation (or its extension) finishes and
+    // lasts junior_months: EDATE(start, junior_months) - 1 day. This is the
+    // project owner's implementation decision (the guide's worked example),
+    // not an HR sign-off; the duration stays the editable junior_months setting.
+    const juniorEnd =
+      next === 'junior'
+        ? juniorPhaseEnd({
+            juniorStart: startDate,
+            joinDate: employee.joinDate,
+            months: settings.juniorMonths,
+            basis: 'after_probation',
+          })
+        : null;
     await startPhase(
       db,
       {
@@ -295,9 +309,9 @@ export async function recordDecision(pool, user, id, input) {
         candidateId: employee.candidateId,
         phase: next,
         startDate,
-        // Probation has a calculated end. Junior's end is not confirmed, and
-        // senior has none.
-        endDate: next === 'probation' ? monthsPhaseEnd(startDate, settings.probationMonths) : null,
+        // Probation and junior have a calculated end; senior has none.
+        endDate:
+          next === 'probation' ? monthsPhaseEnd(startDate, settings.probationMonths) : juniorEnd,
       },
       user,
     );

@@ -415,29 +415,26 @@ describe('gate decisions', () => {
     assert.match(res.body.fields.endDate, /after the current end date/);
   });
 
-  test('probation pass starts junior the next day, with no end date calculated', async () => {
+  test('probation pass starts junior the next day, with its end date calculated from junior_months', async () => {
     const { id } = await inPhase('probation');
     await decide(id, { result: 'extend', endDate: '2027-02-22' });
     const res = await decide(id, { result: 'pass' });
 
+    // The junior phase counts from the day after the extended probation.
     assert.equal(res.body.employee.currentPhase, 'junior');
     assert.equal(res.body.employee.phaseStart, '2027-02-23');
-    assert.equal(res.body.employee.phaseEnd, null);
-    assert.equal(res.body.employee.nextReview, null);
-    assert.equal(res.body.decision.needsEndDate, true);
-    assert.equal((await phasesOf(id)).at(-1), 'junior 2027-02-23..open -');
+    assert.equal(res.body.employee.phaseEnd, '2027-11-22');
+    assert.equal(res.body.employee.nextReview, '2027-11-22');
+    assert.equal(res.body.decision.needsEndDate, false);
+    assert.equal((await phasesOf(id)).at(-1), 'junior 2027-02-23..2027-11-22 -');
   });
 
-  test('a junior pass needs the junior end date, and senior starts the next day', async () => {
+  test('a junior pass uses the stored end date, and senior starts the next day', async () => {
     const { id } = await inPhase('junior');
-    const missing = await decide(id, { result: 'pass' });
-    const tooEarly = await decide(id, { result: 'pass', endDate: '2027-02-01' });
-    const passed = await decide(id, { result: 'pass', endDate: '2027-11-08' });
+    // A date typed in is not needed and does not override the stored one.
+    const passed = await decide(id, { result: 'pass', endDate: '2027-02-01' });
 
-    assert.equal(missing.status, 422);
-    assert.match(missing.body.fields.endDate, /required/);
-    assert.equal(tooEarly.status, 422);
-    assert.equal(passed.status, 200);
+    assert.equal(passed.status, 200, JSON.stringify(passed.body));
     assert.equal(passed.body.employee.currentPhase, 'senior');
     assert.equal(passed.body.employee.phaseStart, '2027-11-09');
     assert.equal(passed.body.employee.phaseEnd, null);
@@ -696,7 +693,11 @@ describe('listing', () => {
     assert.deepEqual(names(await list('?search=Quoll&reviewFrom=2026-11-01&reviewTo=2026-11-30')), [
       'Quoll Evaluation',
     ]);
-    assert.deepEqual(names(await list('?search=Quoll&reviewFrom=2027-01-01')), ['Quoll Probation']);
+    // The junior employee's review is now its calculated end, 8 Nov 2027.
+    assert.deepEqual(names(await list('?search=Quoll&reviewFrom=2027-01-01')), [
+      'Quoll Junior',
+      'Quoll Probation',
+    ]);
   });
 
   test('pages through the results and caps the page size', async () => {
@@ -810,5 +811,162 @@ describe('scope', () => {
     } finally {
       await db.pool.query(`UPDATE settings SET value = '7' WHERE key = 'evaluation_days'`);
     }
+  });
+});
+
+describe('junior end date', () => {
+  const setSetting = (key, value) =>
+    api(`/admin/settings/${key}`, { method: 'PATCH', ...as(admin), body: { value } });
+  const phaseRows = async (id) =>
+    (
+      await db.pool.query(
+        `SELECT id, phase, to_char(start_date, 'YYYY-MM-DD') AS start_date,
+                to_char(end_date, 'YYYY-MM-DD') AS end_date
+           FROM phase_history WHERE employee_id = $1 ORDER BY id`,
+        [id],
+      )
+    ).rows;
+  const notesFor = async (phaseHistoryId) =>
+    (
+      await db.pool.query('SELECT * FROM notifications WHERE phase_history_id = $1 ORDER BY id', [
+        phaseHistoryId,
+      ])
+    ).rows;
+
+  test('reproduces the guide: join 2 Nov 2026, junior 9 Feb to 8 Nov 2027, senior from 9 Nov 2027', async () => {
+    const { id } = await joined({ fullName: 'Junior Guide Example' }, '2026-11-02');
+    await decide(id, { result: 'pass' });
+    await decide(id, { result: 'pass' });
+    const passed = await decide(id, { result: 'pass' });
+
+    assert.equal(passed.status, 200, JSON.stringify(passed.body));
+    assert.deepEqual(await phasesOf(id), [
+      'evaluation 2026-11-02..2026-11-08 pass',
+      'probation 2026-11-09..2027-02-08 pass',
+      'junior 2027-02-09..2027-11-08 pass',
+      'senior 2027-11-09..open -',
+    ]);
+  });
+
+  test('a join on the 31st counts months to the end of shorter months', async () => {
+    const { id } = await joined({ fullName: 'Junior Month End' }, '2026-08-31');
+    await decide(id, { result: 'pass' });
+    const res = await decide(id, { result: 'pass' });
+
+    // Probation 7 Sep to 6 Dec 2026, junior from 7 Dec 2026 for 9 months.
+    assert.equal(res.body.employee.phaseStart, '2026-12-07');
+    assert.equal(res.body.employee.phaseEnd, '2027-09-06');
+  });
+
+  test('the duration is the junior_months setting, and old phases are not recalculated', async () => {
+    const before = await inPhase('junior', { fullName: 'Junior Before Change' });
+    const beforeRows = await phaseRows(before.id);
+    assert.equal((await setSetting('junior_months', '6')).status, 200);
+    try {
+      const after = await joined({ fullName: 'Junior After Change' }, '2026-11-02');
+      await decide(after.id, { result: 'pass' });
+      const res = await decide(after.id, { result: 'pass' });
+      assert.equal(res.body.employee.phaseEnd, '2027-08-08'); // 9 Feb + 6 months - 1 day
+
+      // The earlier employee's junior phase is exactly as it was.
+      assert.deepEqual(await phaseRows(before.id), beforeRows);
+      assert.equal((await view(before.id)).body.employee.phaseEnd, '2027-11-08');
+    } finally {
+      assert.equal((await setSetting('junior_months', '9')).status, 200);
+    }
+  });
+
+  test('records the calculated end in the phase history and the audit log', async () => {
+    const { id } = await inPhase('junior', { fullName: 'Junior Audited' });
+    const { rows } = await db.pool.query(
+      `SELECT a.new_values FROM audit_log a
+         JOIN phase_history p ON p.id = a.entity_id
+        WHERE a.action = 'PHASE_START' AND a.entity_type = 'phase_history'
+          AND p.employee_id = $1 AND p.phase = 'junior'`,
+      [id],
+    );
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].new_values.endDate, '2027-11-08');
+    assert.equal(rows[0].new_values.phase, 'junior');
+  });
+
+  test('creates one junior deadline reminder: 17:30 Colombo, sent 24 hours before', async () => {
+    assert.equal((await setSetting('reminder_hr_emails', 'hr.junior@example.test')).status, 200);
+    try {
+      const { id } = await inPhase('junior', { fullName: 'Junior Reminder' });
+      const junior = (await phaseRows(id)).find((p) => p.phase === 'junior');
+      const notes = await notesFor(junior.id);
+
+      assert.equal(notes.length, 1, 'exactly one reminder for the junior phase');
+      const [note] = notes;
+      assert.equal(note.type, 'junior_end');
+      assert.equal(note.status, 'pending');
+      assert.equal(note.due_at.toISOString(), '2027-11-08T12:00:00.000Z'); // 17:30 +05:30
+      assert.equal(note.send_at.getTime(), note.due_at.getTime() - 24 * 3600 * 1000);
+      assert.deepEqual(note.recipients, ['hr.junior@example.test']);
+
+      // A second pending reminder for the same phase cannot exist.
+      await assert.rejects(
+        db.pool.query(
+          `INSERT INTO notifications (candidate_id, type, phase_history_id, due_at, send_at, recipients)
+           VALUES ($1, 'junior_end', $2, $3, $4, ARRAY['hr.junior@example.test'])`,
+          [note.candidate_id, junior.id, note.due_at, note.send_at],
+        ),
+        /notifications_one_per_phase|duplicate key/,
+      );
+      assert.equal((await notesFor(junior.id)).length, 1);
+
+      // Deciding the phase cancels its reminder and starts none for senior.
+      await decide(id, { result: 'pass' });
+      const after = await notesFor(junior.id);
+      assert.deepEqual(
+        after.map((n) => n.status),
+        ['cancelled'],
+      );
+      const senior = (await phaseRows(id)).find((p) => p.phase === 'senior');
+      assert.deepEqual(await notesFor(senior.id), []);
+    } finally {
+      await setSetting('reminder_hr_emails', '');
+    }
+  });
+
+  test('a probation extension moves the junior start, end and reminder', async () => {
+    assert.equal((await setSetting('reminder_hr_emails', 'hr.junior@example.test')).status, 200);
+    try {
+      const { id } = await inPhase('probation', { fullName: 'Junior Extended' });
+      await decide(id, { result: 'extend', endDate: '2027-02-22' });
+      await decide(id, { result: 'pass' });
+
+      const junior = (await phaseRows(id)).find((p) => p.phase === 'junior');
+      assert.equal(junior.start_date, '2027-02-23');
+      assert.equal(junior.end_date, '2027-11-22');
+      const [note] = await notesFor(junior.id);
+      assert.equal(note.due_at.toISOString(), '2027-11-22T12:00:00.000Z');
+    } finally {
+      await setSetting('reminder_hr_emails', '');
+    }
+  });
+
+  test('a junior phase stored without an end date still needs it entered, and is never filled in by itself', async () => {
+    const { id } = await inPhase('junior', { fullName: 'Junior Legacy' });
+    // As an employee would look if the junior phase pre-dates the calculation.
+    await db.pool.query(
+      `UPDATE phase_history SET end_date = NULL WHERE employee_id = $1 AND phase = 'junior'`,
+      [id],
+    );
+    await db.pool.query('UPDATE employees SET phase_end = NULL WHERE id = $1', [id]);
+
+    const shown = await view(id);
+    assert.equal(shown.body.employee.phaseEnd, null, 'reading it does not backfill');
+    assert.equal(shown.body.decision.needsEndDate, true);
+
+    const missing = await decide(id, { result: 'pass' });
+    assert.equal(missing.status, 422);
+    assert.match(missing.body.fields.endDate, /required/);
+    const tooEarly = await decide(id, { result: 'pass', endDate: '2027-02-01' });
+    assert.equal(tooEarly.status, 422);
+    const passed = await decide(id, { result: 'pass', endDate: '2027-11-08' });
+    assert.equal(passed.status, 200);
+    assert.equal(passed.body.employee.phaseStart, '2027-11-09');
   });
 });

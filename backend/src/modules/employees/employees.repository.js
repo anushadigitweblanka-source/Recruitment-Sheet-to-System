@@ -9,7 +9,8 @@ const day = (column, as = column.split('.').pop()) => `to_char(${column}, 'YYYY-
 export async function readLifecycleSettings(db) {
   const { rows } = await db.query(
     `SELECT key, value FROM settings
-      WHERE key IN ('evaluation_days', 'probation_months', 'probation_max_extension_months')`,
+      WHERE key IN ('evaluation_days', 'probation_months', 'probation_max_extension_months',
+                    'junior_months')`,
   );
   const value = (key) => {
     const found = rows.find((row) => row.key === key);
@@ -20,6 +21,7 @@ export async function readLifecycleSettings(db) {
   return {
     evaluationDays: value('evaluation_days'),
     probationMonths: value('probation_months'),
+    juniorMonths: value('junior_months'),
     probationMaxExtensionMonths: value('probation_max_extension_months'),
   };
 }

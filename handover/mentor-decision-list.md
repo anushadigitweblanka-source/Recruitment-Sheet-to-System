@@ -21,7 +21,7 @@ Every open question in one place. For each: what we need decided, and what it un
 
 ## Lifecycle rules
 
-8. **Junior 9-month rule** — do the 9 months count from probation end or from joining? _Unblocks: automatic junior end-date calculation (today HR types the date at the junior Pass)._
+8. **Junior 9-month rule** — _Implemented on the project owner's decision (2026-10-15):_ 9 months counted from the day junior starts, using `junior_months`. **HR confirmation is still pending** and is not a formal sign-off. If HR chooses "from joining" instead, the helper `juniorPhaseEnd` already supports it.
 9. **Discontinued vs Terminated definitions** — confirm (or correct) the guide's working definition as implemented: Discontinue at any gate with reason + exit date; Terminate only after probation.
 
 ## Roles, salary, offers

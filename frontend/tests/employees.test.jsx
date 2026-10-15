@@ -258,9 +258,9 @@ describe('employee list', () => {
 
     const junior = screen.getByRole('link', { name: 'Sample Person 2' }).closest('tr');
     expect(within(junior).getByText('Staff')).toBeTruthy();
-    // The junior end date is not calculated while the 9-month rule is unconfirmed.
+    // A junior phase with no stored end date shows that HR enters it.
     expect(
-      within(junior).getAllByText('Not calculated (mentor confirmation required)'),
+      within(junior).getAllByText('Not set (HR enters it at the junior decision)'),
     ).toHaveLength(2);
 
     const gone = screen.getByRole('link', { name: 'Sample Person 3' }).closest('tr');
@@ -481,9 +481,9 @@ describe('employee details', () => {
     await screen.findByRole('heading', { name: 'Junior decision' });
 
     expect(screen.getByText('PENDING HR CONFIRMATION')).toBeTruthy();
-    expect(value('Phase End')).toBe('Not calculated (mentor confirmation required)');
+    expect(value('Phase End')).toBe('Not set (HR enters it at the junior decision)');
     fireEvent.change(screen.getByLabelText(/^Decision/), { target: { value: 'pass' } });
-    expect(screen.getByText(/from the join date is waiting for mentor confirmation/)).toBeTruthy();
+    expect(screen.getByText(/created before the end date was calculated/)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Record decision' }));
 
     expect(await screen.findByText('Junior end date is required.')).toBeTruthy();
@@ -574,7 +574,7 @@ describe('lifecycle timeline', () => {
     expect(document.querySelector('[aria-current="step"]').textContent).toContain('Junior');
     // Only recorded dates are shown: the open junior phase has no end date.
     const rows = within(screen.getByRole('table', { name: 'Phase history' })).getAllByRole('row');
-    expect(rows.at(-1).textContent).toContain('Not calculated (mentor confirmation required)');
+    expect(rows.at(-1).textContent).toContain('Not set (HR enters it at the junior decision)');
   });
 
   test('marks the phase in which the employee left', async () => {

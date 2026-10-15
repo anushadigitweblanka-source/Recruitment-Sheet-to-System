@@ -4,12 +4,12 @@ The `/admin/settings` placeholder is now a real page for the application setting
 
 ## Settings exposed
 
-| Key                              | Meaning                                                                                                             | Seeded value |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------------- | ------------ |
-| `evaluation_days`                | Length of the 7-day evaluation (day 1 = join date)                                                                  | 7            |
-| `probation_months`               | Probation length                                                                                                    | 3            |
-| `probation_max_extension_months` | Maximum probation extension                                                                                         | 1            |
-| `junior_months`                  | Junior stage length — stored, but the junior end date stays uncalculated until the mentor confirms the 9-month rule | 9            |
+| Key                              | Meaning                                                                                                                                                        | Seeded value |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| `evaluation_days`                | Length of the 7-day evaluation (day 1 = join date)                                                                                                             | 7            |
+| `probation_months`               | Probation length                                                                                                                                               | 3            |
+| `probation_max_extension_months` | Maximum probation extension                                                                                                                                    | 1            |
+| `junior_months`                  | Junior stage length — used to calculate the junior end date when probation passes (counted from the junior start); existing junior phases are not recalculated | 9            |
 
 Module 5 reads these at **every gate decision** (`readLifecycleSettings`), so a change takes effect on the next decision with no restart (proven by test).
 

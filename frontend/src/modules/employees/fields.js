@@ -55,4 +55,4 @@ export const STATUS_OPTIONS = Object.entries(STATUS_LABELS).map(([value, label])
 // The gate decisions named in the task guide.
 export const RESULT_LABELS = { pass: 'Pass', extend: 'Extend', discontinue: 'Discontinue' };
 
-export const JUNIOR_END_PENDING = 'Not calculated (mentor confirmation required)';
+export const JUNIOR_END_PENDING = 'Not set (HR enters it at the junior decision)';

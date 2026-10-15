@@ -108,7 +108,7 @@ A plain-language guide to every page in the application, written for someone usi
 - Employees are created **only** by the offer's Attended = Yes — there is no "add employee" button, on purpose.
 - The phase pages (Evaluation, Probation, Junior Stage, Senior Stage) list who is in each phase. Employee Details shows their phases and exactly which decision is available now.
 - **Pass** closes the phase and starts the next one with its dates calculated automatically. **Extend** (probation only) adds up to 1 extra month beyond the original end. **Discontinue** needs a reason and exit date. **Terminate** is separate, needs a reason and date, and is only offered after probation has passed.
-- The **junior phase has no calculated end date** — whether its 9 months count from probation end or from joining is a pending mentor decision, so you enter the junior end date yourself when recording the junior Pass.
+- The **junior end date is calculated for you** when probation passes: it starts the day after probation (or its extension) finishes and lasts the **junior months** setting (9 by default), ending the day before the same date 9 months later (for example 9 Feb 2027 to 8 Nov 2027). This is the project owner's implementation decision from the guide's worked example; HR confirmation is still pending. Only a junior phase created before this existed has no stored end date, and then you enter it yourself when recording the junior Pass.
 - The **track** (Intern or Staff) can be set on Edit Employee. A review document link on a decision is optional.
 - The Lifecycle Timeline page shows the full phase history; the Discontinued / Exit page lists everyone who left.
 
@@ -198,7 +198,7 @@ Marking an offer **Attended = Yes** requests a company account. IT marks it **Cr
 
 _(Also holds the mail automation settings: HR and manager addresses, weekly report recipients, interview venue, and the Company CV template link.)_
 
-**What it does:** the editable phase durations: evaluation days (7), probation months (3), maximum probation extension (1 month), junior months (9 — stored, but not yet used to calculate the junior end date; see Employee Lifecycle).
+**What it does:** the editable phase durations: evaluation days (7), probation months (3), maximum probation extension (1 month), junior months (9 — used to calculate the junior end date when probation passes; changing it affects only phases that start afterwards).
 
 **How to use it:** change a value and save. It takes effect from the next gate decision — past phases are not recalculated. Every change is written to the audit log.
 

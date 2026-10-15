@@ -137,9 +137,9 @@ export async function schedulePhaseReminder(
   { candidateId, phaseHistoryId, phase, endDate, userId },
 ) {
   const type = PHASE_NOTIFICATION[phase];
-  // Senior has no end date, and a junior end date is not known until HR
-  // enters it (the 9-month rule is not confirmed), so there is nothing to
-  // remind about yet.
+  // Senior has no end date, and a junior phase created before its end date
+  // was calculated has none until HR enters it, so there is nothing to remind
+  // about yet.
   if (!type || !endDate) return { action: 'none' };
 
   const settings = await readMailSettings(db);
