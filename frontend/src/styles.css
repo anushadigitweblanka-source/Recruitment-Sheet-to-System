@@ -1106,3 +1106,101 @@ a.button {
   gap: 8px;
   min-width: 11rem;
 }
+
+/* ---------- In-app notification bell ---------- */
+
+.bell {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.bell__button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  font: inherit;
+  cursor: pointer;
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+
+.bell__button:hover {
+  background: var(--color-accent-soft);
+}
+
+.bell__badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 18px;
+  padding: 0 5px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 18px;
+  color: #ffffff;
+  text-align: center;
+  background: var(--color-danger-text);
+  border-radius: 9px;
+}
+
+.bell__panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 40;
+  width: min(24rem, calc(100vw - 32px));
+  max-height: min(32rem, 70vh);
+  overflow-y: auto;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 12%);
+}
+
+.bell__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.bell__note {
+  padding: 16px;
+  color: var(--color-text-muted);
+}
+
+.bell__list {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.bell__item {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.bell__item--unread {
+  background: var(--color-accent-soft);
+}
+
+.bell__title {
+  font-weight: 600;
+}
+
+.bell__meta {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}
+
+.bell__actions {
+  display: flex;
+  gap: 16px;
+  margin-top: 4px;
+  font-size: 0.875rem;
+}

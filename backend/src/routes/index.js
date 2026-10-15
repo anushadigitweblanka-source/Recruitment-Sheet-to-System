@@ -12,6 +12,7 @@ import { dashboardRouter } from '../modules/dashboard/dashboard.routes.js';
 import { employeesRouter } from '../modules/employees/employees.routes.js';
 import { interviewsRouter } from '../modules/interviews/interviews.routes.js';
 import { lookupsRouter } from '../modules/lookups/lookups.routes.js';
+import { inboxRouter } from '../modules/notifications/inbox.routes.js';
 import { notificationsRouter } from '../modules/notifications/notifications.routes.js';
 import { offersRouter } from '../modules/offers/offers.routes.js';
 import { phoneScreensRouter } from '../modules/phone-screens/phoneScreens.routes.js';
@@ -52,6 +53,8 @@ export function apiRouter(deps) {
   router.use('/lookups', lookupsRouter(deps));
   router.use(phoneScreensRouter(deps));
   router.use('/interviews', interviewsRouter(deps));
+  // A user's own in-app alerts: any signed-in user, scoped to themselves.
+  router.use('/me/notifications', inboxRouter(deps));
   router.use('/offers', offersRouter(deps));
   router.use('/reports', reportsRouter(deps));
   router.use('/admin/settings', settingsRouter(deps));

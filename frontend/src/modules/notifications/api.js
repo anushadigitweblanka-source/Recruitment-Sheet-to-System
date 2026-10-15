@@ -11,6 +11,11 @@ function withQuery(path, filters) {
 }
 
 export const listNotifications = (filters) => apiGet(withQuery('/notifications', filters));
+
+// The signed-in user's own in-app alerts (the bell in the header).
+export const listMyAlerts = (limit = 20) => apiGet(`/me/notifications?limit=${limit}`);
+export const markAlertRead = (id) => apiPost(`/me/notifications/${id}/read`);
+export const markAllAlertsRead = () => apiPost('/me/notifications/read-all');
 // Development only: runs the 15-minute job now. The backend refuses it in production.
 export const runScheduler = () => apiPost('/notifications/run');
 

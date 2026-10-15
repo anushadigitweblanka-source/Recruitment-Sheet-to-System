@@ -72,6 +72,7 @@ describe('migrations', () => {
         'email_templates',
         'employees',
         'interviews',
+        'notification_reads',
         'notifications',
         'offer_salary',
         'offers',
