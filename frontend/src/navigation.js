@@ -11,6 +11,7 @@ import AuditLogPage from './pages/AuditLogPage.jsx';
 import PlaceholderPage from './pages/PlaceholderPage.jsx';
 import ReportsPage from './modules/reports/ReportsPage.jsx';
 import SettingsPage from './pages/SettingsPage.jsx';
+import UsersPage from './pages/UsersPage.jsx';
 import SystemStatusPage from './pages/SystemStatusPage.jsx';
 
 // The six official modules, in order. Each module folder declares its own pages.
@@ -63,7 +64,7 @@ export const sections = [
         path: '/admin/users',
         label: 'Users',
         description: 'People who can sign in.',
-        component: PlaceholderPage,
+        component: UsersPage,
         nav: true,
       },
       {
