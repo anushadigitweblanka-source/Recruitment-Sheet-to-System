@@ -8,8 +8,8 @@ import { phoneInterviewsModule } from './modules/phone-interviews/index.js';
 import DashboardPage from './pages/DashboardPage.jsx';
 import LookupsPage from './pages/LookupsPage.jsx';
 import AuditLogPage from './pages/AuditLogPage.jsx';
-import PlaceholderPage from './pages/PlaceholderPage.jsx';
 import ReportsPage from './modules/reports/ReportsPage.jsx';
+import RolesPage from './pages/RolesPage.jsx';
 import SettingsPage from './pages/SettingsPage.jsx';
 import UsersPage from './pages/UsersPage.jsx';
 import SystemStatusPage from './pages/SystemStatusPage.jsx';
@@ -71,7 +71,7 @@ export const sections = [
         path: '/admin/roles',
         label: 'Roles & Permissions',
         description: 'What each role is allowed to see and do.',
-        component: PlaceholderPage,
+        component: RolesPage,
         nav: true,
       },
       {

@@ -15,6 +15,7 @@ export const updateSetting = (key, value) => apiPatch(`/admin/settings/${key}`, 
 export const listAuditLog = (filters) => apiGet(withQuery('/admin/audit-log', filters));
 
 export const listUsers = () => apiGet('/admin/users');
+export const listRolesOverview = () => apiGet('/admin/roles');
 export const listRoles = () => apiGet('/admin/users/roles');
 export const createUser = (data) => apiPost('/admin/users', data);
 export const setUserStatus = (id, isActive) => apiPatch(`/admin/users/${id}/status`, { isActive });

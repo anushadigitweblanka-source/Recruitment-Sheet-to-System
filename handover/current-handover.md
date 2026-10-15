@@ -1,11 +1,11 @@
-# Current Handover (2026-10-14, after the Users administration build)
+# Current Handover (2026-10-15, after the read-only Roles & Permissions view)
 
 ## State
 
-- origin/main: `25bf1d2` (settings + audit log) on top of `cec7d82` (exports), `97a56ae` (reports), `4428ed7` (dashboard), `ce312c0` (acceptance), `f05c5ae` (data maps), `10377c0` (import dry-run framework), `cebbb09`, `a2f5ba5` (Module 6).
-- **Uncommitted, awaiting the user's review before any commit:** Users administration (backend/src/modules/users/, mount, UsersPage replacing the last-but-one placeholder, api/admin.js additions, 10 backend + 7 frontend tests), its docs (documentation/users-admin.md, validation/users-admin-validation.md), this handover update, and the local-only prompts. Settings + Audit Log are pushed at 25bf1d2.
-- Modules: Authentication + 1–6 complete (Module 6 still has 5 open mentor decisions; automatic notification creation OFF). Dashboard and Reports now live from the database (/api/dashboard/summary and /api/reports/*, candidates.view). Excel/CSV/PDF exports are built for every report. Settings admin (/admin/settings) and the Audit Log viewer (/admin/audit-log) are now real pages (admin.manage). Users administration is now a real page; the only remaining placeholder is Roles & Permissions (final role list is mentor decision 7). Fictional deactivated accounts viewer@example.test and users-test@example.test remain in the dev DB because the append-only audit log references them. The scheduled weekly email remains not started (mentor-blocked recipients).
-- Test suite: 415 backend + 335 frontend = 750 green; build/lint/format clean.
+- origin/main: `9515858` (users administration) on top of `9eb49ca` (CSV BOM lint fix), `25bf1d2` (settings + audit log), `cec7d82` (exports), `97a56ae` (reports), `4428ed7` (dashboard), `ce312c0` (acceptance), `f05c5ae` (data maps), `10377c0` (import dry-run framework), `cebbb09`, `a2f5ba5` (Module 6).
+- **Uncommitted, awaiting the user's review before any commit:** the read-only Roles & Permissions view (backend/src/modules/roles/, mount, RolesPage replacing the last placeholder, listRolesOverview in api/admin.js, 8 backend + 6 frontend tests), its docs (documentation/roles-permissions.md, validation/roles-permissions-validation.md), this handover update, and the local-only prompts. Users administration is pushed at 9515858.
+- Modules: Authentication + 1–6 complete (Module 6 still has 5 open mentor decisions; automatic notification creation OFF). Dashboard and Reports now live from the database (/api/dashboard/summary and /api/reports/*, candidates.view). Excel/CSV/PDF exports are built for every report. Settings admin (/admin/settings), the Audit Log viewer (/admin/audit-log) and Users administration (/admin/users) are real pages (admin.manage). Roles & Permissions (/admin/roles) is now a real **read-only** page — **no placeholder pages remain**; role editing/seeding stays blocked until the mentor approves the final role and permission structure (mentor decision 7). Fictional deactivated accounts viewer@example.test and users-test@example.test remain in the dev DB because the append-only audit log references them. The scheduled weekly email remains not started (mentor-blocked recipients).
+- Test suite: 423 backend + 341 frontend = 764 green; build/lint/format clean.
 - Database: dev only, migrations 001–008. Local candidates `2002` and `2003` are pre-existing records that must not be modified — verified untouched.
 - No real recruitment data imported; no mail provider; no salary anywhere.
 
@@ -15,7 +15,7 @@
 
 ## How to verify
 
-`npm test` (backend 361 incl. 21 import tests + frontend 306), `npm run build`, `npm run lint`, `npm run format:check` — all green at handover time.
+`npm test` (backend 423 + frontend 341), `npm run build`, `npm run lint`, `npm run format:check` — all green at handover time.
 
 ## Blocked / waiting
 
@@ -25,6 +25,6 @@
 
 ## Exact next steps
 
-1. User reviews the dry-run framework, then commit + push it.
+1. User reviews the read-only Roles & Permissions view, then commit + push it.
 2. Obtain the real workbook (or its structure) and fill the data maps; get mentor answers on the open decisions.
 3. Only after the readiness checklist is fully checked: build the real importer as a separate reviewed path.
