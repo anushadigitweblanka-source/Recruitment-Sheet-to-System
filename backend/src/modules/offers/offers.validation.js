@@ -1,7 +1,7 @@
 // Checks the offer fields sent by the browser. This is the authoritative
 // validation; the form's own checks are only for convenience.
 //
-// Salary functionality pending mentor approval and authorization design.
+// Salary is managed by the separate, Main User-only salary module.
 // No salary field is read, checked or stored here.
 
 // The two values backed by the task guide's stage list.

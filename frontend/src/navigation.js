@@ -8,6 +8,8 @@ import { phoneInterviewsModule } from './modules/phone-interviews/index.js';
 import DashboardPage from './pages/DashboardPage.jsx';
 import LookupsPage from './pages/LookupsPage.jsx';
 import AuditLogPage from './pages/AuditLogPage.jsx';
+import CompanyAccountsPage from './pages/CompanyAccountsPage.jsx';
+import TeamLeadsPage from './pages/TeamLeadsPage.jsx';
 import ReportsPage from './modules/reports/ReportsPage.jsx';
 import RolesPage from './pages/RolesPage.jsx';
 import SettingsPage from './pages/SettingsPage.jsx';
@@ -75,6 +77,20 @@ export const sections = [
         nav: true,
       },
       {
+        path: '/admin/team-leads',
+        label: 'Team Leads',
+        description: 'Which Team Lead belongs to which position.',
+        component: TeamLeadsPage,
+        nav: true,
+      },
+      {
+        path: '/admin/company-accounts',
+        label: 'Company Accounts',
+        description: 'Company email accounts: requested, created, handed over, disabled.',
+        component: CompanyAccountsPage,
+        nav: true,
+      },
+      {
         path: '/admin/lookups',
         label: 'Positions & Sources',
         description: 'The approved lists used in the Applied Position and Source dropdowns.',
@@ -105,6 +121,35 @@ export const sections = [
     ],
   },
 ];
+
+// Which permission shows a page in the sidebar (any one is enough). This only
+// tidies the menu: the server refuses every request the user may not make,
+// and a page opened by address still shows the server's refusal. A page not
+// listed here is always shown.
+const MENU_PERMISSIONS = [
+  ['/admin/company-accounts', ['company_accounts.manage']],
+  ['/admin/system-status', null],
+  ['/admin', ['admin.manage']],
+  ['/candidates', ['candidates.view', 'candidates.view_team']],
+  ['/interviews', ['candidates.view', 'candidates.view_team']],
+  ['/phone-interviews', ['candidates.view']],
+  ['/offers', ['candidates.view']],
+  ['/employees', ['candidates.view']],
+  ['/notifications', ['candidates.view']],
+  ['/email-templates', ['candidates.view']],
+  ['/email-log', ['candidates.view']],
+  ['/reports', ['candidates.view']],
+  ['/dashboard', ['candidates.view']],
+];
+
+export function isInMenuFor(path, permissions) {
+  if (!permissions) return true;
+  const rule = MENU_PERMISSIONS.find(
+    ([prefix]) => path === prefix || path.startsWith(`${prefix}/`),
+  );
+  if (!rule || rule[1] === null) return true;
+  return rule[1].some((code) => permissions.includes(code));
+}
 
 export function sectionTitle(section) {
   if (!section.title) return null;

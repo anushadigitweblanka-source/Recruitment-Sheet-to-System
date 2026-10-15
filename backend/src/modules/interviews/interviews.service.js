@@ -1,5 +1,6 @@
 import { inTransaction } from '../../db/transaction.js';
 import { recordAudit } from '../audit/audit.js';
+import { scheduleInterviewReminders } from '../notifications/scheduling.js';
 import { createOfferOnSelection } from '../offers/offers.service.js';
 import {
   changeStage,
@@ -167,6 +168,13 @@ export async function createInterview(pool, user, input) {
       entityId: id,
       newValues: { candidateId, ...values },
     });
+    // The reminders follow the interview time.
+    await scheduleInterviewReminders(db, {
+      candidateId,
+      interviewId: id,
+      scheduledAt: values.scheduledAt,
+      userId: user.id,
+    });
 
     const applied = await applyOutcome(db, {
       candidateId,
@@ -225,6 +233,15 @@ export async function editInterview(pool, user, id, input) {
         oldValues: before,
         newValues: changes,
       });
+      // A changed interview time replaces the reminders waiting to be sent.
+      if ('scheduledAt' in changes) {
+        await scheduleInterviewReminders(db, {
+          candidateId,
+          interviewId: id,
+          scheduledAt: changes.scheduledAt,
+          userId: user.id,
+        });
+      }
     }
 
     const applied = await applyOutcome(db, {

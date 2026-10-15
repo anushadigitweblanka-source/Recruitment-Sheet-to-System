@@ -19,7 +19,7 @@ Read-only view only — no database write of any kind. Live checks against the r
 
 **Database state shown (dev):** roles `main_user` (all 9 permissions, 3 users) and `test_accept_viewer` (`candidates.view`, 1 user — the leftover deactivated acceptance-test account documented earlier). Permissions: the 9 seeded in migration 001. Nothing was seeded, edited or deleted; **no migration was created**; `role_permissions` untouched.
 
-**Mentor decision still open:** the final role list (HR, Team Lead, Intern) and the editable permission structure. Editing/seeding stays blocked until then.
+> Historical validation note from before Stage 11. The role list and permissions are now implemented in migration 009 and enforced by the backend; see `stage11-mentor-blocked-readiness.md` for current status.
 
 Automated: 8 backend + 6 frontend tests green — 401/403 on both routes, exact-DB roles and permissions, user counts, safe-fields key set, no write routes (404 ×5, DB counts unchanged), single role + 404s, page render with exact roles, read-only notice, matrix assigned/unassigned cells with no controls, loading, empty, error with retry.
 

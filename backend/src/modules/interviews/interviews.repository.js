@@ -1,3 +1,5 @@
+import { teamScopeClause } from '../team-leads/teamScope.js';
+
 // All SQL for direct interviews. `db` is the pool, or a client inside a transaction.
 
 // API field name -> column name, for the fields a user can set.
@@ -27,6 +29,11 @@ function toCandidateSummary(row) {
     phone: row.phone,
     position: row.position_name ?? null,
     stage: { code: row.current_stage, name: row.stage_name },
+    // "Interview screen shows Company CV link"; CV pending is shown to HR and the Team Lead.
+    companyCvUrl: row.company_cv_url ?? null,
+    companyCvStatus: row.company_cv_status,
+    companyCvPending: ['sent', 'overdue'].includes(row.company_cv_status),
+    teamLead: row.team_lead_name ?? null,
   };
 }
 
@@ -45,13 +52,14 @@ const FROM_CANDIDATES = `
      WHERE x.candidate_id = c.id ORDER BY x.id DESC LIMIT 1
   ) ph ON true`;
 
-export async function listInterviews(db, filters) {
+export async function listInterviews(db, filters, scope = null) {
   const where = [`(i.id IS NOT NULL OR ps.current_stage = 'interview_scheduled')`];
   const params = [];
   const add = (value) => {
     params.push(value);
     return `$${params.length}`;
   };
+  if (scope) where.push(teamScopeClause(add(scope.userId)));
 
   if (filters.search) {
     const pattern = add(`%${escapeLike(filters.search)}%`);
@@ -72,6 +80,7 @@ export async function listInterviews(db, filters) {
   const offset = add((filters.page - 1) * filters.pageSize);
   const { rows } = await db.query(
     `SELECT c.id AS candidate_id, c.candidate_code, c.full_name, c.phone,
+            c.company_cv_url, c.company_cv_status,
             ps.current_stage, st.name AS stage_name,
             i.id AS interview_id, i.scheduled_at, i.attendance, i.interviewer_name,
             i.total_score, i.recommendation, i.decision,
@@ -90,6 +99,9 @@ export async function listInterviews(db, filters) {
         candidateCode: row.candidate_code,
         fullName: row.full_name,
         stage: { code: row.current_stage, name: row.stage_name },
+        companyCvUrl: row.company_cv_url,
+        companyCvStatus: row.company_cv_status,
+        companyCvPending: ['sent', 'overdue'].includes(row.company_cv_status),
       },
       interview: row.interview_id
         ? {
@@ -110,9 +122,10 @@ export async function listInterviews(db, filters) {
 }
 
 // One interview with its candidate and the reasons kept on the pipeline status.
-export async function findInterview(db, id) {
+export async function findInterview(db, id, scope = null) {
   const { rows } = await db.query(
     `SELECT i.*, c.candidate_code, c.full_name, c.phone, p.name AS position_name,
+            c.company_cv_url, c.company_cv_status, tl.name AS team_lead_name,
             ps.current_stage, st.name AS stage_name, ps.hold_reason, ps.reject_reason,
             to_char(ps.next_followup_date, 'YYYY-MM-DD') AS next_followup_date,
             uu.full_name AS updated_by_name
@@ -121,9 +134,10 @@ export async function findInterview(db, id) {
        JOIN pipeline_status ps ON ps.candidate_id = c.id
        JOIN pipeline_stages st ON st.code = ps.current_stage
        LEFT JOIN positions p ON p.id = c.position_id
+       LEFT JOIN team_leads tl ON tl.position_id = c.position_id AND tl.is_active
        LEFT JOIN users uu ON uu.id = i.updated_by
-      WHERE i.id = $1`,
-    [id],
+      WHERE i.id = $1${scope ? ` AND ${teamScopeClause('$2')}` : ''}`,
+    scope ? [id, scope.userId] : [id],
   );
   if (rows.length === 0) return null;
   const row = rows[0];

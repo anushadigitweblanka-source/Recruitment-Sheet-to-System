@@ -772,12 +772,11 @@ describe('audit log', () => {
 });
 
 describe('scope', () => {
-  test('no salary, team lead or company account table exists', async () => {
+  test('the employees table holds no salary or company account secret', async () => {
     const { rows } = await db.pool.query(
-      `SELECT table_name FROM information_schema.tables
-        WHERE table_schema = $1
-          AND (table_name ILIKE '%salary%'
-               OR table_name IN ('team_leads', 'company_accounts'))`,
+      `SELECT column_name FROM information_schema.columns
+        WHERE table_schema = $1 AND table_name = 'employees'
+          AND column_name ~* 'salary|password|secret'`,
       [db.schema],
     );
     assert.deepEqual(rows, []);
@@ -786,12 +785,21 @@ describe('scope', () => {
   test('the phase durations are editable settings with the values from the guide', async () => {
     const { rows } = await db.pool.query('SELECT key, value FROM settings ORDER BY key');
 
-    assert.deepEqual(Object.fromEntries(rows.map((row) => [row.key, row.value])), {
-      evaluation_days: '7',
-      junior_months: '9',
-      probation_max_extension_months: '1',
-      probation_months: '3',
-    });
+    const settings = Object.fromEntries(rows.map((row) => [row.key, row.value]));
+    assert.deepEqual(
+      {
+        evaluation_days: settings.evaluation_days,
+        junior_months: settings.junior_months,
+        probation_max_extension_months: settings.probation_max_extension_months,
+        probation_months: settings.probation_months,
+      },
+      {
+        evaluation_days: '7',
+        junior_months: '9',
+        probation_max_extension_months: '1',
+        probation_months: '3',
+      },
+    );
   });
 
   test('a changed setting is used for the next calculation', async () => {

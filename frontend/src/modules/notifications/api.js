@@ -20,3 +20,8 @@ export const updateTemplate = (id, data) => apiPatch(`/email-templates/${id}`, d
 
 export const listEmailLog = (filters) => apiGet(withQuery('/email-log', filters));
 export const resendEmail = (id) => apiPost(`/email-log/${id}/resend`);
+
+// Offer mails prepared by HR, waiting for the Main User.
+export const listApprovals = () => apiGet('/email-approvals');
+export const approveEmail = (id) => apiPost(`/email-log/${id}/approve`);
+export const rejectEmail = (id, reason) => apiPost(`/email-log/${id}/reject`, { reason });

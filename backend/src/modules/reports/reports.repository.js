@@ -1,5 +1,5 @@
 // All SQL for the reports. Read-only: nothing here writes, and no query ever
-// selects a credential column. Salary does not exist anywhere in the schema.
+// selects a credential column. Salary is stored separately and never selected here.
 //
 // Query basis per report:
 //   Candidate status  candidates joined with pipeline_status (one row per

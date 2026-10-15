@@ -36,6 +36,18 @@ export function loadConfig(env = process.env) {
     environment: env.NODE_ENV || 'development',
     host: env.HOST || '127.0.0.1',
     port: parsePort('PORT', env.PORT || '3000'),
+    // Base address used in links sent to candidates (the Company CV upload link).
+    publicBaseUrl: (env.PUBLIC_BASE_URL || `http://localhost:${env.PORT || '3000'}`).replace(
+      /\/+$/,
+      '',
+    ),
+    // 32-byte key (base64) that encrypts a stored company-account temporary
+    // password. Never written to code or logs. Without it no password can be
+    // stored or revealed.
+    companySecretKey: env.COMPANY_SECRET_KEY || null,
+    // Where the development storage adapter keeps uploaded files. This is a
+    // development convenience, not the production storage architecture.
+    devStorageDir: env.DEV_STORAGE_DIR || null,
     db: Object.freeze({
       host: env.DB_HOST,
       port: parsePort('DB_PORT', env.DB_PORT),

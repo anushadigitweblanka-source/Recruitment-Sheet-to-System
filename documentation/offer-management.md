@@ -10,7 +10,7 @@ Saving a direct interview with decision **Selected** — on first save or by a l
 2. moves the pipeline to **Selected** (through the shared pipeline helper: `pipeline_status`, `stage_history` and the audit log stay in step),
 3. creates **exactly one** offer row if the candidate has none.
 
-The automatic row holds only what is already known: the candidate and their **applied position**. Offer date, work mode, location, offer status, onboarding date and attendance stay empty until someone records them. **Nothing is invented, and no salary exists anywhere.** It is audited as `OFFER_CREATE` on the offer, with `details.source = "direct_interview"`.
+The automatic row holds only what is already known: the candidate and their **applied position**. Offer date, work mode, location, offer status, onboarding date and attendance stay empty until someone records them. **Nothing is invented.** Salary is held separately in the Main User-only `offer_salary` table. The offer is audited as `OFFER_CREATE` with `details.source = "direct_interview"`.
 
 If any step is refused, the whole save rolls back — an offer can never exist without its interview decision, or the other way round.
 

@@ -17,7 +17,7 @@ import {
   attendedLabel,
   workModeLabel,
 } from './fields.js';
-import SalaryPendingNotice from './SalaryPendingNotice.jsx';
+import SalaryPanel from './SalaryPanel.jsx';
 
 const FIELDS = [
   { name: 'position', label: 'Position Offered' },
@@ -103,7 +103,7 @@ export default function OfferDetailsPage({ page }) {
         </>
       )}
 
-      <SalaryPendingNotice />
+      {data && <SalaryPanel candidateId={data.candidate.id} />}
 
       <p className="back-link">
         <Link to="/offers">Back to the offer list</Link>

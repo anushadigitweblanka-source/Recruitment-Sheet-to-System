@@ -54,7 +54,7 @@ describe('password hashing', () => {
 });
 
 describe('migrations', () => {
-  test('create exactly the identity and candidate tables, and nothing for later modules', async () => {
+  test('create exactly the tables of the modules built so far', async () => {
     const { rows } = await db.pool.query(
       'SELECT tablename FROM pg_tables WHERE schemaname = $1 ORDER BY tablename',
       [db.schema],
@@ -65,11 +65,15 @@ describe('migrations', () => {
       [
         'audit_log',
         'candidates',
+        'company_account_secrets',
+        'company_accounts',
+        'company_cv_links',
         'email_log',
         'email_templates',
         'employees',
         'interviews',
         'notifications',
+        'offer_salary',
         'offers',
         'permissions',
         'phase_history',
@@ -83,9 +87,11 @@ describe('migrations', () => {
         'settings',
         'sources',
         'stage_history',
+        'team_leads',
         'user_credentials',
         'user_sessions',
         'users',
+        'weekly_report_runs',
       ],
     );
   });

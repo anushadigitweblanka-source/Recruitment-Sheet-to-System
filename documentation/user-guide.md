@@ -95,7 +95,7 @@ A plain-language guide to every page in the application, written for someone usi
 - On the joining day, record **Attended**. **Attended = Yes creates the employee record automatically**, with the 7-day evaluation already started. Attended can only be recorded once the offer is Accepted and the joining date is set.
 - A Selected candidate with no applied position shows as _waiting_: create their offer by hand with **Create Offer** (you must choose the position).
 
-**Important validation:** the offered position must be an approved, in-use position. **Work Mode** currently allows only `office` — the full list is a pending mentor decision. There is **no salary field anywhere** — salary handling is not approved yet and nothing about it exists.
+**Important validation:** the offered position must be an approved, in-use position. **Work Mode** currently allows only `office`; see the open business decisions in the approval checklist. Salary is recorded separately on the offer details page and is visible only to the Main User.
 
 **What not to do:** once the employee record exists, don't try to change the offer's status, joining date or attendance — the employee's lifecycle dates are calculated from them, so they are locked. Other offer fields can still be corrected.
 
@@ -118,7 +118,9 @@ A plain-language guide to every page in the application, written for someone usi
 
 **What it does:** the reminder schedule — what the system plans to send, when, and whether it went.
 
-**What it does _not_ do yet:** reminders are **not created automatically** — who receives which reminder is a pending mentor decision, so automatic creation is off. The sending machinery itself is built and tested: a job runs every 15 minutes and sends whatever is due (send time = deadline minus 24 hours).
+**How reminders arise:** they are created automatically. A phase (evaluation, probation, junior) creates a reminder due at its end date 17:30 Asia/Colombo, to HR and the mentor/manager (the candidate too for evaluation, if Settings says so). A direct interview creates an interview reminder (candidate and Team Lead, HR copied) and, if the Company CV has not arrived, a CV reminder. A joining date creates a joining reminder. Each is sent 24 hours before its deadline by a job that runs every 15 minutes. A changed date cancels the old reminder and creates a new one. A reminder that cannot be sent because a required address or Team Lead is missing is shown as **Failed** with the reason.
+
+The weekly report goes out every Monday at 08:00 (Asia/Colombo) for the previous Monday–Sunday week, to the addresses in Settings.
 
 **Important:** no real email leaves this application. There is no approved mail provider; sending runs in development mode, where every "send" is recorded in the Email Log but nothing is delivered. The screens say so.
 
@@ -128,7 +130,29 @@ A plain-language guide to every page in the application, written for someone usi
 
 **How to use it:** write the subject and body; templates can be active or inactive. The same template is never sent twice to the same candidate unless someone explicitly presses Resend.
 
-**What not to do:** don't rely on a fixed list of template types — the final list is a pending mentor decision; today the type is a free label.
+**Mail types:** the task guide defines them; no other can be created: direct interview invitation, Team Lead summary, joining/onboarding, interview reminder, joining reminder, phase-end reminder, Rejected / On Hold status mail (plus the Company CV reminder). Placeholders: `{name} {position} {date} {time} {venue} {team_lead}`.
+
+**Send mode:** Auto (the system sends) or One-click (you preview and send). Joining/onboarding and Rejected / On Hold are One-click only; reminders are Auto only; invitation and Team Lead summary are your choice.
+
+**Offer mails need the Main User's approval.** When HR sends the joining / onboarding mail it is only _prepared_: it waits on the **Email Log** page under _Offer mails waiting for the Main User_. The Main User reads it and presses **Approve and send** or **Reject**. When the Main User sends it, that is the approval. Salary never appears in the mail.
+
+**Sending a one-off mail:** open the candidate's page → _Send an email_ → pick the type → _Preview_ → edit this one copy if needed → _Send_. It is blocked when the candidate's email, the interview date or the Team Lead is missing, and cannot be sent twice unless you press _Resend_.
+
+## Salary (Main User only)
+
+Salary is recorded on the offer's details page, in its own panel, by the Main User. HR, Team Lead and Intern / Dev never see it. Every view and change is written to the audit log (without the amount). It never appears in lists, reports, exports, mail or notifications.
+
+## Team Leads (Administration)
+
+**Administration → Team Leads** maps each position to its Team Lead (name, email and optionally the Team Lead's login). Invitations, the Team Lead summary and interview reminders go to the Team Lead of the candidate's applied position. A Team Lead who signs in sees only their own team's candidates and interview scores, and can add interview comments and scores for them.
+
+## Company CV
+
+The interview invitation carries the Company CV template (a link kept in **Settings → Company CV template link**, replaceable without a code change) and a link unique to the candidate. The candidate uploads the filled CV; the status becomes **Received**. If it has not arrived 24 hours before the interview the candidate is reminded and the candidate shows as **CV pending** to HR and the Team Lead. The interview screen shows the Company CV link. Statuses: Not sent, Sent, Received, Overdue.
+
+## Company Accounts (Administration)
+
+Marking an offer **Attended = Yes** requests a company account. IT marks it **Created** with the company email; HR marks it **Handed over**. When an employee is discontinued or terminated a Disable action is recorded and the account becomes **Disabled** once completed. The employee's profile shows the account status. The Main User alone can keep, reveal, reset or delete a temporary password: it is masked, revealed only after re-entering your own login password, shown for 30 seconds, and every reveal, edit and reset is logged.
 
 ## Reports
 
@@ -136,7 +160,7 @@ A plain-language guide to every page in the application, written for someone usi
 
 **How to use it:** open Reports and switch tabs. Each tab has its own filters (stage, position, source, date ranges). All dates follow the office calendar (Asia/Colombo). The Weekly tab shows a Monday-to-Sunday week — by default the last completed one.
 
-**Known limitation (documented, not a bug):** "Applications this week" counts candidates _added_ that week, because the sheet's true application date needs an approved migration that doesn't exist yet. The **scheduled weekly email is not built** — its recipients are a pending mentor decision; the weekly tab is the on-screen version.
+**Known limitation (documented, not a bug):** "Applications this week" counts candidates _added_ that week, because the sheet's true application date needs an `applied_on` migration. The weekly email runs Monday at 08:00 Asia/Colombo when `weekly_report_recipients` is configured in Settings.
 
 ## Excel / CSV / PDF exports
 
@@ -168,9 +192,11 @@ A plain-language guide to every page in the application, written for someone usi
 
 **What it does:** a **read-only** view of the roles in the database, the permissions each one holds (as a matrix), and how many users have each role.
 
-**Why read-only:** the final role list (HR, Team Lead, Intern) and the editable permission structure are a pending mentor decision. Until approved, nothing here can be created, edited or assigned — the page shows exactly what exists, and the backend has no editing routes at all.
+**Why read-only:** this page is for reviewing the configured roles and permission matrix. Role and permission assignments are enforced by the backend and are not edited from this screen.
 
 ## Settings
+
+_(Also holds the mail automation settings: HR and manager addresses, weekly report recipients, interview venue, and the Company CV template link.)_
 
 **What it does:** the editable phase durations: evaluation days (7), probation months (3), maximum probation extension (1 month), junior months (9 — stored, but not yet used to calculate the junior end date; see Employee Lifecycle).
 

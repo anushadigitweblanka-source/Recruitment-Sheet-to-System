@@ -1,5 +1,7 @@
 # Module 6 – Email Notifications (backend)
 
+> **Stage 11 update:** This README records the earlier Module 6 implementation and is retained as a historical design snapshot. Stage 11 now creates reminders automatically, adds Team Lead mappings, supports approved template types and send modes, one-off mail preview/send/resend, Main User offer-mail approval, Company CV reminders, and weekly report delivery. See `validation/stage11-mentor-blocked-readiness.md` for current behavior and tests. The production mail provider remains a separate operational choice; development mode sends no real email.
+
 **Implemented:** the notification schedule, editable email templates, the email log, the 15-minute sending job, duplicate-send prevention, explicit resend, and a development mail adapter. **No real email leaves this application:** no mail provider has been approved and no mail credentials exist.
 
 | Route                            | Permission             | Purpose                                     |

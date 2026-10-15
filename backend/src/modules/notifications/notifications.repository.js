@@ -35,7 +35,7 @@ export async function findTemplate(db, id) {
 // The active template the scheduler fills in for one notification type.
 export async function findActiveTemplateByType(db, type) {
   const { rows } = await db.query(
-    `SELECT id, type, subject, body FROM email_templates
+    `SELECT id, type, subject, body, send_mode, is_active, updated_at FROM email_templates
       WHERE type = $1 AND is_active = true`,
     [type],
   );
@@ -83,6 +83,7 @@ const toNotification = (row) => ({
   sendAt: row.send_at,
   sentAt: row.sent_at,
   recipients: row.recipients,
+  ccRecipients: row.cc_recipients,
   status: row.status,
   attempts: row.attempts,
   lastError: row.last_error,
@@ -90,7 +91,8 @@ const toNotification = (row) => ({
 
 const NOTIFICATION_SELECT = `
   SELECT n.id, n.candidate_id, c.candidate_code, c.full_name, n.type,
-         n.due_at, n.send_at, n.sent_at, n.recipients, n.status, n.attempts, n.last_error
+         n.due_at, n.send_at, n.sent_at, n.recipients, n.cc_recipients, n.status, n.attempts,
+         n.last_error
     FROM notifications n
     JOIN candidates c ON c.id = n.candidate_id`;
 
@@ -155,7 +157,7 @@ export async function listDueNotificationIds(db) {
 export async function claimDueNotification(db, id) {
   const { rows } = await db.query(
     `SELECT n.id, n.candidate_id, c.candidate_code, c.full_name, n.type, n.due_at, n.send_at,
-            n.recipients, n.attempts
+            n.recipients, n.cc_recipients, n.attempts
        FROM notifications n
        JOIN candidates c ON c.id = n.candidate_id
       WHERE n.id = $1 AND n.status = 'pending' AND n.sent_at IS NULL AND n.send_at <= now()
@@ -173,6 +175,7 @@ export async function claimDueNotification(db, id) {
     dueAt: row.due_at,
     sendAt: row.send_at,
     recipients: row.recipients,
+    ccRecipients: row.cc_recipients,
     attempts: Number(row.attempts),
   };
 }
@@ -207,6 +210,7 @@ const toLogEntry = (row) => ({
   template: { id: Number(row.template_id), type: row.template_type },
   notificationId: row.notification_id ? Number(row.notification_id) : null,
   toAddresses: row.to_addresses,
+  ccAddresses: row.cc_addresses,
   subjectSent: row.subject_sent,
   status: row.status,
   error: row.error,
@@ -218,7 +222,7 @@ const toLogEntry = (row) => ({
 
 const LOG_SELECT = `
   SELECT l.id, l.candidate_id AS log_candidate_id, c.candidate_code, c.full_name,
-         l.template_id, t.type AS template_type, l.notification_id, l.to_addresses,
+         l.template_id, t.type AS template_type, l.notification_id, l.to_addresses, l.cc_addresses,
          l.subject_sent, l.status, l.error, l.is_resend, u.full_name AS sent_by_name,
          l.sent_at, l.created_at
     FROM email_log l

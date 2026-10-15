@@ -216,9 +216,8 @@ export default function UsersPage({ page }) {
       <PageHeader title={page.label} description={page.description} />
 
       <Notice tone="info" title="Roles">
-        Only the roles that exist in the database can be assigned. The final role list (HR, Team
-        Lead, Intern) is still waiting for the mentor&apos;s confirmation, so new roles are not
-        invented here. Users are never deleted; deactivation keeps the audit history intact.
+        Only configured roles can be assigned. Stage 11 provides the Main User, HR, Team Lead, and
+        Intern / Dev roles. Users are never deleted; deactivation keeps the audit history intact.
       </Notice>
 
       {message && (

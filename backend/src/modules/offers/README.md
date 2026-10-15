@@ -1,5 +1,7 @@
 # Module 4 – Offer Management (backend)
 
+> **Stage 11 update:** This README's original implementation notes below predate later work. Salary is implemented in the separate `offer_salary` table with Main User-only access and audit logging; automatic offer creation is implemented; see `validation/stage11-mentor-blocked-readiness.md` and `validation/final-acceptance-checklist.md` for current status. Do not use the historical “MENTOR CONFIRMATION REQUIRED” section as current implementation status.
+
 **Implemented:** listing, creating, viewing and changing offers, the joining (onboarding) date and attendance, and the stage changes they cause.
 
 | Route                   | Permission        | Purpose                                              |

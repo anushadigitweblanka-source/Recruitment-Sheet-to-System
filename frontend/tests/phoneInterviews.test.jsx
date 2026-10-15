@@ -356,7 +356,10 @@ describe('phone interview form', () => {
   test('the interview date is available only when the result is Selected', async () => {
     fakeBackend({ entries: [entry(1)] });
     open('/phone-interviews/1/edit');
-    const date = await screen.findByLabelText('Interview Date/Time');
+    // Wait for the form's starting values to be filled in as well; changing a
+    // control before that step can be overwritten by it.
+    await formReady();
+    const date = screen.getByLabelText('Interview Date/Time');
 
     expect(date.disabled).toBe(true);
     fireEvent.change(screen.getByLabelText('Result'), { target: { value: 'selected' } });

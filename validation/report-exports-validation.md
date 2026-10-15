@@ -15,4 +15,4 @@ Live verification against the running development app, fictional EXP-TEST-* data
 
 Automated: 12 backend + 5 frontend export tests green; full suite **392 backend + 322 frontend = 714 passing** (verified stable across six consecutive backend runs; one transient failure occurred only while the dev server, importer tests and schedulers shared the database during a combined run). Build, lint and Prettier clean. New dependency: `pdfkit` (backend).
 
-Not in scope (by design): the scheduled weekly email (mentor-blocked recipients), exports of reports that do not exist, any salary field.
+> Historical validation note from before Stage 11. Weekly email is implemented and uses the `weekly_report_recipients` setting. Reports do not export salary values. Current status is documented in `reports.md` and `stage11-mentor-blocked-readiness.md`.

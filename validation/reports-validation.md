@@ -17,4 +17,4 @@ Live verification against the running development app, fictional RPT-TEST-* data
 
 Automated: 11 backend + 5 frontend report tests green; full suite **380 backend + 317 frontend = 697 passing**; build/lint/format clean. Week-boundary correctness (Colombo Mon 00:10 / Sun 23:50 in, previous Sunday 23:50 out; next-week movement excluded) is covered by the automated tests on an isolated fixture week.
 
-Not validated here (not built / mentor-blocked, by design): exports, scheduled weekly email (recipients undecided), true application-date figures (needs the `applied_on` migration).
+> Historical validation note from before the export and Stage 11 work. Exports and scheduled weekly email are implemented; weekly Applications still uses candidate creation date until an `applied_on` migration is approved. See `report-exports-validation.md` and `stage11-mentor-blocked-readiness.md` for current status.

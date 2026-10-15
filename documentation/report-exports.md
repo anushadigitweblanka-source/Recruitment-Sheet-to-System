@@ -18,7 +18,7 @@ Filenames: `<report>-YYYY-MM-DD.<ext>` (Asia/Colombo date) via `Content-Disposit
 
 Exactly the fields the screen shows, nothing more: candidate-status (Candidate ID, Name, Position, Source, Current Stage, Stage Since, Added); funnel (Stage, Candidates There Now, Entered During Period); sources/positions (name, Candidates, In Progress, Joined, Rejected, On Hold, No Show/No Response); weekly (metric/value rows: applications, offers sent/accepted, joined, rejected, per-stage movements, with the week range stated); onboarding (Candidate ID, Employee, Position, Join Date, Track, Current Phase, Status); exit (Candidate ID, Employee, Position, Join Date, Exit Type, Exit Date, Reason).
 
-**Never included:** salary (none exists), credentials, internal numeric ids, team-lead fields.
+**Never included:** salary values, credentials, internal numeric ids, team-lead fields.
 
 ## Frontend
 
@@ -26,7 +26,7 @@ Each report tab has Export Excel / Export CSV / Export PDF buttons that send the
 
 ## Known limitations
 
-- The scheduled **weekly email is still not implemented** (recipients are a mentor decision); the weekly export is the on-screen dataset as a file.
+- The weekly email is implemented by Stage 11. Configure `weekly_report_recipients` before delivery; the weekly export remains available independently.
 - Weekly "Applications" remains the candidates-added proxy until `applied_on` is approved.
 - Generated files are never committed to the repository.
 

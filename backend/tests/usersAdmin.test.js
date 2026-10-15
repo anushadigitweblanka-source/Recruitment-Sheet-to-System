@@ -100,9 +100,9 @@ describe('listing', () => {
     const res = await api('/admin/users/roles', { cookie: admin.cookie });
     assert.deepEqual(
       res.body.items.map((role) => role.code).sort(),
-      ['main_user', 'outsider', 'viewer'].filter(
-        (code) => code !== 'outsider', // this file seeds only viewer
-      ),
+      // The guide's four roles (Main User, HR, Team Lead, Intern / Dev) plus
+      // the viewer this file seeds.
+      ['hr', 'intern_dev', 'main_user', 'team_lead', 'viewer'],
     );
   });
 });

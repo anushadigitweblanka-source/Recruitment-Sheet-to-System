@@ -1,6 +1,4 @@
-// Salary functionality pending mentor approval and authorization design.
-// No salary field belongs in this file: the proposal keeps salary in its own
-// restricted table, readable only with a dedicated permission.
+// Salary stays out of offer list fields and uses its own restricted table.
 
 export const OFFER_COLUMNS = [
   { key: 'candidate', label: 'Candidate' },

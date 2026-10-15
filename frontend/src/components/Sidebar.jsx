@@ -1,8 +1,12 @@
 import { Link, useLocation } from 'react-router';
-import { findPage, sections } from '../navigation.js';
+import { useContext } from 'react';
+import { AuthContext } from '../auth/AuthContext.jsx';
+import { findPage, isInMenuFor, sections } from '../navigation.js';
 
 export default function Sidebar({ isOpen, onLogout, isLoggingOut }) {
   const { pathname } = useLocation();
+  // Without a signed-in user's permissions the menu is not narrowed.
+  const permissions = useContext(AuthContext)?.user?.permissions;
   const currentPage = findPage(pathname);
   // A details or form page highlights the list it belongs to.
   const activePath = currentPage?.navParent ?? currentPage?.path;
@@ -11,7 +15,10 @@ export default function Sidebar({ isOpen, onLogout, isLoggingOut }) {
     <aside id="app-sidebar" className={`sidebar${isOpen ? ' sidebar--open' : ''}`}>
       <nav aria-label="Main">
         {sections.map((section) => {
-          const links = section.pages.filter((page) => page.nav);
+          const links = section.pages.filter(
+            (page) => page.nav && isInMenuFor(page.path, permissions),
+          );
+          if (links.length === 0) return null;
           return (
             <div key={links[0].path} className="sidebar__section">
               {section.title && <p className="sidebar__heading">{section.title}</p>}

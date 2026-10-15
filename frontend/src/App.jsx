@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router';
 import RequireAuth from './auth/RequireAuth.jsx';
 import AppLayout from './layouts/AppLayout.jsx';
 import { allPages } from './navigation.js';
+import CompanyCvUploadPage from './pages/CompanyCvUploadPage.jsx';
 import LoginPage from './pages/LoginPage.jsx';
 import NotFoundPage from './pages/NotFoundPage.jsx';
 
@@ -14,6 +15,8 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      {/* A candidate has no login: the link in the invitation is the credential. */}
+      <Route path="/company-cv/upload/:token" element={<CompanyCvUploadPage />} />
 
       <Route element={<RequireAuth />}>
         <Route element={<AppLayout />}>

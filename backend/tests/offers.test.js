@@ -856,7 +856,7 @@ describe('audit log', () => {
 });
 
 describe('salary is not part of this module', () => {
-  test('the offers table has no salary column, and there is no salary table', async () => {
+  test('the offers table has no salary column, and salary is only in offer_salary', async () => {
     const columns = await db.pool.query(
       `SELECT column_name FROM information_schema.columns
         WHERE table_schema = $1 AND table_name = 'offers'`,
@@ -872,9 +872,11 @@ describe('salary is not part of this module', () => {
       columns.rows.filter((row) => /salary/i.test(row.column_name)),
       [],
     );
+    // Salary has its own table, linked to the candidate (offer_salary), and
+    // no other table holds it.
     assert.deepEqual(
-      tables.rows.filter((row) => /salary/i.test(row.table_name)),
-      [],
+      tables.rows.filter((row) => /salary/i.test(row.table_name)).map((row) => row.table_name),
+      ['offer_salary'],
     );
   });
 
@@ -908,11 +910,10 @@ describe('salary is not part of this module', () => {
     assert.doesNotMatch(rows[0].stored, /salary|123456/i);
   });
 
-  test('the offers table exists, and no team lead or company account table', async () => {
+  test('the offers table exists', async () => {
     const { rows } = await db.pool.query(
       `SELECT table_name FROM information_schema.tables
-        WHERE table_schema = $1
-          AND table_name IN ('offers', 'team_leads', 'company_accounts')`,
+        WHERE table_schema = $1 AND table_name = 'offers'`,
       [db.schema],
     );
 

@@ -826,6 +826,9 @@ describe('listing', () => {
     assert.deepEqual(Object.keys(item).sort(), ['candidate', 'interview', 'plannedAt']);
     assert.deepEqual(Object.keys(item.candidate).sort(), [
       'candidateCode',
+      'companyCvPending',
+      'companyCvStatus',
+      'companyCvUrl',
       'fullName',
       'id',
       'stage',

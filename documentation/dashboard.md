@@ -17,7 +17,7 @@ The dashboard shows live figures read from the database on every page load. Noth
 
 ## Upcoming interviews
 
-Direct interviews with `scheduled_at >= now()`, nearest first, limited to 10. Fields exposed: candidate code and name, position, date/time, interviewer, current stage — nothing else (no salary anywhere in the schema, no credentials ever selected; a test asserts the whole answer contains none of salary/password/hash/token/credential).
+Direct interviews with `scheduled_at >= now()`, nearest first, limited to 10. Fields exposed: candidate code and name, position, date/time, interviewer, current stage — nothing else (salary is stored separately and never selected here; no credentials are selected, covered by a response scan test).
 
 ## Upcoming deadlines
 

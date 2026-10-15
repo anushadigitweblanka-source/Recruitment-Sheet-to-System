@@ -34,6 +34,6 @@ Sessions live in `user_sessions` (token hashes only); both deactivation and pass
 
 `frontend/src/pages/UsersPage.jsx`: user table (Name, Email, Role, Status badge, Last sign-in, Actions), Create User form (masked password, cleared from state immediately after save, server validation shown per field), confirm dialog before deactivate/reactivate, Reset-password form (new + confirm, masked, cleared after submit, never shows any existing value). States: loading, forbidden, empty, error-with-retry, success notices.
 
-## Current role limitation
+## Roles
 
-Only the roles present in the database are offered — today `main_user` (plus any local test role). The final role list (HR, Team Lead, Intern) is mentor decision 7; **no role is invented or seeded here**, and the page says so in an info notice.
+The configured Main User, HR, Team Lead, and Intern / Dev roles are available according to the Stage 11 role setup. User administration only offers roles returned by the backend; access is enforced by each role's permissions.

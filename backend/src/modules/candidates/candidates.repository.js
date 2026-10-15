@@ -1,3 +1,5 @@
+import { teamScopeClause } from '../team-leads/teamScope.js';
+
 // All SQL for candidates. `db` is the pool, or a client inside a transaction.
 
 // API field name -> column name, for the fields a user can edit.
@@ -54,6 +56,8 @@ function toCandidate(row) {
     cvUrl: row.cv_url,
     companyCvUrl: row.company_cv_url,
     companyCvStatus: row.company_cv_status,
+    // Requested but not received: shown to HR and the Team Lead.
+    companyCvPending: ['sent', 'overdue'].includes(row.company_cv_status),
     hrComment: row.hr_comment,
     createdBy: row.created_by_name,
     updatedAt: row.updated_at,
@@ -71,13 +75,16 @@ const FROM_CANDIDATES = `
 // Makes text safe to use inside a LIKE pattern.
 const escapeLike = (text) => text.replace(/[\\%_]/g, '\\$&');
 
-export async function listCandidates(db, filters) {
+export async function listCandidates(db, filters, scope = null) {
   const where = [];
   const params = [];
   const add = (value) => {
     params.push(value);
     return `$${params.length}`;
   };
+
+  // A Team Lead sees only the candidates of their own team.
+  if (scope) where.push(teamScopeClause(add(scope.userId)));
 
   if (filters.search) {
     const pattern = add(`%${escapeLike(filters.search)}%`);
@@ -121,7 +128,7 @@ export async function listCandidates(db, filters) {
   return { items: rows.map(toListItem), total: total.rows[0].total };
 }
 
-export async function findCandidate(db, id) {
+export async function findCandidate(db, id, scope = null) {
   const { rows } = await db.query(
     `SELECT c.*, p.name AS position_name, s.name AS source_name,
             ps.current_stage, st.name AS stage_name,
@@ -129,8 +136,8 @@ export async function findCandidate(db, id) {
      ${FROM_CANDIDATES}
      LEFT JOIN users cu ON cu.id = c.created_by
      LEFT JOIN users uu ON uu.id = c.updated_by
-     WHERE c.id = $1`,
-    [id],
+     WHERE c.id = $1${scope ? ` AND ${teamScopeClause('$2')}` : ''}`,
+    scope ? [id, scope.userId] : [id],
   );
   return rows[0] ? toCandidate(rows[0]) : null;
 }

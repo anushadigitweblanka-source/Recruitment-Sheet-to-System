@@ -1,5 +1,6 @@
 import { inTransaction } from '../../db/transaction.js';
 import { recordAudit } from '../audit/audit.js';
+import { scheduleJoiningReminder } from '../notifications/scheduling.js';
 import { createEmployeeOnJoin, employeeIdForCandidate } from '../employees/employees.service.js';
 import { changeStage, lockPipeline } from '../pipeline/pipeline.js';
 import {
@@ -87,8 +88,8 @@ const refuse = (message) => Object.assign(new Error(message), { refusedResult: t
 // transaction, after the stage change to "Selected"; a second call never adds
 // a second offer. The row holds only what is known: the candidate and their
 // applied position. Offer date, work mode, location, status, onboarding date
-// and attendance stay empty until someone records them - nothing is invented,
-// and no salary exists anywhere. A candidate without an applied position gets
+// and attendance stay empty until someone records them - nothing is invented.
+// Salary is held separately in offer_salary. A candidate without an applied position gets
 // no automatic row (offers.position_id cannot be empty, and choosing a
 // position for them would be inventing data): they stay at "Selected" in the
 // offer tracker until an offer is created by hand.
@@ -163,6 +164,14 @@ export async function createOffer(pool, user, input) {
       entityId: id,
       newValues: { candidateId, ...values },
     });
+    if (values.onboardingDate) {
+      await scheduleJoiningReminder(db, {
+        candidateId,
+        offerId: id,
+        onboardingDate: values.onboardingDate,
+        userId: user.id,
+      });
+    }
 
     const applied = await applyOutcome(db, {
       candidateId,
@@ -233,6 +242,15 @@ export async function editOffer(pool, user, id, input) {
         oldValues: before,
         newValues: changes,
       });
+      // A changed joining date replaces the reminder waiting to be sent.
+      if ('onboardingDate' in changes) {
+        await scheduleJoiningReminder(db, {
+          candidateId,
+          offerId: id,
+          onboardingDate: changes.onboardingDate,
+          userId: user.id,
+        });
+      }
     }
 
     const applied = await applyOutcome(db, {

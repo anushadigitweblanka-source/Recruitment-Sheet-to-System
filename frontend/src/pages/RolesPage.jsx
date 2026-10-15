@@ -7,9 +7,8 @@ import PageHeader from '../components/PageHeader.jsx';
 import StatusBadge from '../components/StatusBadge.jsx';
 import { useApi } from '../hooks/useApi.js';
 
-// Read-only roles and permissions view. The final role list (HR, Team Lead,
-// Intern) and the editable permission structure are still a mentor decision,
-// so this page shows exactly what exists in the database and changes nothing.
+// Read-only view of configured roles and permissions. Stage 11 defines the
+// role model; editing role assignments is outside this page's scope.
 
 const ROLE_COLUMNS = [
   { key: 'name', label: 'Role' },
@@ -66,10 +65,8 @@ export default function RolesPage({ page }) {
       <PageHeader title={page.label} description={page.description} />
 
       <Notice tone="info" title="Read-only">
-        Role definitions are read-only until the final role and permission structure is approved.
-        The roles below are exactly the rows in the database; the final list (HR, Team Lead, Intern)
-        is still waiting for the mentor&apos;s confirmation, so nothing can be created, edited or
-        assigned here yet.
+        The role list and permissions below are configured for this system. This page is read-only;
+        role assignments are managed outside this screen.
       </Notice>
 
       {result.status === 'loading' && <LoadingState message="Loading roles…" />}

@@ -156,6 +156,8 @@ describe('read-only', () => {
       ['DELETE', `/admin/roles/${mainRoleId}`],
       ['POST', `/admin/roles/${mainRoleId}/permissions`, { code: 'salary.edit' }],
     ];
+    const rolesBefore = await db.pool.query('SELECT count(*)::int AS n FROM roles');
+    const permsBefore = await db.pool.query('SELECT count(*)::int AS n FROM role_permissions');
     for (const [method, path, body] of attempts) {
       const res = await api(path, { method, body, cookie: admin.cookie });
       assert.equal(res.status, 404, `${method} ${path} must not exist`);
@@ -163,7 +165,7 @@ describe('read-only', () => {
 
     const roles = await db.pool.query('SELECT count(*)::int AS n FROM roles');
     const rolePerms = await db.pool.query('SELECT count(*)::int AS n FROM role_permissions');
-    assert.equal(roles.rows[0].n, 2, 'no role was created');
-    assert.equal(rolePerms.rows[0].n, 10, 'role_permissions unchanged');
+    assert.equal(roles.rows[0].n, rolesBefore.rows[0].n, 'no role was created');
+    assert.equal(rolePerms.rows[0].n, permsBefore.rows[0].n, 'role_permissions unchanged');
   });
 });

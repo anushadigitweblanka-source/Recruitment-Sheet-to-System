@@ -1,6 +1,6 @@
 // All SQL for offers. `db` is the pool, or a client inside a transaction.
 //
-// Salary functionality pending mentor approval and authorization design.
+// Salary is managed separately by the salary module.
 // No query here reads or writes a salary.
 
 // API field name -> column name, for the fields a user can set.

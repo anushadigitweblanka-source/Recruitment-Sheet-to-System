@@ -23,8 +23,7 @@ import {
 } from './api.js';
 
 // Every figure on this page comes from /api/reports/*; nothing is hardcoded.
-// Exports and the scheduled weekly email are later steps; the weekly tab is
-// the on-screen version only.
+// The weekly report is also sent by the Stage 11 scheduler when recipients are set.
 
 const TABS = [
   ['status', 'Candidate Status'],
@@ -289,11 +288,11 @@ function WeeklyReport() {
 
   return (
     <>
-      <Notice tone="info" title="On-screen figures only">
+      <Notice tone="info" title="Weekly report">
         The office week runs Monday to Sunday (Asia/Colombo); the default is the last completed
         week. “Applications” counts candidates added in the week — the workbook’s own application
-        date is not in the system yet. Scheduled sending of this report waits for the recipient
-        rules (mentor decision).
+        date is not in the system yet. Scheduled email delivery runs Monday at 08:00 when recipients
+        are configured in Settings.
       </Notice>
       <FilterBar label="Weekly report filters">
         <FormField

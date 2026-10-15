@@ -1,6 +1,16 @@
 import { inTransaction } from '../../db/transaction.js';
 import { recordAudit } from '../audit/audit.js';
 import {
+  findAccountForCandidate,
+  requestAccountDisable,
+  requestCompanyAccount,
+} from '../company-accounts/companyAccounts.service.js';
+import {
+  cancelAllForCandidate,
+  cancelPhaseReminders,
+  schedulePhaseReminder,
+} from '../notifications/scheduling.js';
+import {
   closePhase,
   employeeIdForCandidate,
   findEmployee,
@@ -34,7 +44,11 @@ const invalid = (fields) => ({ ok: false, reason: 'validation', fields });
 // The phase that follows a pass. Senior has no gate, so nothing follows it.
 const NEXT_PHASE = { evaluation: 'probation', probation: 'junior', junior: 'senior' };
 
-async function startPhase(db, { employeeId, phase, startDate, endDate, isExtension }, user) {
+async function startPhase(
+  db,
+  { employeeId, candidateId, phase, startDate, endDate, isExtension },
+  user,
+) {
   const id = await insertPhase(db, { employeeId, phase, startDate, endDate, isExtension }, user.id);
   await setCurrentPhase(db, employeeId, { phase, startDate, endDate }, user.id);
   await recordAudit(db, {
@@ -43,6 +57,14 @@ async function startPhase(db, { employeeId, phase, startDate, endDate, isExtensi
     entityType: 'phase_history',
     entityId: id,
     newValues: { employeeId, phase, startDate, endDate, isExtension: Boolean(isExtension) },
+  });
+  // The guide: create the notification when the phase row is created.
+  await schedulePhaseReminder(db, {
+    candidateId,
+    phaseHistoryId: id,
+    phase,
+    endDate,
+    userId: user.id,
   });
   return id;
 }
@@ -66,7 +88,13 @@ export async function createEmployeeOnJoin(db, { candidateId, joinDate, user }) 
     newValues: { candidateId, joinDate, currentPhase: 'evaluation' },
     details: { source: 'offer_attended' },
   });
-  await startPhase(db, { employeeId: id, phase: 'evaluation', startDate: joinDate, endDate }, user);
+  await startPhase(
+    db,
+    { employeeId: id, candidateId, phase: 'evaluation', startDate: joinDate, endDate },
+    user,
+  );
+  // The guide: Attended = Yes leads to Account Requested.
+  await requestCompanyAccount(db, { candidateId, employeeId: id, userId: user.id });
   return id;
 }
 
@@ -79,6 +107,13 @@ async function extensionLatestEnd(db, employeeId, settings) {
   return originalEnd
     ? monthsPhaseEnd(nextPhaseStart(originalEnd), settings.probationMaxExtensionMonths)
     : null;
+}
+
+// An employee who leaves needs none of the reminders still waiting, and the
+// company account gets its Disable action.
+async function leaveHooks(db, { candidateId, user, reason }) {
+  await cancelAllForCandidate(db, { candidateId, userId: user.id, reason });
+  await requestAccountDisable(db, { candidateId, userId: user.id });
 }
 
 // The employee, with what can be decided next, for the details page.
@@ -102,8 +137,21 @@ export async function getEmployee(pool, id) {
         open.phase === 'probation' ? await extensionLatestEnd(pool, employee.id, settings) : null,
     };
   }
+  // The profile shows where the company account stands (never a password).
+  const account = await findAccountForCandidate(pool, data.candidate.id);
   return {
     ...data,
+    companyAccount: account
+      ? {
+          id: account.id,
+          status: account.status,
+          companyEmail: account.companyEmail,
+          createdDate: account.createdDate,
+          handedOverDate: account.handedOverDate,
+          disablePending: account.disablePending,
+          disabledDate: account.disabledDate,
+        }
+      : null,
     decision,
     canTerminate: active && PHASES_THAT_CAN_TERMINATE.includes(employee.currentPhase),
   };
@@ -170,6 +218,8 @@ export async function recordDecision(pool, user, id, input) {
       user.id,
     );
     if (endDate) await setPhaseEnd(db, id, endDate, user.id);
+    // The decided phase needs no reminder any more.
+    await cancelPhaseReminders(db, { phaseHistoryId: phase.id, userId: user.id });
 
     const decided = {
       employeeId: id,
@@ -199,6 +249,7 @@ export async function recordDecision(pool, user, id, input) {
         oldValues: { status: 'active' },
         newValues: { status: 'discontinued', exitDate: values.exitDate, ...decided },
       });
+      await leaveHooks(db, { candidateId: employee.candidateId, user, reason: 'discontinued' });
       return { ok: true };
     }
 
@@ -215,6 +266,7 @@ export async function recordDecision(pool, user, id, input) {
         db,
         {
           employeeId: id,
+          candidateId: employee.candidateId,
           phase: 'probation',
           startDate: nextPhaseStart(phase.endDate),
           endDate: values.endDate,
@@ -240,6 +292,7 @@ export async function recordDecision(pool, user, id, input) {
       db,
       {
         employeeId: id,
+        candidateId: employee.candidateId,
         phase: next,
         startDate,
         // Probation has a calculated end. Junior's end is not confirmed, and
@@ -296,6 +349,7 @@ export async function terminateEmployee(pool, user, id, input) {
         phase: employee.currentPhase,
       },
     });
+    await leaveHooks(db, { candidateId: employee.candidateId, user, reason: 'terminated' });
     return { ok: true };
   });
 

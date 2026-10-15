@@ -67,8 +67,13 @@ Open the **Lifecycle Timeline**: the whole journey is there, every phase with it
 ## Flow 6 — notifications demo
 
 1. Open **Notifications**: this is the reminder schedule. Note the banner — the system is in **development mail mode**: nothing is ever actually delivered, every attempt is only recorded in the **Email Log**.
-2. Automatic reminder creation is **off** (recipients are a pending mentor decision), so the schedule may be empty — that is correct behaviour, not a fault.
-3. Open **Email Templates**: create a demo template (subject + body), save, edit it, switch it inactive and back.
+2. Reminders are created automatically when a phase, interview or joining date is saved (set the HR and manager addresses under **Settings** first; with none set the reminder shows as **Failed — Blocked, missing …**, which is the safe, visible behaviour).
+3. Open **Email Templates**: create a template for one of the guide's mail types (subject + body), save, edit it, switch it inactive and back. Notice that each type only offers the send modes the guide allows.
+   - Open a candidate at _Interview Scheduled_ → **Send an email** → _Direct interview invitation_ → **Preview** → edit one copy → **Send**. Try sending again: it is refused until you press **Resend**.
+   - Prepare the _Joining / onboarding mail_ as HR: it is not sent. Sign in as the Main User, open **Email Log** and approve it (or reject it with a reason).
+   - On the offer's details page the Main User can record the salary; sign in as HR and confirm it is not shown.
+   - **Administration → Team Leads**: map a demo position to a demo Team Lead.
+   - **Administration → Company Accounts**: after marking a demo employee Attended, mark the account Created and Handed over.
 4. The sending job runs every 15 minutes; in development it can also be triggered by hand (`POST /api/notifications/run`). The duplicate rule to remember: the same template is never sent twice to the same candidate unless someone explicitly presses **Resend** in the Email Log.
 
 ---

@@ -1,5 +1,7 @@
 # Final Remaining Gaps (2026-10-14)
 
+> Historical snapshot from before Stage 11 implementation. It is retained as a dated record; current Stage 11 status is in `stage11-mentor-blocked-readiness.md` and `final-acceptance-checklist.md`.
+
 What stands between the current state and a finished, live system — separated by who owns each item. Based on the final dummy-data acceptance (see final-dummy-acceptance.md).
 
 ## A. CODE DEFECTS

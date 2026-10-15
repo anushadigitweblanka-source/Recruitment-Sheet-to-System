@@ -1,6 +1,10 @@
 // Checks for Module 6. This is the authoritative validation; the form's own
 // checks are only for convenience.
 
+import { SEND_MODES, TEMPLATE_TYPE_NAMES, TEMPLATE_TYPES } from './emailTypes.js';
+
+export { SEND_MODES };
+
 // The six reminder types from the schema proposal (section 12.2).
 export const NOTIFICATION_TYPES = [
   'evaluation_end',
@@ -13,7 +17,6 @@ export const NOTIFICATION_TYPES = [
 
 export const NOTIFICATION_STATUSES = ['pending', 'sent', 'failed', 'cancelled'];
 export const EMAIL_LOG_STATUSES = ['queued', 'sent', 'failed'];
-export const SEND_MODES = ['auto', 'review'];
 
 const MAX_TYPE = 50;
 const MAX_SUBJECT = 200;
@@ -30,7 +33,7 @@ export const isEmailAddress = (text) => typeof text === 'string' && EMAIL_SHAPE.
 
 // Checks a template sent by the browser. With `partial` (a PATCH) only the
 // fields that were sent are checked and returned.
-export function validateTemplate(input, { partial = false } = {}) {
+export function validateTemplate(input, { partial = false, currentType = null } = {}) {
   const source = input && typeof input === 'object' ? input : {};
   const errors = {};
   const values = {};
@@ -44,6 +47,9 @@ export function validateTemplate(input, { partial = false } = {}) {
     } else if (!TYPE_FORMAT.test(type)) {
       errors.type =
         'Template Type must be lower-case letters, digits and underscores, like interview_invitation.';
+    } else if (!TEMPLATE_TYPE_NAMES.includes(type)) {
+      // The task guide defines the full list of mail types; no other is made up.
+      errors.type = `Template Type must be one of: ${TEMPLATE_TYPE_NAMES.join(', ')}.`;
     } else values.type = type;
   }
 
@@ -65,9 +71,22 @@ export function validateTemplate(input, { partial = false } = {}) {
 
   if (wants('sendMode')) {
     if (isBlank(source.sendMode)) {
-      if (!partial) values.sendMode = 'review';
+      if (!partial) values.sendMode = null; // decided below from the type
     } else if (SEND_MODES.includes(source.sendMode)) values.sendMode = source.sendMode;
-    else errors.sendMode = 'Send Mode must be auto or review.';
+    else errors.sendMode = 'Send Mode must be auto or one_click.';
+  }
+
+  // Each mail type allows only the send modes the guide gives it (for
+  // example the joining mail is One-click only, reminders are Auto only).
+  const effectiveType = values.type ?? currentType;
+  const allowed = effectiveType ? TEMPLATE_TYPES[effectiveType]?.sendModes : null;
+  if (allowed && !errors.type && !errors.sendMode) {
+    if (values.sendMode === null) {
+      // Not given: the safest allowed mode (One-click when available).
+      values.sendMode = allowed.includes('one_click') ? 'one_click' : allowed[0];
+    } else if (values.sendMode !== undefined && !allowed.includes(values.sendMode)) {
+      errors.sendMode = `This mail type allows only: ${allowed.join(', ')}.`;
+    }
   }
 
   if (wants('isActive')) {

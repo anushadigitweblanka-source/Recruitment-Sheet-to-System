@@ -14,7 +14,17 @@ const SIGNED_IN = {
     email: 'test.user@example.test',
     fullName: 'Test User',
     role: { code: 'main_user', name: 'Main User' },
-    permissions: [],
+    // The Main User holds every permission, so every menu entry is shown.
+    permissions: [
+      'candidates.view',
+      'candidates.edit',
+      'interviews.manage',
+      'offers.manage',
+      'employees.manage',
+      'notifications.manage',
+      'admin.manage',
+      'company_accounts.manage',
+    ],
   },
   login: async () => ({ ok: true }),
   logout: async () => ({ ok: true }),
@@ -179,9 +189,7 @@ describe('module rules visible in the UI', () => {
       ).toBe(false);
       expect(html.match(/<th [^>]*>[^<]*salary/i), path).toBeNull();
     }
-    expect(renderAt('/offers/new')).toContain(
-      'Salary functionality pending mentor approval and authorization design.',
-    );
+    expect(renderAt('/offers/new')).toContain('Salary is never entered on this form.');
   });
 
   test('the lifecycle timeline follows the task guide order', () => {
@@ -191,7 +199,7 @@ describe('module rules visible in the UI', () => {
     );
 
     expect(steps).toEqual(['Joined', 'Evaluation', 'Probation', 'Junior', 'Senior']);
-    expect(html).toContain('MENTOR CONFIRMATION REQUIRED');
+    expect(html).toContain('PENDING HR CONFIRMATION');
   });
 
   test('a phase page highlights its own step', () => {

@@ -7,6 +7,7 @@ import Notice from '../../components/Notice.jsx';
 import PageHeader from '../../components/PageHeader.jsx';
 import StatusBadge from '../../components/StatusBadge.jsx';
 import { useApi } from '../../hooks/useApi.js';
+import CandidateEmailPanel from '../notifications/CandidateEmailPanel.jsx';
 import { formatDateTime } from '../../utils/format.js';
 import { getCandidate } from './api.js';
 import { CANDIDATE_DETAIL_FIELDS, COMPANY_CV_STATUS_LABELS } from './fields.js';
@@ -97,6 +98,8 @@ export default function CandidateDetailsPage({ page }) {
           <DetailList fields={CANDIDATE_DETAIL_FIELDS} values={toDisplayValues(candidate)} />
         )}
       </section>
+
+      {candidate && <CandidateEmailPanel candidateId={candidate.id} />}
 
       <p className="back-link">
         <Link to="/candidates">Back to the candidate list</Link>

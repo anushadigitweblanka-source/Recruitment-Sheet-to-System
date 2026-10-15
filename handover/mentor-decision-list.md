@@ -4,6 +4,8 @@ Every open question in one place. For each: what we need decided, and what it un
 
 **Scope note (mentor-approved):** the current internship task uses dummy/test data only. Items 1–15 affect the current dummy-data completion scope. Items 16–17 are **future / go-live decisions — not required for the current internship completion** — and are kept at the end for the record.
 
+> **Stage 11 correction (2026-10-15).** The official task guide settles several items below. See `validation/stage11-mentor-blocked-readiness.md` and `handover/mentor-approval-checklist.md` for the current list. Settled by the guide and implemented: 1 (recipients), 3 (template types), 4 (Auto / One-click modes), 5 (CV pending trigger), 10 (roles and permissions), 11 (salary design). Still requiring confirmation: 2 (retry), 6, 7, 8, 9, 12, 13, 14, 15.
+
 ## Notifications (Module 6)
 
 1. **Reminder recipients** — who receives each reminder type (per phase gate, interview, offer, cv_pending)? _Unblocks: automatic notification creation (the sending machinery is done and tested) and the scheduled weekly report email._

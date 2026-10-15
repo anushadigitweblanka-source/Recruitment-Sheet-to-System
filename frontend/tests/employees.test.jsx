@@ -480,7 +480,7 @@ describe('employee details', () => {
     open('/employees/2');
     await screen.findByRole('heading', { name: 'Junior decision' });
 
-    expect(screen.getByText('MENTOR CONFIRMATION REQUIRED')).toBeTruthy();
+    expect(screen.getByText('PENDING HR CONFIRMATION')).toBeTruthy();
     expect(value('Phase End')).toBe('Not calculated (mentor confirmation required)');
     fireEvent.change(screen.getByLabelText(/^Decision/), { target: { value: 'pass' } });
     expect(screen.getByText(/from the join date is waiting for mentor confirmation/)).toBeTruthy();

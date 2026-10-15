@@ -3,6 +3,7 @@ import { loadConfig, loadEnvFile } from './config/env.js';
 import { createPool } from './db/pool.js';
 import { createMailService } from './modules/notifications/mailService.js';
 import { runNotificationScheduler } from './modules/notifications/notifications.service.js';
+import { runWeeklyReport } from './modules/notifications/weeklyReport.js';
 
 let config;
 try {
@@ -31,11 +32,17 @@ async function schedulerTick() {
   if (schedulerRunning) return;
   schedulerRunning = true;
   try {
-    const summary = await runNotificationScheduler(pool, mail);
+    const summary = await runNotificationScheduler(pool, mail, { config });
     if (summary.checked > 0) {
       console.log(
         `notification run (${summary.mode}): ${summary.sent} sent, ${summary.failed} failed, ${summary.skipped} skipped`,
       );
+    }
+    // The Monday 08:00 weekly report rides on the same job; it sends at most
+    // once per week (see weeklyReport.js).
+    const weekly = await runWeeklyReport(pool, mail);
+    if (weekly.status === 'sent' || weekly.status === 'failed') {
+      console.log(`weekly report (${mail.mode}) for ${weekly.weekStart}: ${weekly.status}`);
     }
   } catch (err) {
     console.error(`notification run failed: ${err.message}`);

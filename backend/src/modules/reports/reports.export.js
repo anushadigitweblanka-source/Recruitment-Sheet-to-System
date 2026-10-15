@@ -4,7 +4,7 @@
 // business logic here, only column definitions and format rendering.
 //
 // Nothing restricted can appear: the columns below are exactly the fields the
-// screen already shows (no salary - none exists - and no credentials).
+// screen already shows (salary is excluded, and credentials are never selected).
 
 import ExcelJS from 'exceljs';
 import PDFDocument from 'pdfkit';

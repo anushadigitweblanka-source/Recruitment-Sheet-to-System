@@ -11,6 +11,7 @@ import SearchInput from '../../components/SearchInput.jsx';
 import StatusBadge from '../../components/StatusBadge.jsx';
 import { useApi } from '../../hooks/useApi.js';
 import { formatDateTime } from '../../utils/format.js';
+import EmailApprovalsPanel from './EmailApprovalsPanel.jsx';
 import { listEmailLog, resendEmail } from './api.js';
 import { EMAIL_LOG_COLUMNS, LOG_STATUS_LABELS, LOG_STATUS_TONES } from './fields.js';
 
@@ -116,6 +117,8 @@ export default function EmailLogPage({ page }) {
           <> Mail is in development mode: no real email leaves this application.</>
         )}
       </Notice>
+
+      <EmailApprovalsPanel onChanged={list.reload} />
 
       {notice && (
         <Notice tone={notice.tone} role="status">

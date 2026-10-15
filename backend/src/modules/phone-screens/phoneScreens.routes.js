@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import { requirePermission } from '../../middleware/auth.js';
+import { createMailService } from '../notifications/mailService.js';
+import { sendAutomaticInterviewMails } from '../notifications/manualMail.js';
 import { findForCandidate, listPhoneScreens } from './phoneScreens.repository.js';
 import { createPhoneScreen, editPhoneScreen } from './phoneScreens.service.js';
 import { parseListQuery } from './phoneScreens.validation.js';
@@ -30,10 +32,17 @@ const positiveId = (raw) => {
 };
 
 // Mounted at /api, so the paths below are complete.
-export function phoneScreensRouter({ pool }) {
+export function phoneScreensRouter({ config, pool }) {
   const router = Router();
   const canView = requirePermission('candidates.view');
   const canRecord = requirePermission('interviews.manage');
+  const mail = createMailService(config);
+
+  // Once a candidate has a direct-interview slot, the invitation and the Team
+  // Lead summary go out by themselves for templates set to Auto. A problem
+  // here never undoes the saved phone interview.
+  const autoMails = (candidateId) =>
+    sendAutomaticInterviewMails(pool, { candidateId, mail, config }).catch(() => []);
 
   // Every candidate, with their phone interview if one has been recorded.
   router.get('/phone-interviews', canView, async (req, res) => {
@@ -51,13 +60,17 @@ export function phoneScreensRouter({ pool }) {
   });
 
   router.post('/phone-interviews', canRecord, async (req, res) => {
-    sendResult(res, await createPhoneScreen(pool, req.user, req.body), 201);
+    const result = await createPhoneScreen(pool, req.user, req.body);
+    if (result.ok) await autoMails(Number(req.body.candidateId));
+    sendResult(res, result, 201);
   });
 
   router.patch('/phone-interviews/:id', canRecord, async (req, res) => {
     const id = positiveId(req.params.id);
     if (!id) return sendResult(res, { ok: false, reason: 'not_found' });
-    sendResult(res, await editPhoneScreen(pool, req.user, id, req.body));
+    const result = await editPhoneScreen(pool, req.user, id, req.body);
+    if (result.ok && result.data?.candidate?.id) await autoMails(Number(result.data.candidate.id));
+    sendResult(res, result);
   });
 
   return router;

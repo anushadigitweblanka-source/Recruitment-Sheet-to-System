@@ -78,10 +78,16 @@ describe('listing and editing', () => {
     assert.equal(res.status, 200);
     const keys = res.body.items.map((item) => item.key);
     assert.deepEqual(keys, [
+      'company_cv_template_url',
       'evaluation_days',
+      'evaluation_reminder_include_candidate',
+      'interview_venue',
       'junior_months',
       'probation_max_extension_months',
       'probation_months',
+      'reminder_hr_emails',
+      'reminder_manager_emails',
+      'weekly_report_recipients',
     ]);
     const evaluation = res.body.items.find((item) => item.key === 'evaluation_days');
     assert.equal(evaluation.value, '7');
@@ -131,6 +137,7 @@ describe('listing and editing', () => {
   });
 
   test('an unknown key is refused, never created', async () => {
+    const before = await db.pool.query('SELECT count(*)::int AS n FROM settings');
     const res = await api('/admin/settings/invented_setting', {
       method: 'PATCH',
       cookie: admin.cookie,
@@ -138,7 +145,7 @@ describe('listing and editing', () => {
     });
     assert.equal(res.status, 404);
     const count = await db.pool.query('SELECT count(*)::int AS n FROM settings');
-    assert.equal(count.rows[0].n, 4);
+    assert.equal(count.rows[0].n, before.rows[0].n);
   });
 
   test('saving the same value again writes no duplicate audit row', async () => {

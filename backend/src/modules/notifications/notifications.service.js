@@ -1,5 +1,8 @@
 import { inTransaction } from '../../db/transaction.js';
 import { recordAudit } from '../audit/audit.js';
+import { createUploadLink, markCompanyCvOverdue } from '../company-cv/companyCv.service.js';
+import { formatDate, formatTime, renderTemplate, templateTypeFor } from './emailTypes.js';
+import { loadMailContext, placeholderValues, readMailSettings } from './mailContext.js';
 import {
   claimDueNotification,
   findActiveTemplateByType,
@@ -52,7 +55,7 @@ export async function editTemplate(pool, user, id, input) {
   const current = await findTemplate(pool, id);
   if (!current) return { ok: false, reason: 'not_found' };
 
-  const { values, errors } = validateTemplate(input, { partial: true });
+  const { values, errors } = validateTemplate(input, { partial: true, currentType: current.type });
   if (Object.keys(errors).length > 0) return invalid(errors);
 
   const changes = {};
@@ -91,20 +94,44 @@ export async function editTemplate(pool, user, id, input) {
 // Sending
 // ---------------------------------------------------------------------------
 
-// The placeholders a template may use. Only values that are safe in a mail:
-// never salaries, passwords or anything from the restricted tables.
-function renderTemplate(text, notification) {
-  return text
-    .replaceAll('{name}', notification.fullName)
-    .replaceAll('{candidate_code}', notification.candidateCode);
-}
-
 const badAddresses = (recipients) => recipients.filter((address) => !isEmailAddress(address));
+
+// The values a scheduled mail is filled in with. {date} and {time} follow
+// what the reminder is about: the phase end, the interview or the joining day.
+async function valuesForNotification(db, notification, context, settings, baseUrl) {
+  const isJoining = notification.type === 'joining_reminder';
+  const isPhase = ['evaluation_end', 'probation_end', 'junior_end'].includes(notification.type);
+
+  let extra = {};
+  if (notification.type === 'cv_pending' || notification.type === 'interview_reminder') {
+    // The reminder repeats the Company CV template and the upload link.
+    extra = { company_cv_template: settings.companyCvTemplateUrl };
+  }
+  if (notification.type === 'cv_pending') {
+    extra.company_cv_upload_link = await createUploadLink(db, {
+      candidateId: notification.candidateId,
+      baseUrl,
+    });
+  }
+
+  const values = placeholderValues(context, settings, {
+    kind: isJoining ? 'joining' : 'interview',
+    extra,
+  });
+  if (isPhase) {
+    values.date = formatDate(notification.dueAt);
+    values.time = '';
+  } else if (!isJoining) {
+    values.date = formatDate(notification.dueAt);
+    values.time = formatTime(notification.dueAt);
+  }
+  return values;
+}
 
 // Sends one claimed notification inside its transaction. Everything this
 // writes commits or rolls back together with the claim, so a crash cannot
 // leave a notification half-sent.
-async function deliverNotification(db, notification, mail) {
+async function deliverNotification(db, notification, mail, { baseUrl }) {
   const fail = async (message) => {
     await markNotificationFailed(db, notification.id, message);
     await recordAudit(db, {
@@ -116,44 +143,71 @@ async function deliverNotification(db, notification, mail) {
     return { outcome: 'failed', error: message };
   };
 
-  const template = await findActiveTemplateByType(db, notification.type);
-  if (!template) {
-    return fail(`No active email template exists for type "${notification.type}".`);
+  const context = await loadMailContext(db, notification.candidateId);
+
+  // A Company CV that arrived since the reminder was scheduled needs no chase.
+  if (notification.type === 'cv_pending' && context?.companyCvStatus === 'received') {
+    await db.query(`UPDATE notifications SET status = 'cancelled' WHERE id = $1`, [
+      notification.id,
+    ]);
+    await recordAudit(db, {
+      action: 'NOTIFICATION_CANCEL',
+      entityType: 'notifications',
+      entityId: notification.id,
+      details: { reason: 'company CV already received' },
+    });
+    return { outcome: 'skipped' };
   }
 
-  const wrong = badAddresses(notification.recipients);
+  const templateType = templateTypeFor(notification.type);
+  const template = await findActiveTemplateByType(db, templateType);
+  if (!template) {
+    return fail(`No active email template exists for type "${templateType}".`);
+  }
+
+  const wrong = badAddresses([...notification.recipients, ...notification.ccRecipients]);
   if (wrong.length > 0) {
     return fail(`Not a valid email address: ${wrong.join(', ')}`);
   }
-
-  // The guide's rule: the same template is never sent twice to the same
-  // candidate unless explicitly resent. Checked here so the refusal can be
-  // recorded; the unique index on email_log backs it up against races (a
-  // violation there rolls this row back and it is refused on the next run).
-  const already = await db.query(
-    `SELECT 1 FROM email_log
-      WHERE candidate_id = $1 AND template_id = $2
-        AND is_resend = false AND status IN ('queued', 'sent')`,
-    [notification.candidateId, template.id],
-  );
-  if (already.rows.length > 0) {
-    return fail('This template was already sent to this candidate. Use Resend to send it again.');
+  if (notification.recipients.length === 0) {
+    return fail('Blocked: this reminder has no recipient.');
   }
 
-  const subject = renderTemplate(template.subject, notification);
-  const body = renderTemplate(template.body, notification);
+  // "Never send the same template twice to the same candidate unless Resend."
+  // A scheduled reminder is its own event, so it is protected per
+  // notification: checked here so the refusal can be recorded, and backed by
+  // a unique index on email_log against races.
+  const already = await db.query(
+    `SELECT 1 FROM email_log
+      WHERE notification_id = $1 AND is_resend = false AND status IN ('queued', 'sent')`,
+    [notification.id],
+  );
+  if (already.rows.length > 0) {
+    return fail('This mail was already sent for this reminder. Use Resend to send it again.');
+  }
+
+  const settings = await readMailSettings(db);
+  const values = await valuesForNotification(db, notification, context, settings, baseUrl);
+  const subject = renderTemplate(template.subject, values);
+  const body = renderTemplate(template.body, values);
 
   const logId = await insertLogEntry(db, {
     candidateId: notification.candidateId,
     templateId: template.id,
     notificationId: notification.id,
     toAddresses: notification.recipients,
+    ccAddresses: notification.ccRecipients.length > 0 ? notification.ccRecipients : null,
     subjectSent: subject,
     bodySent: body,
   });
 
   try {
-    await mail.send({ to: notification.recipients, subject, body });
+    await mail.send({
+      to: notification.recipients,
+      cc: notification.ccRecipients,
+      subject,
+      body,
+    });
   } catch (err) {
     await markLogFailed(db, logId, err.message);
     return fail(`Delivery failed: ${err.message}`);
@@ -161,6 +215,7 @@ async function deliverNotification(db, notification, mail) {
 
   await markLogSent(db, logId);
   await markNotificationSent(db, notification.id);
+  if (notification.type === 'cv_pending') await markCompanyCvOverdue(db, notification.candidateId);
   await recordAudit(db, {
     action: 'EMAIL_SEND',
     entityType: 'email_log',
@@ -176,7 +231,8 @@ async function deliverNotification(db, notification, mail) {
 // Each row is claimed with FOR UPDATE SKIP LOCKED in its own transaction,
 // so two overlapping runs (or two servers) never process the same row, and
 // one failing mail never stops the rest or the application.
-export async function runNotificationScheduler(pool, mail) {
+export async function runNotificationScheduler(pool, mail, { config } = {}) {
+  const baseUrl = config?.publicBaseUrl ?? 'http://localhost:3000';
   const ids = await listDueNotificationIds(pool);
   const summary = { mode: mail.mode, checked: ids.length, sent: 0, failed: 0, skipped: 0 };
 
@@ -185,7 +241,7 @@ export async function runNotificationScheduler(pool, mail) {
       const result = await inTransaction(pool, async (db) => {
         const notification = await claimDueNotification(db, id);
         if (!notification) return { outcome: 'skipped' };
-        return deliverNotification(db, notification, mail);
+        return deliverNotification(db, notification, mail, { baseUrl });
       });
       summary[result.outcome] += 1;
     } catch (err) {
@@ -219,6 +275,7 @@ export async function resendEmail(pool, user, logId, mail) {
       templateId: original.template.id,
       notificationId: original.notificationId,
       toAddresses: original.toAddresses,
+      ccAddresses: original.ccAddresses?.length > 0 ? original.ccAddresses : null,
       subjectSent: original.subjectSent,
       bodySent: null,
       isResend: true,
@@ -226,7 +283,11 @@ export async function resendEmail(pool, user, logId, mail) {
     });
 
     try {
-      await mail.send({ to: original.toAddresses, subject: original.subjectSent });
+      await mail.send({
+        to: original.toAddresses,
+        cc: original.ccAddresses ?? [],
+        subject: original.subjectSent,
+      });
       await markLogSent(db, newId);
     } catch (err) {
       await markLogFailed(db, newId, err.message);

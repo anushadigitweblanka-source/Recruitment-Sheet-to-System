@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { requirePermission } from '../../middleware/auth.js';
+import { requireAnyPermission, requirePermission } from '../../middleware/auth.js';
 import { recordAudit } from '../audit/audit.js';
 
 // The closed lists used by dropdowns: positions, sources and pipeline stages.
@@ -16,7 +16,7 @@ const toItem = (row) => ({ id: Number(row.id), name: row.name, isActive: row.is_
 
 export function lookupsRouter({ pool }) {
   const router = Router();
-  const canView = requirePermission('candidates.view');
+  const canView = requireAnyPermission('candidates.view', 'candidates.view_team');
   const canManage = requirePermission('admin.manage');
 
   router.get('/stages', canView, async (req, res) => {

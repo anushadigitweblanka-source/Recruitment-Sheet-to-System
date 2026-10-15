@@ -9,7 +9,7 @@ Implemented:
 - `pipeline/` — the one place that moves a candidate between stages.
 - `phone-screens/` — Module 2, Phone Interview.
 - `interviews/` — Module 3, Direct Interview.
-- `offers/` — Module 4, Offer Management: offers, offer status, joining date, attendance and the stage changes they cause. Salary is not implemented and email status is not stored; both wait for later decisions and modules.
+- `offers/` — Module 4, Offer Management: offers, offer status, joining date, attendance and the stage changes they cause. Stage 11 salary is managed separately in `salary/`; email status is recorded by `notifications/`.
 - `employees/` — Module 5, Employee Lifecycle: the employee record created when an offer is marked attended, the four phases, gate decisions, extensions, discontinuation, termination and phase history. The junior end date is not calculated until its rule is confirmed.
 
 - `notifications/` — Module 6, Email Notifications: the notification schedule, editable email templates, the email log, the 15-minute sending job, duplicate-send prevention and explicit resend. **No real email is sent:** no mail provider is approved, so delivery runs through a development adapter. Automatic reminder creation waits for the recipient rules.

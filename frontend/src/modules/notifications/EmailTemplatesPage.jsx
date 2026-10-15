@@ -8,9 +8,14 @@ import PageHeader from '../../components/PageHeader.jsx';
 import StatusBadge from '../../components/StatusBadge.jsx';
 import { useApi } from '../../hooks/useApi.js';
 import { createTemplate, listTemplates, updateTemplate } from './api.js';
-import { EMAIL_TEMPLATE_COLUMNS, SEND_MODE_OPTIONS } from './fields.js';
+import {
+  EMAIL_TEMPLATE_COLUMNS,
+  SEND_MODE_OPTIONS,
+  TEMPLATE_TYPE_MODES,
+  TEMPLATE_TYPE_OPTIONS,
+} from './fields.js';
 
-const EMPTY_VALUES = { type: '', subject: '', body: '', sendMode: 'review', isActive: true };
+const EMPTY_VALUES = { type: '', subject: '', body: '', sendMode: 'one_click', isActive: true };
 
 const shorten = (text, max = 80) => (text.length > max ? `${text.slice(0, max)}…` : text);
 
@@ -37,6 +42,20 @@ function TemplateForm({ editing, onSaved, onCancel }) {
     setValues((old) => ({ ...old, [name]: value }));
     setErrors((old) => ({ ...old, [name]: undefined }));
   };
+  // Choosing a mail type also picks a send mode that type allows.
+  const chooseType = (type) => {
+    const allowed = TEMPLATE_TYPE_MODES[type];
+    setValues((old) => ({
+      ...old,
+      type,
+      sendMode: allowed && !allowed.includes(old.sendMode) ? allowed[0] : old.sendMode,
+    }));
+    setErrors((old) => ({ ...old, type: undefined, sendMode: undefined }));
+  };
+  const allowedModes = TEMPLATE_TYPE_MODES[values.type];
+  const modeOptions = allowedModes
+    ? SEND_MODE_OPTIONS.filter((option) => allowedModes.includes(option.value))
+    : SEND_MODE_OPTIONS;
   const field = (name) => ({
     name,
     value: values[name],
@@ -87,24 +106,27 @@ function TemplateForm({ editing, onSaved, onCancel }) {
       <div className="form-grid">
         <FormField
           label="Template Type"
+          type="select"
           required
-          maxLength={50}
-          hint="A code like interview_invitation: lower-case letters, digits and underscores."
+          options={TEMPLATE_TYPE_OPTIONS}
+          hint="The mail types come from the task guide; there is one template per type."
           {...field('type')}
+          onChange={(event) => chooseType(event.target.value)}
+          disabled={saving || !isNew}
         />
         <FormField
           label="Subject"
           required
           maxLength={200}
-          hint="May use {name} and {candidate_code}."
+          hint="Placeholders: {name} {position} {date} {time} {venue} {team_lead}."
           {...field('subject')}
         />
         <FormField label="Body" type="textarea" required wide rows={6} {...field('body')} />
         <FormField
           label="Send Mode"
           type="select"
-          options={SEND_MODE_OPTIONS}
-          hint="How this template behaves once manual sending exists."
+          options={modeOptions}
+          hint="Auto: the system sends it. One-click: HR previews and sends it. Each mail type allows only the modes the guide gives it."
           {...field('sendMode')}
         />
         <FormField

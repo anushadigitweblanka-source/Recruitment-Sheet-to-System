@@ -1,5 +1,12 @@
 import { Router } from 'express';
 import { requirePermission } from '../../middleware/auth.js';
+import {
+  approveMail,
+  listPendingApprovals,
+  previewMail,
+  rejectMail,
+  sendMail,
+} from './manualMail.js';
 import { createMailService } from './mailService.js';
 import {
   findNotification,
@@ -19,6 +26,7 @@ import {
   parseNotificationsQuery,
   parseTemplatesQuery,
 } from './notifications.validation.js';
+import { runWeeklyReport } from './weeklyReport.js';
 
 function sendResult(res, result, successStatus = 200) {
   if (result.ok) return res.status(successStatus).json(result.data);
@@ -44,6 +52,8 @@ export function notificationsRouter({ config, pool }) {
   const router = Router();
   const canView = requirePermission('candidates.view');
   const canManage = requirePermission('notifications.manage');
+  // Approving an offer mail is a Main User action (the guide).
+  const canApprove = requirePermission('admin.manage');
   const mail = createMailService(config);
   const notFound = { ok: false, reason: 'not_found' };
 
@@ -62,7 +72,23 @@ export function notificationsRouter({ config, pool }) {
         message: 'The scheduler runs on its own in production and cannot be triggered by hand.',
       });
     }
-    res.json(await runNotificationScheduler(pool, mail));
+    res.json(await runNotificationScheduler(pool, mail, { config }));
+  });
+
+  // Development trigger for the Monday 08:00 report, with an optional "now"
+  // so the Monday rule can be exercised any day. Refused in production.
+  router.post('/notifications/weekly-report/run', canManage, async (req, res) => {
+    if (config.environment === 'production') {
+      return res.status(403).json({
+        error: 'forbidden',
+        message: 'The scheduler runs on its own in production and cannot be triggered by hand.',
+      });
+    }
+    const now = req.body?.now ? new Date(req.body.now) : new Date();
+    if (Number.isNaN(now.getTime())) {
+      return res.status(422).json({ error: 'validation_failed', message: 'now is not a date.' });
+    }
+    res.json(await runWeeklyReport(pool, mail, { now }));
   });
 
   router.get('/notifications/:id', canView, async (req, res) => {
@@ -95,6 +121,48 @@ export function notificationsRouter({ config, pool }) {
     const filters = parseEmailLogQuery(req.query);
     const { items, total } = await listEmailLog(pool, filters);
     res.json({ items, total, page: filters.page, pageSize: filters.pageSize, mailMode: mail.mode });
+  });
+
+  // One-off mails for a candidate: preview first, then send with one click.
+  // HR may edit the subject or body for this one mail.
+  router.post('/candidates/:id/emails/preview', canManage, async (req, res) => {
+    const id = positiveId(req.params.id);
+    const type = typeof req.body?.type === 'string' ? req.body.type : '';
+    sendResult(res, id ? await previewMail(pool, { candidateId: id, type }) : notFound);
+  });
+
+  router.post('/candidates/:id/emails/send', canManage, async (req, res) => {
+    const id = positiveId(req.params.id);
+    if (!id) return sendResult(res, notFound);
+    const { type, subject, body, resend } = req.body ?? {};
+    sendResult(
+      res,
+      await sendMail(
+        pool,
+        req.user,
+        { candidateId: id, type: typeof type === 'string' ? type : '', subject, body, resend },
+        mail,
+        { config },
+      ),
+      201,
+    );
+  });
+
+  // Offer mails prepared by HR and waiting for the Main User.
+  router.get('/email-approvals', canManage, async (req, res) => {
+    res.json({ items: await listPendingApprovals(pool) });
+  });
+
+  router.post('/email-log/:id/approve', canApprove, async (req, res) => {
+    const id = positiveId(req.params.id);
+    const result = id ? await approveMail(pool, req.user, id, mail) : notFound;
+    sendResult(res, result, 200);
+  });
+
+  router.post('/email-log/:id/reject', canApprove, async (req, res) => {
+    const id = positiveId(req.params.id);
+    const result = id ? await rejectMail(pool, req.user, id, req.body?.reason) : notFound;
+    sendResult(res, result, 200);
   });
 
   router.post('/email-log/:id/resend', canManage, async (req, res) => {

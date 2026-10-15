@@ -100,9 +100,7 @@ describe('roles page', () => {
   test('shows the read-only notice', async () => {
     mockApi();
     renderRoles();
-    await screen.findByText(
-      /Role definitions are read-only until the final role and permission structure is approved/,
-    );
+    await screen.findByText(/The role list and permissions below are configured for this system/);
   });
 
   test('renders the permission matrix with assigned and unassigned cells', async () => {

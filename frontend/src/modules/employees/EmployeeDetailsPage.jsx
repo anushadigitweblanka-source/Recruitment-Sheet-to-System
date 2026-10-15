@@ -21,6 +21,25 @@ const IDENTITY_FIELDS = [
   { name: 'position', label: 'Position' },
 ];
 
+const ACCOUNT_FIELDS = [
+  { name: 'accountStatus', label: 'Company Account' },
+  { name: 'companyEmail', label: 'Company Email' },
+  { name: 'accountCreated', label: 'Account Created' },
+  { name: 'accountHandedOver', label: 'Handed Over' },
+];
+
+const ACCOUNT_STATUS = {
+  requested: 'Requested',
+  created: 'Created',
+  handed_over: 'Handed over',
+  disabled: 'Disabled',
+};
+
+function accountStatusText(account) {
+  const text = ACCOUNT_STATUS[account.status] ?? account.status;
+  return account.disablePending ? `${text} (disable pending)` : text;
+}
+
 const EMPLOYMENT_FIELDS = [
   { name: 'joinDate', label: 'Join Date' },
   { name: 'track', label: 'Track' },
@@ -128,6 +147,20 @@ export default function EmployeeDetailsPage({ page }) {
                 exitDate: formatDate(data.employee.exitDate),
                 exitReason: data.employee.exitReason,
                 exitApprovedBy: data.employee.exitApprovedBy,
+              }}
+            />
+          </section>
+
+          <section className="panel" aria-label="Company account">
+            <DetailList
+              fields={ACCOUNT_FIELDS}
+              values={{
+                accountStatus: data.companyAccount
+                  ? accountStatusText(data.companyAccount)
+                  : 'No account requested',
+                companyEmail: data.companyAccount?.companyEmail,
+                accountCreated: formatDate(data.companyAccount?.createdDate),
+                accountHandedOver: formatDate(data.companyAccount?.handedOverDate),
               }}
             />
           </section>

@@ -2,7 +2,7 @@ import OfferDetailsPage from './OfferDetailsPage.jsx';
 import OfferFormPage from './OfferFormPage.jsx';
 import OfferListPage from './OfferListPage.jsx';
 
-// Salary functionality pending mentor approval and authorization design.
+// Salary is managed separately with Main User-only authorization.
 export const offersModule = {
   number: 4,
   title: 'Offer Management',

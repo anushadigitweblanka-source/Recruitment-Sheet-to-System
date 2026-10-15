@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { requirePermission } from '../../middleware/auth.js';
+import { requireAnyPermission, requirePermission, teamScopeFor } from '../../middleware/auth.js';
 import { findCandidate, listCandidates } from './candidates.repository.js';
 import { createCandidate, editCandidate } from './candidates.service.js';
 import { parseListQuery } from './candidates.validation.js';
@@ -35,12 +35,13 @@ function candidateId(req) {
 
 export function candidatesRouter({ pool }) {
   const router = Router();
-  const canView = requirePermission('candidates.view');
+  // HR sees every candidate; a Team Lead (candidates.view_team) only their team's.
+  const canView = requireAnyPermission('candidates.view', 'candidates.view_team');
   const canEdit = requirePermission('candidates.edit');
 
   router.get('/', canView, async (req, res) => {
     const filters = parseListQuery(req.query);
-    const { items, total } = await listCandidates(pool, filters);
+    const { items, total } = await listCandidates(pool, filters, teamScopeFor(req.user));
     res.json({ items, total, page: filters.page, pageSize: filters.pageSize });
   });
 
@@ -54,7 +55,7 @@ export function candidatesRouter({ pool }) {
 
   router.get('/:id', canView, async (req, res) => {
     const id = candidateId(req);
-    const candidate = id ? await findCandidate(pool, id) : null;
+    const candidate = id ? await findCandidate(pool, id, teamScopeFor(req.user)) : null;
     sendResult(res, candidate ? { ok: true, candidate } : { ok: false, reason: 'not_found' });
   });
 

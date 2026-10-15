@@ -15,12 +15,29 @@ const LABELS = {
   probation_months: 'Probation length (months)',
   probation_max_extension_months: 'Probation maximum extension (months)',
   junior_months: 'Junior stage length (months)',
+  reminder_hr_emails: 'HR addresses for reminders',
+  reminder_manager_emails: 'Mentor / manager addresses for reminders',
+  evaluation_reminder_include_candidate: 'Also send the evaluation reminder to the candidate',
+  weekly_report_recipients: 'Weekly report recipients (Monday 08:00)',
+  interview_venue: 'Interview venue',
+  company_cv_template_url: 'Company CV template link',
+};
+
+// How a setting is edited. Anything not listed here is a whole-number duration.
+const KINDS = {
+  reminder_hr_emails: 'emails',
+  reminder_manager_emails: 'emails',
+  weekly_report_recipients: 'emails',
+  evaluation_reminder_include_candidate: 'boolean',
+  interview_venue: 'text',
+  company_cv_template_url: 'url',
 };
 
 function SettingRow({ setting, onSaved }) {
   const [value, setValue] = useState(setting.value);
   const [state, setState] = useState({ status: 'idle', message: null });
 
+  const kind = KINDS[setting.key] ?? 'number';
   const changed = value.trim() !== setting.value;
 
   async function save() {
@@ -48,18 +65,32 @@ function SettingRow({ setting, onSaved }) {
           {LABELS[setting.key] ?? setting.key}
         </label>
         {setting.description && <p className="field__hint">{setting.description}</p>}
-        <input
-          id={`setting-${setting.key}`}
-          className="field__control"
-          type="number"
-          min="1"
-          max="365"
-          value={value}
-          onChange={(event) => {
-            setValue(event.target.value);
-            setState({ status: 'idle', message: null });
-          }}
-        />
+        {kind === 'boolean' ? (
+          <select
+            id={`setting-${setting.key}`}
+            className="field__control"
+            value={value}
+            onChange={(event) => {
+              setValue(event.target.value);
+              setState({ status: 'idle', message: null });
+            }}
+          >
+            <option value="false">No</option>
+            <option value="true">Yes</option>
+          </select>
+        ) : (
+          <input
+            id={`setting-${setting.key}`}
+            className="field__control"
+            type={kind === 'number' ? 'number' : kind === 'url' ? 'url' : 'text'}
+            {...(kind === 'number' ? { min: '1', max: '365' } : {})}
+            value={value}
+            onChange={(event) => {
+              setValue(event.target.value);
+              setState({ status: 'idle', message: null });
+            }}
+          />
+        )}
       </div>
       <button
         type="button"
@@ -90,7 +121,8 @@ export default function SettingsPage({ page }) {
       <Notice tone="info" title="Where these values are used">
         The phase durations are read at every lifecycle gate decision, so a change takes effect on
         the next decision. The junior end date stays uncalculated until the 9-month rule is
-        confirmed by the mentor. Every change is written to the audit log.
+        confirmed by HR. The address, venue and template-link settings are read by the mail
+        automation. Every change is written to the audit log.
       </Notice>
 
       {result.status === 'loading' && <LoadingState message="Loading settings…" />}

@@ -1,5 +1,7 @@
 # Final Dummy-Data Acceptance Report (2026-10-14)
 
+> Historical snapshot from before Stage 11 implementation. Its BLOCKED and NOT APPLICABLE results describe the 2026-10-14 application only; use `final-acceptance-checklist.md` and `stage11-mentor-blocked-readiness.md` for current implementation status.
+
 Acceptance-tested against the running development application (backend API, dev database) using a dedicated fictional dataset only: candidates TEST-ACCEPT-001/002/003 (Test Candidate Alpha/Beta/Gamma, example.test emails, fake 0770000xxx phones, "TEST-ACCEPT Position/Source" lookups, viewer@example.test test user). Candidates 2002 and 2003 were snapshot before and verified byte-identical after. All test data was removed afterwards.
 
 Verdicts: PASS / FAIL / BLOCKED (exact mentor decision named) / NOT APPLICABLE (feature not built yet, by design).

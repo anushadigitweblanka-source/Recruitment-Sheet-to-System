@@ -183,16 +183,17 @@ describe('access', () => {
 describe('email templates', () => {
   test('creates a template, returns it, and audits the creation', async () => {
     const res = await newTemplate({
-      type: 'sample_welcome',
+      type: 'status_rejected_on_hold',
       subject: 'Hello {name}',
       body: 'Sample body for {name} ({candidate_code}).',
     });
 
     assert.equal(res.status, 201);
     const { template } = res.body;
-    assert.equal(template.type, 'sample_welcome');
+    assert.equal(template.type, 'status_rejected_on_hold');
     assert.equal(template.subject, 'Hello {name}');
-    assert.equal(template.sendMode, 'review');
+    // The guide gives this mail One-click, so that is the default.
+    assert.equal(template.sendMode, 'one_click');
     assert.equal(template.isActive, true);
     assert.deepEqual(await auditActions('email_templates', template.id), ['EMAIL_TEMPLATE_CREATE']);
   });
@@ -217,15 +218,19 @@ describe('email templates', () => {
   });
 
   test('a second template with the same type is refused', async () => {
-    await newTemplate({ type: 'sample_once', subject: 's', body: 'b' });
-    const res = await newTemplate({ type: 'sample_once', subject: 's2', body: 'b2' });
+    await newTemplate({ type: 'joining_onboarding', subject: 's', body: 'b' });
+    const res = await newTemplate({ type: 'joining_onboarding', subject: 's2', body: 'b2' });
 
     assert.equal(res.status, 422);
     assert.match(res.body.fields.type, /already exists/);
   });
 
   test('edits only the fields sent, audits the change, and can switch a template off', async () => {
-    const { body } = await newTemplate({ type: 'sample_edit', subject: 'Old', body: 'Old body' });
+    const { body } = await newTemplate({
+      type: 'team_lead_summary',
+      subject: 'Old',
+      body: 'Old body',
+    });
     const id = body.template.id;
 
     const res = await api(`/email-templates/${id}`, {
@@ -251,7 +256,11 @@ describe('email templates', () => {
   });
 
   test('an edit that changes nothing audits nothing; a bad edit saves nothing', async () => {
-    const { body } = await newTemplate({ type: 'sample_same', subject: 'S', body: 'B' });
+    const { body } = await newTemplate({
+      type: 'interview_invitation',
+      subject: 'S',
+      body: 'B',
+    });
     const id = body.template.id;
 
     await api(`/email-templates/${id}`, {
@@ -292,7 +301,7 @@ describe('the sending rule', () => {
   before(async () => {
     // The template the cv_pending reminders are rendered from.
     await newTemplate({
-      type: 'cv_pending',
+      type: 'cv_pending_reminder',
       subject: 'CV reminder for {name}',
       body: 'Sample reminder text for {name} ({candidate_code}).',
     });
@@ -363,7 +372,9 @@ describe('the sending rule', () => {
   test('without an active template the reminder fails and says why', async () => {
     const candidate = await newCandidate();
     const nId = await insertNotification({ candidateId: candidate.id });
-    await db.pool.query(`UPDATE email_templates SET is_active = false WHERE type = 'cv_pending'`);
+    await db.pool.query(
+      `UPDATE email_templates SET is_active = false WHERE type = 'cv_pending_reminder'`,
+    );
 
     try {
       await run();
@@ -374,7 +385,9 @@ describe('the sending rule', () => {
       assert.deepEqual(await logRowsFor(nId), []);
       assert.deepEqual(await auditActions('notifications', nId), ['EMAIL_SEND_FAILED']);
     } finally {
-      await db.pool.query(`UPDATE email_templates SET is_active = true WHERE type = 'cv_pending'`);
+      await db.pool.query(
+        `UPDATE email_templates SET is_active = true WHERE type = 'cv_pending_reminder'`,
+      );
     }
   });
 
@@ -423,26 +436,27 @@ describe('the sending rule', () => {
     );
   });
 
-  test('a template already sent to the candidate is not sent again by the scheduler', async () => {
+  test('a reminder already mailed is not sent again by the scheduler', async () => {
     const candidate = await newCandidate();
-    // The template reached this candidate once already, outside the
-    // schedule (as a manual send one day would).
+    const id = await insertNotification({ candidateId: candidate.id });
+    // The mail for this reminder already went out (a crash left the
+    // reminder itself still pending).
     const template = (
-      await db.pool.query(`SELECT id FROM email_templates WHERE type = 'cv_pending'`)
+      await db.pool.query(`SELECT id FROM email_templates WHERE type = 'cv_pending_reminder'`)
     ).rows[0];
     await db.pool.query(
-      `INSERT INTO email_log (candidate_id, template_id, to_addresses, subject_sent, status, sent_at)
-       VALUES ($1, $2, ARRAY['hr.sample@example.test'], 'Sample', 'sent', now())`,
-      [candidate.id, template.id],
+      `INSERT INTO email_log (candidate_id, template_id, notification_id, to_addresses, subject_sent, status, sent_at)
+       VALUES ($1, $2, $3, ARRAY['hr.sample@example.test'], 'Sample', 'sent', now())`,
+      [candidate.id, template.id, id],
     );
 
-    const id = await insertNotification({ candidateId: candidate.id });
     await run();
 
     const row = await notificationRow(id);
     assert.equal(row.status, 'failed');
     assert.match(row.last_error, /already sent.*Resend/);
-    assert.deepEqual(await logRowsFor(id), []);
+    // Only the earlier row exists: the scheduler added none.
+    assert.equal((await logRowsFor(id)).length, 1);
     assert.deepEqual(await auditActions('notifications', id), ['EMAIL_SEND_FAILED']);
   });
 });
@@ -517,7 +531,7 @@ describe('the email log and resend', () => {
     assert.ok(res.body.total >= 1);
     const entry = res.body.items.find((item) => item.id === sentLogId);
     assert.equal(entry.candidate.fullName, 'Resend Numbat');
-    assert.equal(entry.template.type, 'cv_pending');
+    assert.equal(entry.template.type, 'cv_pending_reminder');
     assert.equal(entry.status, 'sent');
     assert.equal(entry.isResend, false);
 
@@ -615,7 +629,7 @@ describe('database rules', () => {
   test('the same template cannot be queued twice for a candidate unless it is a resend', async () => {
     const candidate = await newCandidate();
     const template = (
-      await db.pool.query(`SELECT id FROM email_templates WHERE type = 'cv_pending'`)
+      await db.pool.query(`SELECT id FROM email_templates WHERE type = 'cv_pending_reminder'`)
     ).rows[0];
     const insert = (isResend) =>
       db.pool.query(

@@ -19,4 +19,4 @@ Automated: 8 backend dashboard tests + 6 frontend dashboard tests, all green; fu
 
 No hardcoded values: the frontend renders only `data.counts`/`data.employeePhases` from the API; the placeholder test in routes.test.jsx now asserts the loading state shows no figures.
 
-Not validated here (mentor-blocked, excluded by design): junior end-date deadlines (date is NULL until the 9-month rule is confirmed) and any team-lead column (no team-lead record exists).
+> Historical validation note: junior end-date behavior still depends on HR's 9-month rule confirmation. Team Lead scoping was added in Stage 11; see `stage11-mentor-blocked-readiness.md` for current role behavior.

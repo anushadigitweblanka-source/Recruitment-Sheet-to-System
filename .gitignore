@@ -6,3 +6,6 @@ dist/
 coverage/
 logs/
 *.log
+
+# Development file storage (company CV uploads)
+backend/.dev-storage/

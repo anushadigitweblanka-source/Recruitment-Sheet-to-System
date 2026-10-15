@@ -1,6 +1,6 @@
 # Reports (built 2026-10-14, uncommitted pending review)
 
-Seven read-only, on-screen reports at `/reports` (one page, tabbed). Every figure is queried from the database on load — nothing is hardcoded. **Exports (Excel/CSV/PDF) and the scheduled weekly email are not built**; the weekly tab is the on-screen version only.
+Seven read-only, on-screen reports at `/reports` (one page, tabbed). Every figure is queried from the database on load — nothing is hardcoded. Reports can be exported in Excel, CSV, or PDF. Stage 11 also sends the weekly report on Monday at 08:00 Asia/Colombo when recipients are configured.
 
 ## Endpoints and permission
 
@@ -24,11 +24,11 @@ All date comparisons use `(timestamp AT TIME ZONE 'Asia/Colombo')::date`, so wee
 
 `frontend/src/modules/reports/ReportsPage.jsx` + `api.js`; the existing `/reports` sidebar entry now opens it (placeholder removed). Each tab has its filters (stage/position/source selects from the lookups API, date fields), loading/error (with retry)/empty states, Asia/Colombo date formatting, and pagination on the status report.
 
-## Mentor-dependent limits (not invented)
+## Known limits
 
-- **Weekly email sending and its Monday 08:00 schedule**: blocked on the recipient rules (Module 6 decision 1) — nothing is sent; the tab says so.
+- **Weekly email recipients**: configure the `weekly_report_recipients` setting before scheduled delivery. With no recipients configured, no email is sent.
 - **Applications count**: uses the date the candidate was added; the workbook's true application date needs the approved `applied_on` migration.
-- No team-lead column anywhere (no team-lead record exists) and no salary anywhere (not implemented by rule).
+- The reports do not expose salary values.
 
 ## Tests
 

@@ -14,7 +14,7 @@ const SIGNED_IN = {
     email: 'test.user@example.test',
     fullName: 'Test User',
     role: { code: 'main_user', name: 'Main User' },
-    permissions: ['candidates.view', 'notifications.manage'],
+    permissions: ['candidates.view', 'notifications.manage', 'admin.manage'],
   },
   login: async () => ({ ok: true }),
   logout: async () => ({ ok: true }),
@@ -65,11 +65,18 @@ const logEntry = (id, overrides = {}) => ({
   ...overrides,
 });
 
-function fakeBackend({ notifications = [], templates = [], log = [], listFails = 0 } = {}) {
+function fakeBackend({
+  notifications = [],
+  templates = [],
+  log = [],
+  approvals = [],
+  listFails = 0,
+} = {}) {
   const state = {
     notifications: structuredClone(notifications),
     templates: structuredClone(templates),
     log: structuredClone(log),
+    approvals: structuredClone(approvals),
     calls: [],
     listFails,
     nextId: 900,
@@ -151,6 +158,22 @@ function fakeBackend({ notifications = [], templates = [], log = [], listFails =
         if (recipient) found = found.filter((e) => e.toAddresses.join(',').includes(recipient));
         return json(200, paged(found));
       }
+      if (path === '/email-approvals' && method === 'GET')
+        return json(200, { items: state.approvals });
+      const approvalAction = path.match(/^\/email-log\/(\d+)\/(approve|reject)$/);
+      if (approvalAction && method === 'POST') {
+        const index = state.approvals.findIndex((item) => item.id === Number(approvalAction[1]));
+        if (index < 0) return json(404, { error: 'Not found' });
+        const [item] = state.approvals.splice(index, 1);
+        const entry = logEntry((state.nextId += 1), {
+          candidate: item.candidate,
+          subjectSent: item.subject,
+          status: approvalAction[2] === 'approve' ? 'sent' : 'rejected',
+          sentBy: 'Test User',
+        });
+        state.log.unshift(entry);
+        return json(200, { entry });
+      }
       const resend = path.match(/^\/email-log\/(\d+)\/resend$/);
       if (resend && method === 'POST') {
         const original = state.log.find((e) => e.id === Number(resend[1]));
@@ -168,9 +191,9 @@ function fakeBackend({ notifications = [], templates = [], log = [], listFails =
   return state;
 }
 
-function open(path) {
+function open(path, user = SIGNED_IN.user) {
   return render(
-    <AuthContext.Provider value={SIGNED_IN}>
+    <AuthContext.Provider value={{ ...SIGNED_IN, user }}>
       <MemoryRouter initialEntries={[path]}>
         <App />
       </MemoryRouter>
@@ -288,7 +311,7 @@ describe('email templates', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'New template' }));
     fireEvent.change(screen.getByLabelText(/^Template Type/), {
-      target: { value: 'sample_reminder' },
+      target: { value: 'joining_onboarding' },
     });
     fireEvent.change(screen.getByLabelText(/^Subject/), { target: { value: 'Hello {name}' } });
     fireEvent.change(screen.getByLabelText(/^Body/), { target: { value: 'Sample text.' } });
@@ -296,13 +319,13 @@ describe('email templates', () => {
 
     expect(await screen.findByText('Template saved.')).toBeTruthy();
     expect(callsTo(backend, 'POST', '/api/email-templates')[0].body).toEqual({
-      type: 'sample_reminder',
+      type: 'joining_onboarding',
       subject: 'Hello {name}',
       body: 'Sample text.',
-      sendMode: 'review',
+      sendMode: 'one_click',
       isActive: true,
     });
-    expect(await screen.findByText('sample_reminder')).toBeTruthy();
+    expect(await screen.findByText('joining_onboarding')).toBeTruthy();
   });
 
   test('shows a backend refusal next to the field and saves nothing', async () => {
@@ -311,7 +334,9 @@ describe('email templates', () => {
     await screen.findByText('No templates yet');
 
     fireEvent.click(screen.getByRole('button', { name: 'New template' }));
-    fireEvent.change(screen.getByLabelText(/^Template Type/), { target: { value: 'sample_x' } });
+    fireEvent.change(screen.getByLabelText(/^Template Type/), {
+      target: { value: 'team_lead_summary' },
+    });
     fireEvent.change(screen.getByLabelText(/^Subject/), { target: { value: 'S' } });
     fireEvent.change(screen.getByLabelText(/^Body/), { target: { value: 'B' } });
     // The pretend backend refuses an empty subject; empty it client-side first.
@@ -341,6 +366,56 @@ describe('email templates', () => {
 });
 
 describe('email log', () => {
+  const approval = (id, overrides = {}) => ({
+    id,
+    candidate: { id: 1, fullName: 'Sample Person 1' },
+    to: ['hr.sample@example.test'],
+    subject: 'Sample joining details',
+    body: 'A fictional offer email awaiting review.',
+    preparedBy: 'Sample HR User',
+    ...overrides,
+  });
+
+  test('Main User can approve a prepared offer mail and the waiting item clears', async () => {
+    const backend = fakeBackend({ approvals: [approval(31)] });
+    open('/email-log');
+
+    expect(await screen.findByText('Offer mails waiting for the Main User')).toBeTruthy();
+    expect(screen.getByText('A fictional offer email awaiting review.')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Approve and send' }));
+
+    expect(await screen.findByText('Approved and sent.')).toBeTruthy();
+    expect(callsTo(backend, 'POST', '/api/email-log/31/approve')).toHaveLength(1);
+    await waitFor(() =>
+      expect(screen.queryByText('A fictional offer email awaiting review.')).toBeNull(),
+    );
+  });
+
+  test('Main User can reject a prepared offer mail', async () => {
+    const backend = fakeBackend({ approvals: [approval(32)] });
+    open('/email-log');
+    await screen.findByText('Offer mails waiting for the Main User');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reject' }));
+
+    expect(await screen.findByText('Rejected.')).toBeTruthy();
+    expect(callsTo(backend, 'POST', '/api/email-log/32/reject')).toHaveLength(1);
+  });
+
+  test('HR can see pending offer mail but cannot approve or reject it', async () => {
+    fakeBackend({ approvals: [approval(33)] });
+    open('/email-log', {
+      ...SIGNED_IN.user,
+      role: { code: 'hr', name: 'HR' },
+      permissions: ['notifications.manage'],
+    });
+
+    expect(await screen.findByText('Offer mails waiting for the Main User')).toBeTruthy();
+    expect(screen.getByText('Only the Main User can approve this mail.')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Approve and send' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Reject' })).toBeNull();
+  });
+
   test('shows deliveries, failures and resend marks', async () => {
     fakeBackend({
       log: [

@@ -25,11 +25,37 @@ const FIELDS = [
   { name: 'nextFollowupDate', label: 'Next follow-up date' },
   { name: 'rejectReason', label: 'Reason for rejection' },
   { name: 'remarks', label: 'Remarks' },
+  { name: 'companyCv', label: 'Company CV' },
   { name: 'updated', label: 'Last Updated' },
 ];
 
-function toDisplayValues({ interview, holdReason, nextFollowupDate, rejectReason }) {
+const CV_STATUS = { not_sent: 'Not sent', sent: 'Sent', received: 'Received', overdue: 'Overdue' };
+
+// The Company CV link when it has arrived, else its status; CV pending is
+// shown to HR and the Team Lead alike.
+function companyCvCell(candidate) {
+  if (!candidate) return null;
+  const status = CV_STATUS[candidate.companyCvStatus] ?? candidate.companyCvStatus;
+  if (candidate.companyCvUrl) {
+    return (
+      <>
+        <a href={candidate.companyCvUrl} target="_blank" rel="noopener noreferrer">
+          Open Company CV
+        </a>{' '}
+        ({status})
+      </>
+    );
+  }
+  return candidate.companyCvPending ? (
+    <StatusBadge tone="warning">CV pending ({status})</StatusBadge>
+  ) : (
+    status
+  );
+}
+
+function toDisplayValues({ candidate, interview, holdReason, nextFollowupDate, rejectReason }) {
   return {
+    companyCv: companyCvCell(candidate),
     scheduledAt: formatDateTime(interview.scheduledAt),
     attendance: ATTENDANCE_LABELS[interview.attendance],
     interviewerName: interview.interviewerName,

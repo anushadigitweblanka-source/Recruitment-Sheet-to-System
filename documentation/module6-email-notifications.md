@@ -1,5 +1,7 @@
 # Module 6 — Email Notifications (summary, 2026-10-14)
 
+> Historical snapshot from before Stage 11. Automatic reminder creation, mail types and modes, one-off mail actions, offer-mail approval, and weekly reporting have since been implemented. Use `validation/stage11-mentor-blocked-readiness.md` for current status.
+
 Committed and pushed as `a2f5ba5` ("Implement Module 6 email notifications") on `main`, on top of Module 5 (`1da6c23`). Repository: `recruitment-sheet-to-system/` (GitHub: anushadigitweblanka-source/Recruitment-Sheet-to-System).
 
 ## What was delivered

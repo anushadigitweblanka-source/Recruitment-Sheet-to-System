@@ -34,3 +34,25 @@ export function requirePermission(code) {
     next();
   };
 }
+
+// Authorization when any one of several permissions is enough, for example a
+// screen both HR (all candidates) and a Team Lead (own team) may open.
+export function requireAnyPermission(...codes) {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Not signed in.' });
+    }
+    if (!codes.some((code) => req.user.permissions.includes(code))) {
+      return res.status(403).json({ error: 'You do not have permission to do this.' });
+    }
+    next();
+  };
+}
+
+// A user who holds candidates.view sees every candidate. Anyone else who
+// reached a candidate screen holds candidates.view_team and sees only the
+// candidates of the team they lead. Returns the scope to apply, or null.
+export function teamScopeFor(user) {
+  if (user.permissions.includes('candidates.view')) return null;
+  return { userId: user.id };
+}
