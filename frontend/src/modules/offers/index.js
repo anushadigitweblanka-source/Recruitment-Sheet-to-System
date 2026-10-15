@@ -18,8 +18,8 @@ export const offersModule = {
       // Opened as /offers/new?candidate=12 from the list, or on its own to
       // choose from the candidates waiting for an offer.
       path: '/offers/new',
-      label: 'Create Offer',
-      description: 'Prepare an offer for a selected candidate.',
+      label: 'Prepare Offer',
+      description: 'Prepare and complete the offer of a selected candidate.',
       component: OfferFormPage,
       nav: true,
     },

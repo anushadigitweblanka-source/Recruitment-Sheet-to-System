@@ -32,7 +32,7 @@ const STATUS_FILTER_OPTIONS = [
 
 // One row per candidate. A selected candidate waiting for their offer has no
 // offer record yet: the row shows the position they applied for and offers
-// "Create offer".
+// "Prepare offer".
 function toRow({ candidate, offer }) {
   const name = `${candidate.candidateCode} — ${candidate.fullName}`;
 
@@ -70,9 +70,9 @@ function toRow({ candidate, offer }) {
         ) : (
           <Link
             to={`/offers/new?candidate=${candidate.id}`}
-            aria-label={`Create offer for ${candidate.fullName}`}
+            aria-label={`Prepare offer for ${candidate.fullName}`}
           >
-            Create offer
+            Prepare offer
           </Link>
         )}
       </span>
@@ -124,7 +124,7 @@ export default function OfferListPage({ page }) {
         description={page.description}
         actions={
           <Link to="/offers/new" className="button button--primary">
-            Create Offer
+            Prepare Offer
           </Link>
         }
       />

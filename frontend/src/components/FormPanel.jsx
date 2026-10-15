@@ -5,7 +5,13 @@ import { Link } from 'react-router';
 // With `onSubmit` the form is connected: Save calls it, and is disabled while
 // `saving` is true. Without it the feature is not built yet, so the form
 // never submits and Save stays disabled.
-export default function FormPanel({ cancelTo, onSubmit, saving = false, children }) {
+export default function FormPanel({
+  cancelTo,
+  onSubmit,
+  saving = false,
+  saveLabel = 'Save',
+  children,
+}) {
   const connected = Boolean(onSubmit);
 
   return (
@@ -20,7 +26,7 @@ export default function FormPanel({ cancelTo, onSubmit, saving = false, children
       {children}
       <div className="form-actions">
         <button type="submit" className="button button--primary" disabled={!connected || saving}>
-          {saving ? 'Saving…' : 'Save'}
+          {saving ? 'Saving…' : saveLabel}
         </button>
         <Link to={cancelTo} className="button">
           Cancel

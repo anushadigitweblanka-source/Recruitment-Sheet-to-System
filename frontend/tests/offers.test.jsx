@@ -81,6 +81,7 @@ function fakeBackend({
   listFails = 0,
   hang = false,
   refuse = null,
+  listStatus = 200,
 } = {}) {
   const state = { entries: entries.map((e) => structuredClone(e)), calls: [], listFails };
   const json = (status, data) => ({ ok: status < 400, status, json: async () => data });
@@ -119,16 +120,20 @@ function fakeBackend({
 
       if (path === '/offers' && method === 'GET') {
         if (hang) return new Promise(() => {});
+        if (listStatus !== 200) return json(listStatus, { error: 'forbidden' });
         if (state.listFails > 0) {
           state.listFails -= 1;
           return json(500, { error: 'Internal server error' });
         }
         const { search, offerStatus, waiting } = Object.fromEntries(url.searchParams);
-        let found = state.entries;
+        // Like the real list: people with an offer, plus Selected candidates without one.
+        let found = state.entries.filter((e) => e.offer || e.candidate.stage.code === 'selected');
         if (waiting === 'true') found = found.filter((e) => !e.offer);
         if (search)
           found = found.filter((e) =>
-            e.candidate.fullName.toLowerCase().includes(search.toLowerCase()),
+            [e.candidate.fullName, e.candidate.candidateCode].some((v) =>
+              v.toLowerCase().includes(search.toLowerCase()),
+            ),
           );
         if (offerStatus === 'pending') found = found.filter((e) => !e.offer?.offerStatus);
         else if (offerStatus) found = found.filter((e) => e.offer?.offerStatus === offerStatus);
@@ -163,6 +168,25 @@ function fakeBackend({
         }
         return json(200, found);
       }
+      if (path === '/candidates' && method === 'GET') {
+        const search = (url.searchParams.get('search') ?? '').toLowerCase();
+        const found = state.entries.filter(({ candidate: c }) =>
+          [c.fullName, c.candidateCode].some((v) => v.toLowerCase().includes(search)),
+        );
+        return json(200, {
+          items: found.map(({ candidate: c }) => ({
+            id: c.id,
+            candidateCode: c.candidateCode,
+            fullName: c.fullName,
+            phone: c.phone,
+            position: { id: c.positionId, name: c.position },
+            stage: c.stage,
+          })),
+          total: found.length,
+          page: 1,
+          pageSize: 8,
+        });
+      }
       const person = path.match(/^\/candidates\/(\d+)$/);
       if (person) {
         const found = state.entries.find((e) => e.candidate.id === Number(person[1]));
@@ -183,9 +207,9 @@ function LocationProbe() {
 }
 const currentPath = () => screen.getByTestId('location').textContent;
 
-function open(path) {
+function open(path, auth = SIGNED_IN) {
   return render(
-    <AuthContext.Provider value={SIGNED_IN}>
+    <AuthContext.Provider value={auth}>
       <MemoryRouter initialEntries={[path]}>
         <App />
         <LocationProbe />
@@ -251,7 +275,7 @@ describe('offer list', () => {
     expect(within(waiting).queryByRole('link', { name: /^View/ })).toBeNull();
     expect(
       within(waiting)
-        .getByRole('link', { name: 'Create offer for Sample Person 1' })
+        .getByRole('link', { name: 'Prepare offer for Sample Person 1' })
         .getAttribute('href'),
     ).toBe('/offers/new?candidate=1');
 
@@ -349,78 +373,266 @@ describe('offer list', () => {
   });
 });
 
-describe('create offer', () => {
-  test('opened on its own, lists the candidates waiting for an offer to choose from', async () => {
+describe('prepare offer', () => {
+  // An offer the direct interview created automatically: nothing filled in yet.
+  const automatic = (id) => entry(id, offerRecord(400 + id), 'selected');
+  const saveOffer = () => fireEvent.click(screen.getByRole('button', { name: 'Save Offer' }));
+  const choose = (id) =>
+    fireEvent.change(screen.getByLabelText('Selected Candidate'), {
+      target: { value: String(id) },
+    });
+
+  test('is named Prepare Offer, keeps the salary notice, and lists the selected candidates', async () => {
     const backend = fakeBackend({
-      entries: [entry(1), entry(2, offerRecord(402, { offerStatus: 'sent' }), 'offer_sent')],
+      entries: [automatic(1), entry(2, offerRecord(402, { offerStatus: 'sent' }), 'offer_sent')],
     });
     open('/offers/new');
 
-    await screen.findByLabelText('Candidate');
-    expect(optionsOf('Candidate')).toEqual(['Select…', 'TEST-001 — Sample Person 1']);
-    expect(callsTo(backend, 'GET', '/api/offers')[0].query.waiting).toBe('true');
-
-    fireEvent.change(screen.getByLabelText('Candidate'), { target: { value: '1' } });
-    await formReady();
-    expect(currentPath()).toBe('/offers/new?candidate=1');
+    expect(await screen.findByRole('heading', { name: 'Prepare Offer' })).toBeTruthy();
+    await screen.findByRole('option', { name: 'TEST-001 — Sample Person 1' });
+    expect(optionsOf('Selected Candidate')).toEqual([
+      'Select…',
+      'TEST-001 — Sample Person 1',
+      'TEST-002 — Sample Person 2',
+    ]);
+    expect(screen.getByText(/Salary is never entered on this form/)).toBeTruthy();
+    // The list comes from the offers API, not the waiting-only filter.
+    expect(callsTo(backend, 'GET', '/api/offers')[0].query.waiting).toBeUndefined();
   });
 
-  test('says so when no candidate is waiting', async () => {
-    fakeBackend();
+  test('searching by Candidate ID or name asks the server and narrows the list', async () => {
+    const backend = fakeBackend({ entries: [automatic(1), automatic(2)] });
     open('/offers/new');
+    await screen.findByRole('option', { name: 'TEST-002 — Sample Person 2' });
 
-    expect(await screen.findByText('No candidate is waiting for an offer')).toBeTruthy();
-    // It explains why, and points to the Offer List for existing offers.
-    expect(screen.getByText(/created automatically/)).toBeTruthy();
-    const hint = screen.getByText(/To view or change an existing offer/);
-    expect(within(hint).getByRole('link', { name: 'Offer List' }).getAttribute('href')).toBe(
-      '/offers',
+    fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'TEST-002' } });
+    await waitFor(() =>
+      expect(optionsOf('Selected Candidate')).toEqual(['Select…', 'TEST-002 — Sample Person 2']),
     );
-    expect(screen.queryByLabelText('Candidate')).toBeNull();
+    expect(callsTo(backend, 'GET', '/api/offers').at(-1).query.search).toBe('TEST-002');
   });
 
-  test('shows the candidate, starts with their applied position, and offers only approved values', async () => {
-    fakeBackend({ entries: [entry(1)] });
+  test('selecting a candidate loads their existing offer into the form', async () => {
+    fakeBackend({
+      entries: [
+        entry(
+          2,
+          offerRecord(402, {
+            positionId: 2,
+            position: 'Sample Position B',
+            offerDate: '2026-11-05',
+            workMode: 'office',
+            location: 'Sample Office',
+            offerStatus: 'sent',
+            onboardingDate: '2026-11-16',
+          }),
+          'offer_sent',
+        ),
+      ],
+    });
+    open('/offers/new');
+    await screen.findByRole('option', { name: 'TEST-002 — Sample Person 2' });
+    choose(2);
+    await formReady();
+
+    expect(currentPath()).toBe('/offers/new?candidate=2');
+    expect(screen.getByLabelText(/^Position Offered/).value).toBe('2');
+    expect(screen.getByLabelText('Offer Date').value).toBe('2026-11-05');
+    expect(screen.getByLabelText('Work Mode').value).toBe('office');
+    expect(screen.getByLabelText('Location').value).toBe('Sample Office');
+    expect(screen.getByLabelText('Offer Status').value).toBe('sent');
+    expect(screen.getByLabelText('Onboarding Date').value).toBe('2026-11-16');
+    expect(screen.getByRole('button', { name: 'Save Offer' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'View the offer details' }).getAttribute('href')).toBe(
+      '/offers/402',
+    );
+  });
+
+  test('Save Offer updates the same offer, refreshes it and never creates another', async () => {
+    const backend = fakeBackend({ entries: [automatic(1)] });
     open('/offers/new?candidate=1');
     await formReady();
 
-    expect(screen.getByText('Sample Person 1')).toBeTruthy();
-    expect(screen.getByText('Selected')).toBeTruthy();
+    type('Offer Date', '2026-11-05');
+    fireEvent.change(screen.getByLabelText('Work Mode'), { target: { value: 'office' } });
+    type('Location', 'Sample Office');
+    fireEvent.change(screen.getByLabelText('Offer Status'), { target: { value: 'sent' } });
+    saveOffer();
+
+    expect(await screen.findByText('Offer saved. Current status: Offer Sent.')).toBeTruthy();
+    // Same record, same page, no navigation away.
+    expect(currentPath()).toBe('/offers/new?candidate=1');
+    expect(callsTo(backend, 'POST', '/api/offers')).toHaveLength(0);
+    const patch = callsTo(backend, 'PATCH', '/api/offers/401');
+    expect(patch).toHaveLength(1);
+    expect(patch[0].body).toMatchObject({
+      positionId: 1,
+      offerDate: '2026-11-05',
+      workMode: 'office',
+      location: 'Sample Office',
+      offerStatus: 'sent',
+    });
+    expect(Object.keys(patch[0].body).some((key) => /salary/i.test(key))).toBe(false);
+
+    // The form shows the refreshed offer.
+    await waitFor(() => expect(screen.getByLabelText('Location').value).toBe('Sample Office'));
+    expect(screen.getByLabelText('Offer Status').value).toBe('sent');
+    expect(screen.getByRole('button', { name: 'Save Offer' })).toBeTruthy();
+  });
+
+  test('a missing position is stopped before anything is sent', async () => {
+    const backend = fakeBackend({ entries: [automatic(1)] });
+    open('/offers/new?candidate=1');
+    await formReady();
+
+    fireEvent.change(screen.getByLabelText(/^Position Offered/), { target: { value: '' } });
+    saveOffer();
+
+    expect(await screen.findByText('Position is required.')).toBeTruthy();
+    expect(callsTo(backend, 'PATCH', '/api/offers/401')).toHaveLength(0);
+    expect(callsTo(backend, 'POST', '/api/offers')).toHaveLength(0);
+  });
+
+  test('attendance needs an accepted offer with an onboarding date, as before', async () => {
+    const backend = fakeBackend({ entries: [automatic(1)] });
+    open('/offers/new?candidate=1');
+    await formReady();
+
+    expect(screen.getByLabelText('Attended').disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText('Offer Status'), { target: { value: 'accepted' } });
+    expect(screen.getByLabelText('Attended').disabled).toBe(true);
+    type('Onboarding Date', '2026-11-16');
+    expect(screen.getByLabelText('Attended').disabled).toBe(false);
+    expect(optionsOf('Offer Status')).toEqual(['Select…', 'Sent', 'Accepted']);
+    expect(optionsOf('Work Mode')).toEqual(['Select…', 'Office']);
+    expect(callsTo(backend, 'PATCH', '/api/offers/401')).toHaveLength(0);
+  });
+
+  test('shows the backend refusal next to the field and keeps the entered values', async () => {
+    fakeBackend({
+      entries: [automatic(1)],
+      refuse: { offerStatus: 'This offer cannot move to that status.' },
+    });
+    open('/offers/new?candidate=1');
+    await formReady();
+
+    type('Location', 'Typed Office');
+    saveOffer();
+
+    expect(await screen.findByText('This offer cannot move to that status.')).toBeTruthy();
+    expect(screen.getByText('Some fields need correcting. Nothing was saved.')).toBeTruthy();
+    expect(screen.getByLabelText('Location').value).toBe('Typed Office');
+    expect(currentPath()).toBe('/offers/new?candidate=1');
+  });
+
+  test('a finalized offer locks status, onboarding date and attendance and says why', async () => {
+    fakeBackend({
+      entries: [
+        entry(
+          1,
+          offerRecord(401, {
+            offerStatus: 'accepted',
+            onboardingDate: '2026-11-16',
+            attended: true,
+          }),
+          'joined',
+        ),
+      ],
+    });
+    open('/offers/new?candidate=1');
+    await formReady();
+
+    expect(screen.getByText('This offer is finalized')).toBeTruthy();
+    expect(screen.getByLabelText('Offer Status').disabled).toBe(true);
+    expect(screen.getByLabelText('Onboarding Date').disabled).toBe(true);
+    expect(screen.getByLabelText('Attended').disabled).toBe(true);
+    expect(screen.getByLabelText('Location').disabled).toBe(false);
+  });
+
+  test('a Selected candidate with no offer explains the exception and creates the one offer', async () => {
+    const backend = fakeBackend({ entries: [entry(1)] });
+    open('/offers/new');
+    await screen.findByRole('option', { name: 'TEST-001 — Sample Person 1 (no offer yet)' });
+    choose(1);
+    await formReady();
+
+    expect(screen.getByText('No offer exists for this candidate yet')).toBeTruthy();
+    expect(screen.getByText(/created here, once/)).toBeTruthy();
     expect(screen.getByLabelText(/^Position Offered/).value).toBe('1');
-    // A position that is switched off is not offered.
     expect(optionsOf(/^Position Offered/)).toEqual([
       'Select…',
       'Sample Position A',
       'Sample Position B',
     ]);
-    expect(optionsOf('Offer Status')).toEqual(['Select…', 'Sent', 'Accepted']);
-    expect(optionsOf('Attended')).toEqual(['Select…', 'Yes', 'No']);
 
-    // Office is the only Work Mode approved so far, as a temporary value.
-    const workMode = screen.getByLabelText('Work Mode');
-    expect(workMode.disabled).toBe(false);
-    expect(optionsOf('Work Mode')).toEqual(['Select…', 'Office']);
-    expect(
-      screen.getByText('Office is a temporary value that requires mentor confirmation.'),
-    ).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('Offer Status'), { target: { value: 'sent' } });
+    saveOffer();
+
+    expect(await screen.findByText('Offer saved. Current status: Offer Sent.')).toBeTruthy();
+    const posts = callsTo(backend, 'POST', '/api/offers');
+    expect(posts).toHaveLength(1);
+    expect(posts[0].body.candidateId).toBe(1);
+    // From now on the candidate has an offer, so the same form updates it.
+    await waitFor(() =>
+      expect(screen.queryByText('No offer exists for this candidate yet')).toBeNull(),
+    );
+    expect(await screen.findByLabelText('Offer Status')).toBeTruthy();
   });
 
-  test('with no positions yet, explains where to add them with a working link', async () => {
-    fakeBackend({ entries: [entry(1)], positions: [] });
-    open('/offers/new?candidate=1');
+  test('a candidate who is not Selected is explained and gets no form', async () => {
+    fakeBackend({ entries: [entry(3, null, 'interviewed')] });
+    open('/offers/new');
+    await screen.findByLabelText('Selected Candidate');
+
+    fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'Person 3' } });
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Why Sample Person 3 cannot receive an offer' }),
+    );
+
+    expect(await screen.findByText('This candidate cannot receive an offer yet')).toBeTruthy();
+    expect(screen.getByText('Interviewed', { selector: 'strong' })).toBeTruthy();
+    expect(screen.getByText(/the offer is created automatically/)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Save Offer' })).toBeNull();
+    expect(screen.queryByLabelText(/^Position Offered/)).toBeNull();
+  });
+
+  test('with nobody to prepare, says so and links to the Offer List', async () => {
+    fakeBackend();
+    open('/offers/new');
+
+    expect(await screen.findByText('No selected candidate needs an offer prepared')).toBeTruthy();
+    expect(screen.getByLabelText('Selected Candidate')).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Go to the Offer List' }).getAttribute('href')).toBe(
+      '/offers',
+    );
+  });
+
+  test('without permission to view offers, says so and offers nothing to edit', async () => {
+    fakeBackend({ entries: [automatic(1)], listStatus: 403 });
+    open('/offers/new');
+
+    expect(await screen.findByText('You do not have permission to view offers')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Save Offer' })).toBeNull();
+  });
+
+  test('someone who may view but not manage offers sees the offer with no Save button', async () => {
+    const backend = fakeBackend({ entries: [automatic(1)] });
+    const viewer = {
+      ...SIGNED_IN,
+      user: { ...SIGNED_IN.user, permissions: ['candidates.view'] },
+    };
+    open('/offers/new?candidate=1', viewer);
     await formReady();
 
-    expect(optionsOf(/^Position Offered/)).toEqual(['Select…']);
-    expect(screen.getByText(/No positions exist yet/)).toBeTruthy();
-    expect(
-      screen
-        .getByRole('link', { name: 'Administration → Positions & Sources' })
-        .getAttribute('href'),
-    ).toBe('/admin/lookups');
+    expect(screen.getByText('You can view this offer, not change it')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Save Offer' })).toBeNull();
+    expect(screen.getByLabelText('Location').disabled).toBe(true);
+    expect(screen.getByLabelText('Offer Status').disabled).toBe(true);
+    expect(callsTo(backend, 'PATCH', '/api/offers/401')).toHaveLength(0);
   });
 
-  test('has no salary field and says why', async () => {
-    fakeBackend({ entries: [entry(1)] });
+  test('has no salary field and sends no salary', async () => {
+    fakeBackend({ entries: [automatic(1)] });
     open('/offers/new?candidate=1');
     await formReady();
 
@@ -432,88 +644,18 @@ describe('create offer', () => {
     ).toBeTruthy();
   });
 
-  test('Attended is available only for an accepted offer with an onboarding date', async () => {
-    fakeBackend({ entries: [entry(1)] });
+  test('with no positions yet, explains where to add them with a working link', async () => {
+    fakeBackend({ entries: [automatic(1)], positions: [] });
     open('/offers/new?candidate=1');
     await formReady();
 
-    expect(screen.getByLabelText('Attended').disabled).toBe(true);
-    fireEvent.change(screen.getByLabelText('Offer Status'), { target: { value: 'accepted' } });
-    expect(screen.getByLabelText('Attended').disabled).toBe(true);
-    type('Onboarding Date', '2026-11-16');
-    expect(screen.getByLabelText('Attended').disabled).toBe(false);
-
-    fireEvent.change(screen.getByLabelText('Attended'), { target: { value: 'yes' } });
-    fireEvent.change(screen.getByLabelText('Offer Status'), { target: { value: 'sent' } });
-    expect(screen.getByLabelText('Attended').value).toBe('');
-    expect(screen.getByLabelText('Attended').disabled).toBe(true);
-  });
-
-  test('a missing position is stopped before anything is sent', async () => {
-    const backend = fakeBackend({ entries: [entry(1)] });
-    open('/offers/new?candidate=1');
-    await formReady();
-
-    fireEvent.change(screen.getByLabelText(/^Position Offered/), { target: { value: '' } });
-    save();
-
-    expect(await screen.findByText('Position is required.')).toBeTruthy();
-    expect(callsTo(backend, 'POST', '/api/offers')).toHaveLength(0);
-  });
-
-  test('saves the offer and shows the new status', async () => {
-    const backend = fakeBackend({ entries: [entry(1)] });
-    open('/offers/new?candidate=1');
-    await formReady();
-
-    fireEvent.change(screen.getByLabelText(/^Position Offered/), { target: { value: '2' } });
-    type('Offer Date', '2026-11-05');
-    fireEvent.change(screen.getByLabelText('Work Mode'), { target: { value: 'office' } });
-    type('Location', 'Sample Office');
-    fireEvent.change(screen.getByLabelText('Offer Status'), { target: { value: 'sent' } });
-    save();
-
-    expect(await screen.findByText('Offer saved. Current status: Offer Sent.')).toBeTruthy();
-    expect(currentPath()).toBe('/offers/401');
-    expect(await screen.findByText('Sample Position B')).toBeTruthy();
-
-    const sent = callsTo(backend, 'POST', '/api/offers')[0].body;
-    expect(sent).toEqual({
-      candidateId: 1,
-      positionId: 2,
-      offerDate: '2026-11-05',
-      workMode: 'office',
-      location: 'Sample Office',
-      offerStatus: 'sent',
-      onboardingDate: null,
-      attended: null,
-    });
-    // Salary is never sent.
-    expect(Object.keys(sent).some((key) => /salary/i.test(key))).toBe(false);
-  });
-
-  test('shows a refusal from the backend next to the field, and stays on the form', async () => {
-    fakeBackend({
-      entries: [entry(1)],
-      refuse: { positionId: 'This position is no longer in use.' },
-    });
-    open('/offers/new?candidate=1');
-    await formReady();
-
-    save();
-
-    expect(await screen.findByText('This position is no longer in use.')).toBeTruthy();
-    expect(screen.getByText('Some fields need correcting. Nothing was saved.')).toBeTruthy();
-    expect(currentPath()).toBe('/offers/new?candidate=1');
-  });
-
-  test('explains when the candidate is not at Selected, and shows no form', async () => {
-    fakeBackend({ entries: [entry(1, null, 'interviewed')] });
-    open('/offers/new?candidate=1');
-
-    expect(await screen.findByText('This candidate cannot receive an offer yet')).toBeTruthy();
-    expect(screen.getByText(/This candidate is at “Interviewed”/)).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
+    expect(optionsOf(/^Position Offered/)).toEqual(['Select…']);
+    expect(screen.getByText(/No positions exist yet/)).toBeTruthy();
+    expect(
+      screen
+        .getByRole('link', { name: 'Administration → Positions & Sources' })
+        .getAttribute('href'),
+    ).toBe('/admin/lookups');
   });
 
   test('explains when the candidate or the offer does not exist', async () => {
