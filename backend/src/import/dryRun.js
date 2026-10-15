@@ -89,6 +89,15 @@ export async function runDryRun(pool, workbookPath, { approvedMappings } = {}) {
       sheet.headers,
     );
     sheetResult.unknownHeaders = unknownHeaders;
+    for (const fld of detected.area.fields) {
+      if (fld.noTarget && fieldToHeader[fld.field]) {
+        sheetResult.structureIssues.push({
+          code: 'no_destination_column',
+          detail: `column "${fieldToHeader[fld.field]}" has no destination in the system; its values are not imported`,
+        });
+        count('no_destination_column');
+      }
+    }
     unknownHeaders.forEach((header) => {
       sheetResult.structureIssues.push({
         code: 'unknown_header',

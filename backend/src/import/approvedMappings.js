@@ -7,6 +7,7 @@
 export function loadApprovedMappings() {
   return {
     companyCvStatus: {},
+    scheduleStatus: {},
     phoneResponse: {},
     phoneResult: {},
     attendance: {},

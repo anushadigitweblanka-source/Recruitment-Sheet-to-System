@@ -8,7 +8,12 @@
 // field: the data-map field key. aliases: provisional header spellings,
 // compared lowercased. required: the row cannot be READY without it.
 const area = (key, label, fields) => ({ key, label, fields });
-const f = (field, aliases, { required = false } = {}) => ({ field, aliases, required });
+const f = (field, aliases, { required = false, noTarget = false } = {}) => ({
+  field,
+  aliases,
+  required,
+  noTarget,
+});
 
 export const AREAS = [
   area('candidates', 'Candidates (Tab 1)', [
@@ -50,6 +55,20 @@ export const AREAS = [
     f('recommendation', ['recommendation']),
     f('decision', ['decision', 'status']),
     f('remarks', ['remarks']),
+  ]),
+  // The older interview log (guide section 10): name, phone, position,
+  // status and remarks with NO candidate ID, so rows are matched to the master
+  // by phone and then by name. "noTarget" marks a column the system has no
+  // place for yet; it is reported, never imported.
+  area('interview_schedules', 'Interview schedules (Tab 7)', [
+    f('fullName', ['name', 'candidate name', 'full name'], { required: true }),
+    f('phone', ['contact #', 'contact no', 'contact', 'contact number', 'phone', 'phone number']),
+    f('scheduledText', ['date', 'interview date', 'date/time']),
+    f('source', ['source']),
+    f('position', ['position', 'applied position']),
+    f('mode', ['mode', 'interview mode'], { noTarget: true }),
+    f('status', ['status']),
+    f('remarks', ['remarks', 'remark']),
   ]),
   area('offers', 'Offer (Tab 4)', [
     f('candidateId', ['candidate id', 'candidate_id', 'id'], { required: true }),

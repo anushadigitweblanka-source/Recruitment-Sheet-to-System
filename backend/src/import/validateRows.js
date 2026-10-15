@@ -265,7 +265,101 @@ export async function validateEmployeeRow(values, ctx) {
   return { ...finish(issues), safeRef: ref.matched?.code ?? ref.candidateId };
 }
 
+// Interview schedules (Tab 7): no Candidate ID, so a row is matched to the
+// master by phone and then by name. Nothing is converted that the guide
+// leaves for HR to confirm: day-first text dates, the lost leading zero of a
+// phone and every status, source and position word stay in review until an
+// approved mapping exists.
+export async function validateInterviewScheduleRow(values, ctx) {
+  const issues = [];
+
+  const fullName = take(
+    issues,
+    normalizeText(values.fullName, { singleLine: true, maxLength: 150 }),
+  );
+  if (!fullName) issues.push({ code: 'missing_required_field', detail: 'Name is empty' });
+
+  const phone = take(issues, normalizePhone(values.phone));
+  if (phone && /^[1-9][0-9]{8}$/.test(phone)) {
+    issues.push({
+      code: 'invalid_phone',
+      detail:
+        '9 digits with no leading 0: the zero was probably lost; the restore rule is unconfirmed, so it is not repaired',
+    });
+  }
+  if (!isBlank(values.phone) && !phone && !issues.some((i) => i.code === 'invalid_phone')) {
+    issues.push({ code: 'invalid_phone', detail: 'phone could not be read' });
+  }
+  if (isBlank(values.phone)) {
+    issues.push({ code: 'missing_required_field', detail: 'Contact # is empty' });
+  }
+
+  // The date column mixes date and time as text, day first. The guide asks
+  // HR to confirm mixed formats, so nothing is converted here.
+  const dateText = isBlank(values.scheduledText) ? null : String(values.scheduledText).trim();
+  if (!dateText) {
+    issues.push({ code: 'missing_required_field', detail: 'Date is empty' });
+  } else if (/^d{1,2}[/.-]d{1,2}[/.-]d{2,4}/.test(dateText)) {
+    issues.push({
+      code: 'invalid_date',
+      detail: 'day-first text date; conversion is not approved yet and the value is not converted',
+    });
+  } else {
+    take(issues, normalizeDateTime(values.scheduledText));
+  }
+
+  const positionWord = take(issues, normalizeText(values.position, { singleLine: true }));
+  let positionId = null;
+  if (positionWord) {
+    positionId = take(issues, resolveLookup(positionWord, ctx.positionMap, 'unknown_position'));
+  } else {
+    issues.push({ code: 'missing_required_field', detail: 'Position is empty' });
+  }
+  const sourceWord = take(issues, normalizeText(values.source, { singleLine: true }));
+  if (sourceWord) take(issues, resolveLookup(sourceWord, ctx.sourceMap, 'unknown_source'));
+
+  take(issues, normalizeText(values.mode, { singleLine: true, maxLength: 50 }));
+  const statusWord = take(issues, normalizeText(values.status, { singleLine: true }));
+  if (statusWord) {
+    take(issues, resolveLookup(statusWord, ctx.statusMaps.scheduleStatus, 'unknown_status'));
+  }
+  take(issues, normalizeText(values.remarks, { maxLength: 2000 }));
+
+  // The same person at the same time twice in this file.
+  const key = phoneMatchKey(phone);
+  if (key && dateText) {
+    const pair = `${key}|${dateText}`;
+    const firstRow = ctx.seen.schedulePairs?.get(pair);
+    if (firstRow) {
+      issues.push({
+        code: 'duplicate_schedule_row',
+        detail: `the same phone and date also appear at row ${firstRow}`,
+      });
+    } else {
+      ctx.seen.schedulePairs ??= new Map();
+      ctx.seen.schedulePairs.set(pair, ctx.rowNumber);
+    }
+  }
+
+  // Match to the master: phone, then name (+ position when it resolved).
+  const match = await matchCandidate(ctx.db, { phone, fullName, positionId });
+  if (match.ambiguous) {
+    issues.push({
+      code: 'ambiguous_candidate_match',
+      detail: `${match.count} existing candidates match by ${match.by}; not attached`,
+    });
+  } else if (!match.matched) {
+    issues.push({
+      code: 'unmatched_schedule_row',
+      detail: 'no existing candidate matches; the guide sends such rows to a review list',
+    });
+  }
+
+  return { ...finish(issues), safeRef: match.matched?.code ?? null };
+}
+
 export const VALIDATORS = {
+  interview_schedules: validateInterviewScheduleRow,
   candidates: validateCandidateRow,
   phone_screens: validatePhoneScreenRow,
   interviews: validateInterviewRow,

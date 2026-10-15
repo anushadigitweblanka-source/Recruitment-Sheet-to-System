@@ -1,7 +1,9 @@
 // Reads an .xlsx workbook into plain data: sheet names, headers and rows.
 // Nothing is interpreted here; interpretation belongs to the validators.
 
+import { extname } from 'node:path';
 import ExcelJS from 'exceljs';
+import { readCsvSheet } from './csv.js';
 
 // A cell as a plain value: strings, numbers, booleans and Dates pass through;
 // formula cells give their last calculated result; rich text is flattened.
@@ -21,6 +23,9 @@ function plainValue(cell) {
 // workbook row numbers (header row is row 1), so a report can point at the
 // exact row. Duplicate and blank headers are reported, not repaired.
 export async function readWorkbook(path) {
+  // A CSV export is one flat sheet; it goes through the same validation.
+  if (extname(path).toLowerCase() === '.csv') return [await readCsvSheet(path)];
+
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.readFile(path);
 
