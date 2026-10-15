@@ -370,6 +370,13 @@ describe('create offer', () => {
     open('/offers/new');
 
     expect(await screen.findByText('No candidate is waiting for an offer')).toBeTruthy();
+    // It explains why, and points to the Offer List for existing offers.
+    expect(screen.getByText(/created automatically/)).toBeTruthy();
+    const hint = screen.getByText(/To view or change an existing offer/);
+    expect(within(hint).getByRole('link', { name: 'Offer List' }).getAttribute('href')).toBe(
+      '/offers',
+    );
+    expect(screen.queryByLabelText('Candidate')).toBeNull();
   });
 
   test('shows the candidate, starts with their applied position, and offers only approved values', async () => {

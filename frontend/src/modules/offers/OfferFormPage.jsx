@@ -114,11 +114,19 @@ function ChooseCandidate({ header }) {
   } else if (waiting.status !== 'ready') {
     content = <ErrorState title="The candidates could not be loaded" onRetry={waiting.reload} />;
   } else if (waiting.data.items.length === 0) {
+    // Not an error: an offer is created automatically the moment a direct
+    // interview is marked Selected, so a Selected candidate only waits here
+    // when they have no applied position to base the offer on.
     content = (
-      <EmptyState
-        title="No candidate is waiting for an offer"
-        message="A candidate can receive an offer once their direct interview result is Selected."
-      />
+      <>
+        <EmptyState
+          title="No candidate is waiting for an offer"
+          message="An offer is created automatically when a candidate's direct interview result is Selected, so every selected candidate already has one. A Selected candidate appears here only when they have no applied position to base the offer on."
+        />
+        <p>
+          To view or change an existing offer, go to the <Link to="/offers">Offer List</Link>.
+        </p>
+      </>
     );
   } else {
     content = (
