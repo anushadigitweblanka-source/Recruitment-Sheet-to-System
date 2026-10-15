@@ -1,6 +1,7 @@
 import { inTransaction } from '../../db/transaction.js';
 import { recordAudit } from '../audit/audit.js';
 import { createUploadLink, markCompanyCvOverdue } from '../company-cv/companyCv.service.js';
+import { INVITE_TEMPLATE_TYPE, asAttachment, inviteForTeamLeadMail } from './calendarInvite.js';
 import { formatDate, formatTime, renderTemplate, templateTypeFor } from './emailTypes.js';
 import { loadMailContext, placeholderValues, readMailSettings } from './mailContext.js';
 import {
@@ -270,6 +271,21 @@ export async function resendEmail(pool, user, logId, mail) {
   }
 
   const id = await inTransaction(pool, async (db) => {
+    // A resent Team Lead summary carries a fresh calendar invitation built from
+    // the interview as it is now, so a rescheduled interview updates the event.
+    let invite = null;
+    if (original.template.type === INVITE_TEMPLATE_TYPE && original.candidate?.id) {
+      const context = await loadMailContext(db, original.candidate.id);
+      const made = context
+        ? await inviteForTeamLeadMail(db, {
+            context,
+            settings: await readMailSettings(db),
+            templateId: original.template.id,
+          })
+        : null;
+      if (!made?.ok) return { blocked: made?.missing ?? ['candidate'] };
+      invite = made;
+    }
     const newId = await insertLogEntry(db, {
       candidateId: original.candidate?.id ?? null,
       templateId: original.template.id,
@@ -287,6 +303,7 @@ export async function resendEmail(pool, user, logId, mail) {
         to: original.toAddresses,
         cc: original.ccAddresses ?? [],
         subject: original.subjectSent,
+        ...(invite ? { attachments: [asAttachment(invite)] } : {}),
       });
       await markLogSent(db, newId);
     } catch (err) {
@@ -303,5 +320,6 @@ export async function resendEmail(pool, user, logId, mail) {
     return newId;
   });
 
+  if (id.blocked) return invalid({ resend: `Cannot resend: missing ${id.blocked.join(', ')}.` });
   return { ok: true, data: { entry: await findLogEntry(pool, id) } };
 }

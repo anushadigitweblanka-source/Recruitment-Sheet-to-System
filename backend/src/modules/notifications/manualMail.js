@@ -19,6 +19,7 @@
 import { inTransaction } from '../../db/transaction.js';
 import { recordAudit } from '../audit/audit.js';
 import { createUploadLink, markCompanyCvSent } from '../company-cv/companyCv.service.js';
+import { INVITE_TEMPLATE_TYPE, asAttachment, inviteForTeamLeadMail } from './calendarInvite.js';
 import { TEMPLATE_TYPES, renderTemplate } from './emailTypes.js';
 import { loadMailContext, placeholderValues, readMailSettings } from './mailContext.js';
 import {
@@ -102,6 +103,13 @@ async function build(db, { candidateId, type, uploadLink }) {
 
   const settings = await readMailSettings(db);
   const { missing, to, cc } = requirements(type, context, settings);
+  // The Team Lead summary carries a calendar invitation; it is never made from
+  // incomplete interview information.
+  let invite = null;
+  if (type === INVITE_TEMPLATE_TYPE && missing.length === 0) {
+    invite = await inviteForTeamLeadMail(db, { context, settings, templateId: template.id });
+    if (!invite.ok) missing.push(...invite.missing);
+  }
   const kind = type === 'joining_onboarding' ? 'joining' : 'interview';
   const values = placeholderValues(context, settings, {
     kind,
@@ -121,6 +129,7 @@ async function build(db, { candidateId, type, uploadLink }) {
     missing,
     to,
     cc,
+    invite: invite?.ok ? invite : null,
     subject: renderTemplate(template.subject, values),
     body: renderTemplate(template.body, values),
   };
@@ -141,6 +150,14 @@ export async function previewMail(pool, { candidateId, type }) {
       body: built.body,
       missing: built.missing,
       canSend: built.missing.length === 0,
+      calendarInvite: built.invite
+        ? {
+            filename: built.invite.filename,
+            method: built.invite.method,
+            startsAt: built.invite.startsAt,
+            sequence: built.invite.sequence,
+          }
+        : null,
     },
   };
 }
@@ -262,7 +279,13 @@ export async function sendMail(pool, user, input, mail, { config }) {
       let delivered = true;
       let error = null;
       try {
-        await mail.send({ to: built.to, cc: built.cc, subject: edited.subject, body: edited.body });
+        await mail.send({
+          to: built.to,
+          cc: built.cc,
+          subject: edited.subject,
+          body: edited.body,
+          ...(built.invite ? { attachments: [asAttachment(built.invite)] } : {}),
+        });
         await markLogSent(db, logId);
       } catch (err) {
         delivered = false;

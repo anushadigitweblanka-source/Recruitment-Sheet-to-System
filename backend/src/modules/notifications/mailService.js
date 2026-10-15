@@ -18,11 +18,14 @@ export function createMailService() {
 
     // Pretends to deliver. `to` is an array of addresses; subject and body
     // are the final text. Resolves like a provider acknowledgement would.
-    async send({ to, subject }) {
+    async send({ to, subject, attachments }) {
       if (!Array.isArray(to) || to.length === 0) {
         throw new Error('A mail needs at least one recipient.');
       }
       if (!subject) throw new Error('A mail needs a subject.');
+      if (attachments !== undefined && !Array.isArray(attachments)) {
+        throw new Error('Mail attachments must be a list.');
+      }
       return { delivered: false, simulated: true };
     },
   };
