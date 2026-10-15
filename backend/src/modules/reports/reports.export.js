@@ -284,7 +284,8 @@ export function renderCsv(data) {
   for (const row of data.rows) {
     lines.push(data.columns.map((column) => csvCell(row[column.key])).join(','));
   }
-  return `﻿${lines.join('\r\n')}\r\n`;
+  // The leading \uFEFF is the UTF-8 BOM, so Excel opens the CSV as UTF-8.
+  return `\uFEFF${lines.join('\r\n')}\r\n`;
 }
 
 // ---------------------------------------------------------------------------
