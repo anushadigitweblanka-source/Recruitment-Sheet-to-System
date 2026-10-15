@@ -1,125 +1,132 @@
-# Final Acceptance Checklist (2026-10-15)
+# Final Acceptance Checklist (Stage 14, 2026-10-15)
 
-Status of every official task-guide acceptance item, plus the delivery items of this handover.
+The official _Recruitment Sheet to System – Intern Task Guide_ is the source of truth. This checklist records, for each requirement, what is actually true today. It replaces the earlier version of this file.
 
-**Scope (mentor-approved):** the current internship task uses **dummy/test data only**. The completion basis is therefore: fictional/dummy data, the automated test suite, manual development verification, the mentor/HR demo, the remaining mentor decisions, and the final sign-off. Real-data items stay documented below for completeness, but they are **not required for the current internship completion**.
+**No formal approval is recorded in this repository.** Nothing in this file is a signature, and no item is marked as accepted by a person.
 
-Verdicts: **PASS** (verified working, fictional data), **BLOCKED** (waits on a named mentor decision), **DEFERRED — OUT OF CURRENT INTERNSHIP SCOPE BY MENTOR INSTRUCTION** (real-data / go-live work, kept documented, not a failure), **NOT TESTED**.
+## Basis of the scope and of the decisions recorded here
 
-Evidence: the automated suite (record final totals in the cleanup review), the dummy-data acceptance run of 2026-10-14 (`final-dummy-acceptance.md`, 66 checks) and the per-feature validation reports in this folder. Items marked BLOCKED remain unresolved business rules; Stage 11 implementation requirements marked PASS are implemented and tested. No real-data item is marked PASS.
+| Statement                                                   | Basis                                                                                                        |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| The internship is scoped to dummy / test data only          | **Reported** by the project owner as the mentor's instruction. No written mentor record is in the repository |
+| The Junior phase counts 9 months from the day junior starts | **Project-owner implementation decision.** Not an HR sign-off; HR confirmation is still pending              |
+| Any training, demo review or acceptance                     | **No record exists.** None is claimed                                                                        |
+| Any approval or signature                                   | **None exists.** The forms are blank                                                                         |
 
-## Authentication & access
+## Status key
 
-| Item                                                                                      | Verdict | Evidence / blocker                                                                                                                                     |
-| ----------------------------------------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Login/logout, session handling, 401 on protected routes, no back-button replay            | PASS    | final-dummy-acceptance.md                                                                                                                              |
-| Backend-enforced permissions (401/403) on every module                                    | PASS    | module tests; validation reports                                                                                                                       |
-| User administration (create, deactivate, reactivate, reset password; Argon2id; no delete) | PASS    | users-admin-validation.md                                                                                                                              |
-| Final role list (HR / Team Lead / Intern) and their permissions                           | PASS    | IMPLEMENTED_FROM_TASK_GUIDE: migration 009, stage11Roles.test.js. Editing roles in the app: not requested by the guide; the roles view stays read-only |
+| Status      | Meaning                                                                                                                                                                       |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **PASS**    | Built and covered by automated tests with fictional data, and where possible checked in the running development application. Nothing is outstanding for the dummy-data scope. |
+| **PARTIAL** | Built and tested, but one part waits on something outside the software: a real provider, real data, HR confirmation or a person.                                              |
+| **PENDING** | Not done. It needs real data, a company system, a decision or a human action that has not happened.                                                                           |
 
-## Candidate management
+"Live" means the running development application and database with fictional data. Nothing was run against production, real recruitment data or a real mailbox.
 
-| Item                                                                                                                                                      | Verdict | Evidence / blocker                                     |
-| --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ------------------------------------------------------ |
-| Add/edit/view/search candidates; starts at Applied; stage history                                                                                         | PASS    | final-dummy-acceptance.md                              |
-| **Duplicate handling**: unique Candidate ID refused; phone/email/name+position duplicates warn with matches, saved only on explicit confirm, never merged | PASS    | final-dummy-acceptance.md                              |
-| Candidate ID format / auto-generation                                                                                                                     | BLOCKED | mentor decision 11 (typed, unique, format unconfirmed) |
-| CV file upload                                                                                                                                            | BLOCKED | storage location unapproved; CV link fields exist      |
+## A. The guide's acceptance checklist (section 8)
 
-## Phone interview
+| #   | Requirement                                                                           | Status      | Evidence / what is outstanding                                                                                                               |
+| --- | ------------------------------------------------------------------------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | All 2,463 candidates imported; row counts match the Excel per tab                     | **PENDING** | No import has happened. The reviewed CSV is the Interview Schedules tab (404 records), not the master list                                   |
+| 2   | No duplicate candidate_id; no #REF! errors                                            | **PARTIAL** | Unique candidate ID and duplicate warnings are enforced and tested; real data not yet loaded                                                 |
+| 3   | Selecting "Selected" in the interview creates an offer row automatically              | **PASS**    | `offerAutoCreate`, `prepareOffer` tests; offers exist for the dev candidates                                                                 |
+| 4   | Interview total /50 calculates automatically                                          | **PASS**    | Database-generated column; interview tests                                                                                                   |
+| 5   | Onboarding Date and "Attended" create the employee and the 7-day evaluation           | **PASS**    | Employee and lifecycle tests; live in dev                                                                                                    |
+| 6   | Evaluation Pass → Probation; Probation Pass → Junior (9 months); Junior Pass → Senior | **PASS**    | Lifecycle tests. The Junior end uses `junior_months` from the junior start: the project owner's decision, HR confirmation pending            |
+| 7   | Dates match the worked example in section 3                                           | **PASS**    | An automated test reproduces 2 Nov 2026 → junior 9 Feb to 8 Nov 2027, Senior from 9 Nov 2027                                                 |
+| 8   | Reminder arrives 24 hours before evaluation end and probation end, once only          | **PARTIAL** | Timing, once-only and duplicate prevention tested. **No real email has been delivered** (development adapter)                                |
+| 9   | Extension or date change replaces the old reminder                                    | **PASS**    | `stage11Notifications` tests                                                                                                                 |
+| 10  | Dashboard shows counts per phase and deadlines in the next 7 days                     | **PASS**    | Dashboard tests; live in dev                                                                                                                 |
+| 11  | User guide written and HR trained                                                     | **PARTIAL** | User guide and HR training guide are complete. **No training has taken place on record**: `handover/hr-training-sign-off-record.md` is blank |
 
-| Item                                                                                          | Verdict | Evidence / blocker                                      |
-| --------------------------------------------------------------------------------------------- | ------- | ------------------------------------------------------- |
-| Record call/result; Selected+date → Interview Scheduled; Not Selected needs reason → Rejected | PASS    | final-dummy-acceptance.md                               |
-| `response` field values                                                                       | BLOCKED | mentor decision 6 (field refuses all values, by design) |
+### Added for emails and reports
 
-## Direct interview
+| #   | Requirement                                                                                        | Status      | Evidence / what is outstanding                                                                                                |
+| --- | -------------------------------------------------------------------------------------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| 12  | Phone interview Selected sends the invitation and the Team Lead details, with calendar invite      | **PARTIAL** | Both mails and the `.ics` attachment are built and tested. Never opened in a real mailbox or calendar client                  |
+| 13  | Direct interview Selected sends the joining mail to the candidate with HR and Team Lead in CC      | **PARTIAL** | Built, with the Main User approval step. Development adapter only                                                             |
+| 14  | Interview and joining reminders go out 24 hours before, once only                                  | **PARTIAL** | Tested; not delivered for real                                                                                                |
+| 15  | `email_log` records every mail; "Mail Sent" updates by itself                                      | **PASS**    | Notification and approval tests                                                                                               |
+| 16  | Reports exist for Selected, Rejected, On Hold, Joined, Currently Working, Discontinued, Terminated | **PASS**    | Reports and exports tests; live in dev                                                                                        |
+| 17  | Weekly recruitment summary matches manual counts from the Excel for 2 sample weeks                 | **PENDING** | Needs the real workbook and manual counts                                                                                     |
+| 18  | Every report exports to Excel and PDF; weekly mail arrives Monday 08:00                            | **PARTIAL** | Exports PASS (Excel, CSV, PDF). The Monday mail is scheduled and tested but never delivered; recipients are empty in Settings |
 
-| Item                                                                         | Verdict | Evidence / blocker                                    |
-| ---------------------------------------------------------------------------- | ------- | ----------------------------------------------------- |
-| Requires Interview Scheduled; five 0–10 scores, all-or-none                  | PASS    | final-dummy-acceptance.md                             |
-| **Interview total /50 auto-calculated** (database-computed, cannot be typed) | PASS    | final-dummy-acceptance.md; schema `GENERATED ALWAYS`  |
-| Selected / Not Selected / On Hold stage moves with required reasons          | PASS    | final-dummy-acceptance.md                             |
-| `recommendation` value list                                                  | BLOCKED | mentor decision (no approved list; no value accepted) |
+### Added for the Company CV and company email account
 
-## Offers
+| #   | Requirement                                       | Status      | Evidence / what is outstanding                                         |
+| --- | ------------------------------------------------- | ----------- | ---------------------------------------------------------------------- |
+| 19  | CV link stored automatically after upload         | **PARTIAL** | Works against development file storage; no production storage provider |
+| 20  | Account requested at joining and disabled at exit | **PASS**    | `stage11CompanyAccounts` tests                                         |
 
-| Item                                                                                                                  | Verdict | Evidence / blocker                                                                                         |
-| --------------------------------------------------------------------------------------------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------- |
-| **Automatic offer creation on Selected** — exactly one, same transaction, applied position, nothing invented, audited | PASS    | offer-auto-create-validation.md (7 tests + live run)                                                       |
-| Offer statuses Sent/Accepted move the stage; joining date; one offer per candidate                                    | PASS    | final-dummy-acceptance.md                                                                                  |
-| Auto-offer when the candidate has no applied position                                                                 | BLOCKED | cannot exist without inventing a position; candidate waits for a manual offer — mentor to confirm the rule |
-| Work-mode value list                                                                                                  | BLOCKED | only `office` approved (temporary, migration 007)                                                          |
-| "Offer Rejected" as a stage                                                                                           | BLOCKED | mentor decision 3                                                                                          |
-| Salary (storage, visibility, access logging)                                                                          | PASS    | Implemented in Stage 11; see `stage11Salary.test.js`                                                       |
+## B. Other guide requirements
 
-## Employee lifecycle
+| Requirement (guide section)                                                               | Status      | Evidence / what is outstanding                                                                                                 |
+| ----------------------------------------------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Roles Main User / HR / Team Lead / Intern-Dev; Team Lead sees own team (7)                | **PASS**    | `stage11Roles` tests                                                                                                           |
+| HR enters the Offer Tracker step (7)                                                      | **PARTIAL** | HR currently lacks `offers.manage`, so HR can open Prepare Offer but not save. Needs your approval to change                   |
+| Salary in its own table, Main User only, every view and change logged (7)                 | **PASS**    | Salary, Offer List and report tests; absent from reports, exports, mail and logs for other roles                               |
+| Salary & Offer report, Main User only (9)                                                 | **PASS**    | `salaryOfferReport` tests; every view and export audited                                                                       |
+| Seven mail types, editable templates, preview, Auto or one-click, Resend logged (5, 8)    | **PARTIAL** | Built and tested. No template is seeded; no mail provider is configured                                                        |
+| WhatsApp / SMS text with the same details (8)                                             | **PASS**    | Preview and Copy Message on the candidate page; nothing is sent by the system                                                  |
+| 24-hour email **and in-app alert** (4)                                                    | **PASS**    | Notification bell, migration 014, `inAppAlerts` tests. Shown to users whose login email is a recipient                         |
+| Company CV template, personal upload link, statuses, "CV pending" (11)                    | **PARTIAL** | As row 19                                                                                                                      |
+| Temporary password encrypted, masked, 30-second reveal, logged, deleted after change (11) | **PASS**    | `stage11CompanyAccounts` tests                                                                                                 |
+| Every status change stores who and when (8)                                               | **PASS**    | Stage history and append-only audit log                                                                                        |
+| Closed lists as dropdowns (8)                                                             | **PARTIAL** | Stage, position, source, decision are lists. Phone `response`, interview `recommendation` and work-mode lists await the mentor |
+| Phone numbers as text; dates as real dates (8)                                            | **PASS**    | Validation tests                                                                                                               |
+| Never edit the original workbook (8)                                                      | **PASS**    | The real CSV was only read; it is outside the repository                                                                       |
+| Candidate data restricted to HR and managers (8)                                          | **PASS**    | Backend permissions on every module; 401/403 tests                                                                             |
+| Clean and import past interviews, matched by phone then name (10)                         | **PENDING** | Read-only CSV and workbook dry run exists; no importer, no approved mappings                                                   |
+| Current staff import, `source = Historical`, "Decision missing" (10)                      | **PENDING** | Not built; needs an approved schema change                                                                                     |
+| Status mapping "Not Accepted by Candidate" → Offer Rejected (10)                          | **PENDING** | "Offer Rejected" is not a stage; needs a decision                                                                              |
+| Import report signed by HR before the old Excel is frozen (10)                            | **PENDING** | No import has happened                                                                                                         |
 
-| Item                                                                                                                                                     | Verdict | Evidence / blocker                                                                              |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ----------------------------------------------------------------------------------------------- |
-| **Attended = Yes creates the employee automatically** + 7-day evaluation, once only                                                                      | PASS    | final-dummy-acceptance.md; employees tests                                                      |
-| **Lifecycle transitions**: Evaluation→Probation→Junior→Senior via Pass; dates per the guide's worked example; probation extension capped; one open phase | PASS    | final-dummy-acceptance.md; lifecycle tests                                                      |
-| Discontinue (reason + exit date) and Terminate (post-probation, reason + date)                                                                           | PASS    | final-dummy-acceptance.md                                                                       |
-| Discontinued vs Terminated definitions                                                                                                                   | BLOCKED | STILL_REQUIRES_CONFIRMATION — PENDING HR CONFIRMATION (built to the guide's working definition) |
-| Junior end-date calculation (9-month rule basis)                                                                                                         | BLOCKED | STILL_REQUIRES_CONFIRMATION — PENDING HR CONFIRMATION; HR enters the date at the junior Pass    |
+## C. Task-plan deliverables (guide section 7)
 
-## Notifications (Module 6)
+| Deliverable                                                             | Status      | Where                                                              |
+| ----------------------------------------------------------------------- | ----------- | ------------------------------------------------------------------ |
+| Process map and data dictionary                                         | **PASS**    | `data-maps/`, `docs/`, `documentation/`                            |
+| Approved schema and screen sketches                                     | **PASS**    | `docs/database-schema-proposal.md`, migrations 001–014             |
+| Import script and list of rows needing review                           | **PARTIAL** | Dry-run tool and review report exist; the importer itself does not |
+| Working recruitment flow with test data                                 | **PASS**    | `validation/final-dummy-acceptance.md`; automated tests            |
+| Onboarding to Senior tracking working                                   | **PASS**    | Employee lifecycle module                                          |
+| Proof that mails and reminders go at the right time; all reports export | **PARTIAL** | Timing proven by tests; no real delivery                           |
+| Demo, user guide and final sign-off                                     | **PARTIAL** | User guide done. No demo record and no sign-off                    |
 
-| Item                                                                                                                                                          | Verdict                                                          | Evidence / blocker                                                                                                            |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| **Reminder machinery**: schedule, send_at = due − 24h, 15-min job, DB-enforced duplicate prevention, failure isolation, explicit resend, email log, templates | PASS                                                             | 2026-10-14-module6-email-notifications.md                                                                                     |
-| **Automatic reminder creation** (who gets what)                                                                                                               | PASS                                                             | IMPLEMENTED_FROM_TASK_GUIDE: stage11Notifications.test.js (phase, interview, joining, CV pending; replacement on date change) |
-| Template types and send modes (Auto / One-click), one-off mails with preview, edit and Resend, CV pending reminder                                            | PASS                                                             | IMPLEMENTED_FROM_TASK_GUIDE: stage11Notifications.test.js, stage11CompanyCv.test.js                                           |
-| Failed-email automatic retry count and interval                                                                                                               | BLOCKED                                                          | STILL_REQUIRES_CONFIRMATION — failures logged, manual Resend                                                                  |
-| Real email delivery                                                                                                                                           | DEFERRED — out of current internship scope by mentor instruction | go-live work: no approved provider; development adapter only                                                                  |
+## D. Test and quality evidence
 
-## Dashboard, reports, exports
+| Check                     | Result                                                                                       |
+| ------------------------- | -------------------------------------------------------------------------------------------- |
+| Backend tests             | 621 / 621 pass                                                                               |
+| Frontend tests            | 404 / 404 pass                                                                               |
+| **Total**                 | **1,025 / 1,025**                                                                            |
+| Build, lint, format check | All pass                                                                                     |
+| Migrations                | 001–014, applied to the development database only                                            |
+| Live development checks   | Offer, report, export, bell and message endpoints answered correctly against the running app |
 
-| Item                                                                                               | Verdict | Evidence / blocker                                                                                                                                      |
-| -------------------------------------------------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Dashboard** — live DB counts (stages, employees, phases, upcoming interviews), nothing hardcoded | PASS    | dashboard-validation.md                                                                                                                                 |
-| **Reports** — all seven, live-queried, filtered, Colombo calendar                                  | PASS    | reports-validation.md                                                                                                                                   |
-| **Exports** — Excel/CSV/PDF for every report, matching the filtered screen                         | PASS    | report-exports-validation.md                                                                                                                            |
-| **Weekly email** (Monday 08:00 Asia/Colombo, previous week, once per week)                         | PASS    | IMPLEMENTED_FROM_TASK_GUIDE: stage11Notifications.test.js. Recipients are a setting because the guide names two audiences (STILL_REQUIRES_CONFIRMATION) |
-| Weekly "applications" uses true application date                                                   | BLOCKED | needs approved `applied_on` migration; uses created-date meanwhile (documented)                                                                         |
+## E. Acceptance dependencies (not implemented by this task)
 
-## Stage 11 — salary, Company CV, company accounts
+| Dependency                                                    | Type              | Owner                  |
+| ------------------------------------------------------------- | ----------------- | ---------------------- |
+| Real data import and count reconciliation                     | Data and approval | Mentor, HR             |
+| Master workbook, approved mappings, import authorization      | Data and approval | Mentor, HR             |
+| Real email delivery (provider, mailbox, templates, addresses) | External setup    | Company IT, Main User  |
+| Production database, hosting, storage, backups, TLS           | External setup    | Company IT             |
+| Business decisions (see `handover/mentor-decision-list.md`)   | Decision          | Mentor, HR             |
+| HR confirmation of the Junior reading                         | Confirmation      | HR                     |
+| HR offer permission                                           | Approval          | Project owner          |
+| HR training session and its record                            | Human action      | HR, trainer            |
+| Final sign-off                                                | Human approval    | Mentor, HR, management |
 
-| Item                                                                                                                                | Verdict | Evidence / blocker                                                               |
-| ----------------------------------------------------------------------------------------------------------------------------------- | ------- | -------------------------------------------------------------------------------- |
-| Salary: `offer_salary`, Main User only, every view and change audited, absent from reports, exports, mail and logs                  | PASS    | IMPLEMENTED_FROM_TASK_GUIDE: stage11Salary.test.js                               |
-| Company CV: template in Settings, candidate upload link, Received / Overdue, 24h reminder, CV pending, link on the interview screen | PASS    | IMPLEMENTED_FROM_TASK_GUIDE: stage11CompanyCv.test.js (development storage only) |
-| Company account lifecycle: Requested → Created → Handed over → Disabled, shown on the employee profile                              | PASS    | IMPLEMENTED_FROM_TASK_GUIDE: stage11CompanyAccounts.test.js                      |
-| Temporary password: encrypted, masked, Main User only, re-login, 30 seconds, logged, deleted after change                           | PASS    | IMPLEMENTED_FROM_TASK_GUIDE: stage11CompanyAccounts.test.js                      |
-| Production CV storage provider                                                                                                      | BLOCKED | STILL_REQUIRES_CONFIRMATION — the guide names no provider                        |
-| Main User approves offer mails (HR prepares, Main User approves or rejects; audited; backend-enforced)                              | PASS    | IMPLEMENTED_FROM_TASK_GUIDE: stage11Approval.test.js                             |
-| Auto-send / Review-then-send per mail type                                                                                          | PASS    | IMPLEMENTED_FROM_TASK_GUIDE: stage11Approval.test.js                             |
+## F. Overall
 
-## Settings & audit
+| Question                                                  | Answer  |
+| --------------------------------------------------------- | ------- |
+| Software implementation complete for the dummy-data scope | **YES** |
+| Historical import complete                                | **NO**  |
+| Real email delivery verified                              | **NO**  |
+| Production ready                                          | **NO**  |
+| HR training delivered on record                           | **NO**  |
+| Formal sign-off obtained                                  | **NO**  |
 
-| Item                                                      | Verdict | Evidence / blocker                 |
-| --------------------------------------------------------- | ------- | ---------------------------------- |
-| Editable phase durations, audited, applied at next gate   | PASS    | admin-settings-audit-validation.md |
-| Append-only audit log viewer; secrets refused in payloads | PASS    | admin-settings-audit-validation.md |
-
-## Data
-
-| Item                                               | Verdict                                                          | Evidence / blocker                                                                                                                          |
-| -------------------------------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Real data import** (the company workbook)        | DEFERRED — out of current internship scope by mentor instruction | not required for internship completion; dry-run framework PASS on fictional workbooks (import-dry-run/); readiness gate kept for the future |
-| Approved positions/sources/status mappings entered | DEFERRED — out of current internship scope by mentor instruction | arrive with the future import plan                                                                                                          |
-| Candidates 2002/2003 protected and unmodified      | PASS                                                             | verified before/after every validation run                                                                                                  |
-
-## Handover deliverables
-
-| Item                                                             | Verdict    | Evidence / blocker                                                                                                                                                                                                                |
-| ---------------------------------------------------------------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **User guide**                                                   | PASS       | documentation/user-guide.md (this pack)                                                                                                                                                                                           |
-| **HR training guide**                                            | PASS       | documentation/hr-training-guide.md (this pack)                                                                                                                                                                                    |
-| Final handover checklist                                         | PASS       | handover/final-handover-checklist.md (this pack)                                                                                                                                                                                  |
-| Mentor decision list consolidated                                | PASS       | handover/mentor-decision-list.md (this pack)                                                                                                                                                                                      |
-| **Final sign-off** (mentor + HR acceptance of the current scope) | NOT TESTED | based on the dummy-data demo, the automated test results, the completed user guide and HR training material, the remaining mentor decisions resolved or formally deferred, and mentor/HR approval — **real data is not required** |
-
-## Summary
-
-Stage 11 implementation is complete and its requirements are marked PASS where implemented and tested with fictional data. BLOCKED items elsewhere in this checklist identify unresolved business rules and their safe current behavior; they do not mean Stage 11 implementation is mentor-blocked. DEFERRED items are real-data/go-live work and are outside the current dummy-data scope. Final project sign-off remains a separate review item. No item was marked PASS on guesswork.
+Sign-off is made on `handover/final-sign-off-form.md`.

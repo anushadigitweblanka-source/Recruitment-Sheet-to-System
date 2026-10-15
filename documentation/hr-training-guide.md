@@ -91,4 +91,4 @@ Practise these on the development system with made-up people only:
 
 ## After practice: clean up
 
-Demo candidates can't be deleted from the screens (by design — nothing is ever deleted). Leave the fictional records in the development database, or ask the technical owner to remove them with the documented cleanup used in validation. The current mentor-approved scope is **dummy/test data only** — never enter a real person's details while practising, and never touch the protected sample candidates 2002 and 2003. (If real data ever arrives in a future go-live phase, practice stops on that system entirely.)
+Demo candidates can't be deleted from the screens (by design — nothing is ever deleted). Leave the fictional records in the development database, or ask the technical owner to remove them with the documented cleanup used in validation. The current scope (as reported by the project owner; there is no written mentor record) is **dummy/test data only** — never enter a real person's details while practising, and never touch the protected sample candidates 2002 and 2003. (If real data ever arrives in a future go-live phase, practice stops on that system entirely.)

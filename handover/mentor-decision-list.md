@@ -2,7 +2,7 @@
 
 Every open question in one place. For each: what we need decided, and what it unblocks. Nothing below has been implemented by guesswork — the system refuses input or omits the feature until the decision lands. (A ready-to-use conversation prompt for items 1–5 exists in `prompts/module6-mentor-decisions-continuation.md`, kept local.)
 
-**Scope note (mentor-approved):** the current internship task uses dummy/test data only. Items 1–15 affect the current dummy-data completion scope. Items 16–17 are **future / go-live decisions — not required for the current internship completion** — and are kept at the end for the record.
+**Scope note (reported, not documented):** the current internship task uses dummy/test data only, reported by the project owner as the mentor's instruction; **no written record of that instruction exists in this repository**, so it is a reported instruction, not documented approval. Items 1â€“15 affect the current dummy-data completion scope. Items 16â€“17 are **future / go-live decisions** and are not required for the current scope as reported.
 
 > **Stage 11 correction (2026-10-15).** The official task guide settles several items below. See `validation/stage11-mentor-blocked-readiness.md` and `handover/mentor-approval-checklist.md` for the current list. Settled by the guide and implemented: 1 (recipients), 3 (template types), 4 (Auto / One-click modes), 5 (CV pending trigger), 10 (roles and permissions), 11 (salary design). Still requiring confirmation: 2 (retry), 6, 7, 8, 9, 12, 13, 14, 15.
 

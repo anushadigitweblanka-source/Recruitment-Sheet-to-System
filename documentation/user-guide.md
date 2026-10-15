@@ -190,7 +190,7 @@ Marking an offer **Attended = Yes** requests a company account. IT marks it **Cr
 
 **How to use it:** add a position or source to make it selectable; switch one off to retire it. A retired value stays on the records that already use it but cannot be chosen for new ones.
 
-**What not to do:** don't pre-load the real company lists — the current scope is dummy/test data only, by mentor instruction. The approved lists would arrive with the future real-data import, if the mentor extends the scope.
+**What not to do:** don't pre-load the real company lists — the current scope is dummy/test data only (the scope reported by the project owner). The approved lists would arrive with the future real-data import, if the scope is extended.
 
 ## Users Administration
 
@@ -225,6 +225,12 @@ _(Also holds the mail automation settings: HR and manager addresses, weekly repo
 **How to use it:** filter by action, entity, person or date range. Payloads are safe to read: passwords, hashes, tokens and salaries are refused by the audit writer itself, at any depth, before a row is ever written.
 
 **What not to do:** nothing here can be edited or deleted — that is the point.
+
+## System Status (Administration)
+
+**What it does:** a development check that the frontend, the backend and the database are all working, each shown as OK or Not working. Open it first if a page will not load.
+
+**Note:** it checks connectivity only. It does not show business data.
 
 ## Logout
 

@@ -2,9 +2,9 @@
 
 Everything a new owner needs to run and verify the system. **No credentials appear in this document or anywhere in the repository.**
 
-## Scope (mentor-approved)
+## Scope (reported instruction, not documented approval)
 
-The mentor has instructed that the **current internship task uses dummy/test data only**. This checklist is therefore split in two:
+The **current internship task uses dummy/test data only**, as reported by the project owner as the mentor's instruction; **no written record of that instruction exists in this repository**, so it is a reported instruction, not documented approval. This checklist is therefore split in two:
 
 - **A. Current internship completion scope** — the dummy-data application, its tests, the user guide, the HR training/demo material, the remaining mentor decisions, and the final sign-off. Everything in part A below.
 - **B. Future / go-live work** — real workbook import, production database, real user accounts, production mail provider, deployment and backups. **Part B is future work and is NOT required for the current internship completion, unless the mentor later changes the scope.** It is kept here so the official guide's full requirements remain documented.
@@ -23,7 +23,7 @@ The mentor has instructed that the **current internship task uses dummy/test dat
 ## Database
 
 - [ ] Create a PostgreSQL database and a dedicated application user (dev names suggested in `.env.example`: `recruitment_system_dev` / `recruitment_app_dev`).
-- [ ] Run migrations: `npm run db:migrate`. Migrations are **001–008**, applied in order, checksummed, never edited after applying — only new ones are added.
+- [ ] Run migrations: `npm run db:migrate`. Migrations are **001–014**, applied in order, checksummed, never edited after applying — only new ones are added.
 - [ ] Note: the dev database contains fictional leftovers kept deliberately — deactivated test accounts `viewer@example.test`, `users-test@example.test`, `auto.offer@example.test` and the empty `test_accept_viewer` role — because the **append-only audit log** references them. Candidates **2002 and 2003 are protected sample records: never modify them.**
 
 ## Environment variables
@@ -49,7 +49,7 @@ From `.env.example` (values are yours, never committed): `DB_HOST`, `DB_PORT`, `
 
 ## Tests and quality gate
 
-- [ ] `npm test` — 430 backend + 341 frontend = **771 tests**, all green at handover. Backend tests use throwaway schemas; they need the database from `.env`.
+- [ ] `npm test` — 621 backend + 404 frontend = **1,025 tests**, all green at handover. Backend tests use throwaway schemas; they need the database from `.env`.
 - [ ] `npm run build`, `npm run lint`, `npm run format:check` — all clean at handover.
 
 ## Backup
@@ -58,7 +58,7 @@ From `.env.example` (values are yours, never committed): `DB_HOST`, `DB_PORT`, `
 
 ## GitHub
 
-- [ ] Repository: `github.com/anushadigitweblanka-source/Recruitment-Sheet-to-System`, branch `main`. Latest pushed commit at handover: `c354a53` (automatic offer creation).
+- [ ] Repository: `github.com/anushadigitweblanka-source/Recruitment-Sheet-to-System`, branch `main`. Latest commit at this review: see `git log` (the Stage 14 work is committed; pushed state is in `handover/final-project-handover-summary.md`).
 - [ ] Working tree extras that stay local: the final handover pack (this file and its siblings) until reviewed and pushed, and the untracked `prompts/` files (local working notes — do not push).
 - [ ] `.env` and real data are never committed. CSV/workbook files with real people must never enter the repository.
 
@@ -68,14 +68,14 @@ See **`handover/mentor-decision-list.md`** — the single consolidated list, spl
 
 ## Final sign-off (current scope)
 
-Sign-off for the current internship completion is based on: the dummy-data demo (see `documentation/hr-training-guide.md`), the automated test results (771/771), the completed user guide, the completed HR training material, the remaining mentor decisions either resolved or formally deferred, and mentor/HR approval. **It does not require real data.**
+Sign-off for the current internship completion is based on: the dummy-data demo (see `documentation/hr-training-guide.md`), the automated test results (1,025/1,025), the completed user guide, the completed HR training material, the remaining mentor decisions either resolved or formally deferred, and mentor/HR approval. **It does not require real data.**
 
 ## Security warnings
 
 - [ ] Secrets live only in `.env`; nothing in the repo or the audit log ever contains a password, hash, token or salary (the audit writer refuses them at any depth).
 - [ ] All permissions are enforced in the **backend** (401/403); the UI hiding a button is never the only protection.
-- [ ] **No salary functionality exists anywhere** — do not add any until the mentor approves the design (storage, who may view, access logging).
-- [ ] **No real employee or candidate PII may be used** — dummy/test data only, by mentor instruction. Candidates 2002 and 2003 stay untouched.
+- [ ] **Salary is Main User only**: stored in `offer_salary`, shown on the offer details page, the Offer List column and the Salary & Offers report, every view and change audited without the amount. It must never reach HR, Team Lead, Intern / Dev, reports, exports, mail or logs.
+- [ ] **No real employee or candidate PII may be used** â€” dummy/test data only (the reported scope above). Candidates 2002 and 2003 stay untouched.
 - [ ] Mail is in **development mode**: nothing is ever delivered. A real provider belongs to part B and needs separate approval.
 - [ ] Users are deactivated, never deleted; the audit log is append-only. Do not "clean up" either.
 
@@ -83,7 +83,7 @@ Sign-off for the current internship completion is based on: the dummy-data demo 
 
 # B. FUTURE / GO-LIVE WORK — NOT REQUIRED FOR CURRENT INTERNSHIP COMPLETION
 
-Kept so the official guide's full requirements stay documented. None of this is needed now unless the mentor changes the scope. **Classification: DEFERRED — OUT OF CURRENT MENTOR-APPROVED INTERNSHIP SCOPE.**
+Kept so the official guide's full requirements stay documented. Under the reported scope none of this is needed now unless the scope is changed; **the official guide itself still lists the import as an acceptance item.** **Classification: DEFERRED under the reported scope, pending written confirmation.**
 
 ## Real-data import (deferred)
 

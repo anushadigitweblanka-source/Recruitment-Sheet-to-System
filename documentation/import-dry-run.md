@@ -2,6 +2,10 @@
 
 A workbook can now be validated end to end **without writing any recruitment data**. The framework reads an .xlsx file, checks its structure and every row against the data maps and the existing database (read-only), and writes a PII-safe report. There is no other mode: a real import is a separate, future, mentor-approved step.
 
+## What it accepts
+
+An `.xlsx` workbook, or a `.csv` export (Windows-1252 or UTF-8, quoted multi-line cells). A CSV is read as one flat sheet and recognised by its headers; the recruitment CSV reviewed so far is the **Interview Schedules** tab, not the candidate master. See `validation/real-csv-source-assessment.md`.
+
 ## How to run
 
 ```
