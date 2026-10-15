@@ -1,6 +1,17 @@
 # Real Data Import Readiness Checklist (created 2026-10-14)
 
-**Status: NOT READY. No item below is complete.** No real recruitment row may be imported until every item is checked, each by the person entitled to check it. Do not mark an item complete without evidence (link it from `evidence/`).
+**Status: NOT READY.** Only the discovery items in the section below are complete. No real recruitment row may be imported until every item is checked, each by the person entitled to check it. Do not mark an item complete without evidence (link it from `evidence/`).
+
+## Discovery progress (2026-10-15) — inspection only, no approvals
+
+- [x] File identified: `Recruitment_Updates_DigitWebLanka (3)(7.csv`, kept outside the repo
+- [x] File version/path recorded: 74,234 bytes, SHA-256 prefix `1491c7ff37a3d5e6`
+- [x] Structure inspected: 26 columns (8 named, 18 unnamed), Windows-1252, CRLF, 6 multi-line cells
+- [x] Row counts known: 1,261 data rows, 404 records, 857 empty rows
+- [x] Preliminary mapping prepared: `data-maps/real-csv-to-database.md`, `validation/real-csv-mapping-review.md`
+- [ ] Mapping questions answered: `handover/real-csv-mapping-decisions.md` (14 open)
+
+None of these counts as approval for import.
 
 ## Authorization
 
