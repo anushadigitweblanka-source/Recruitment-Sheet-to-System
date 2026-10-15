@@ -36,7 +36,7 @@ export async function readMailSettings(db) {
 
 export async function loadMailContext(db, candidateId) {
   const { rows } = await db.query(
-    `SELECT c.id, c.candidate_code, c.full_name, c.email, c.position_id,
+    `SELECT c.id, c.candidate_code, c.full_name, c.email, c.phone, c.position_id,
             c.company_cv_status, c.company_cv_url,
             p.name AS position_name,
             tl.name AS team_lead_name, tl.email AS team_lead_email,
@@ -64,6 +64,7 @@ export async function loadMailContext(db, candidateId) {
     candidateCode: row.candidate_code,
     fullName: row.full_name,
     email: row.email,
+    phone: row.phone,
     positionName: row.position_name,
     teamLeadName: row.team_lead_name,
     teamLeadEmail: row.team_lead_email,

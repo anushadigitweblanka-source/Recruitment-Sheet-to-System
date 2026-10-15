@@ -33,3 +33,7 @@ export const sendEmail = (candidateId, data) =>
 // The candidate's own upload page (no sign-in).
 export const checkCompanyCvLink = (token) => apiGet(`/public/company-cv/${token}`);
 export const uploadCompanyCv = (token, file) => apiPutFile(`/public/company-cv/${token}`, file);
+
+// The WhatsApp / SMS text for a candidate: preview only, nothing is sent.
+export const previewMessage = (candidateId, type) =>
+  apiPost(`/candidates/${candidateId}/messages/preview`, { type });

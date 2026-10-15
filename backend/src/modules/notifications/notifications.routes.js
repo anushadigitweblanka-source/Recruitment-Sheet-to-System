@@ -8,6 +8,7 @@ import {
   sendMail,
 } from './manualMail.js';
 import { createMailService } from './mailService.js';
+import { previewMessage } from './messageText.js';
 import {
   findNotification,
   findTemplate,
@@ -129,6 +130,14 @@ export function notificationsRouter({ config, pool }) {
     const id = positiveId(req.params.id);
     const type = typeof req.body?.type === 'string' ? req.body.type : '';
     sendResult(res, id ? await previewMail(pool, { candidateId: id, type }) : notFound);
+  });
+
+  // The WhatsApp / SMS text for the same details: preview and copy only. Nothing
+  // is sent and no provider exists.
+  router.post('/candidates/:id/messages/preview', canManage, async (req, res) => {
+    const id = positiveId(req.params.id);
+    const type = typeof req.body?.type === 'string' ? req.body.type : '';
+    sendResult(res, id ? await previewMessage(pool, { candidateId: id, type }) : notFound);
   });
 
   router.post('/candidates/:id/emails/send', canManage, async (req, res) => {
