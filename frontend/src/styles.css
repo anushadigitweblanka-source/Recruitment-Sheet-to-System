@@ -873,6 +873,17 @@ a.button {
   grid-column: 1 / -1;
 }
 
+/* Two even columns for forms that read as a pair of fields per row. */
+.form-grid--two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (max-width: 640px) {
+  .form-grid--two {
+    grid-template-columns: 1fr;
+  }
+}
+
 .form-grid--scores {
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
 }
@@ -910,6 +921,10 @@ a.button {
   padding-top: 16px;
   margin-top: 24px;
   border-top: 1px solid var(--color-border);
+}
+
+.form-actions--end {
+  justify-content: flex-end;
 }
 
 .form-actions__note {

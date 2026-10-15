@@ -10,6 +10,7 @@ export default function FormPanel({
   onSubmit,
   saving = false,
   saveLabel = 'Save',
+  actionsAlign = 'start',
   children,
 }) {
   const connected = Boolean(onSubmit);
@@ -24,7 +25,7 @@ export default function FormPanel({
       noValidate
     >
       {children}
-      <div className="form-actions">
+      <div className={`form-actions${actionsAlign === 'end' ? ' form-actions--end' : ''}`}>
         <button type="submit" className="button button--primary" disabled={!connected || saving}>
           {saving ? 'Saving…' : saveLabel}
         </button>

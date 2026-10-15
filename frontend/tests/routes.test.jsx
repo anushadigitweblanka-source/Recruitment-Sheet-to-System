@@ -189,7 +189,7 @@ describe('module rules visible in the UI', () => {
       ).toBe(false);
       expect(html.match(/<th [^>]*>[^<]*salary/i), path).toBeNull();
     }
-    expect(renderAt('/offers/new')).toContain('Salary is never entered on this form.');
+    expect(renderAt('/offers/new')).not.toContain('Salary is never entered on this form.');
   });
 
   test('the lifecycle timeline follows the task guide order', () => {

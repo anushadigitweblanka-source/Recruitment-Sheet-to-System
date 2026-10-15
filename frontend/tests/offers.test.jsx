@@ -395,21 +395,55 @@ describe('prepare offer', () => {
       'TEST-001 — Sample Person 1',
       'TEST-002 — Sample Person 2',
     ]);
-    expect(screen.getByText(/Salary is never entered on this form/)).toBeTruthy();
+    // The salary banner is not on this page.
+    expect(screen.queryByText('Salary is not part of this screen')).toBeNull();
     // The list comes from the offers API, not the waiting-only filter.
     expect(callsTo(backend, 'GET', '/api/offers')[0].query.waiting).toBeUndefined();
   });
 
-  test('searching by Candidate ID or name asks the server and narrows the list', async () => {
-    const backend = fakeBackend({ entries: [automatic(1), automatic(2)] });
+  test('has only the Selected Candidate dropdown: no search box and no explanatory text', async () => {
+    fakeBackend({ entries: [automatic(1), automatic(2)] });
     open('/offers/new');
     await screen.findByRole('option', { name: 'TEST-002 — Sample Person 2' });
 
-    fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'TEST-002' } });
-    await waitFor(() =>
-      expect(optionsOf('Selected Candidate')).toEqual(['Select…', 'TEST-002 — Sample Person 2']),
-    );
-    expect(callsTo(backend, 'GET', '/api/offers').at(-1).query.search).toBe('TEST-002');
+    expect(screen.getByLabelText('Selected Candidate')).toBeTruthy();
+    expect(screen.queryByRole('searchbox')).toBeNull();
+    expect(screen.queryByLabelText(/Search candidates/)).toBeNull();
+    expect(screen.queryByText(/Candidates whose direct interview result is Selected/)).toBeNull();
+  });
+
+  test('shows all seven fields in two columns, disabled until a candidate is selected', async () => {
+    fakeBackend({ entries: [automatic(1)] });
+    open('/offers/new');
+    await screen.findByRole('option', { name: 'TEST-001 — Sample Person 1' });
+
+    const labels = [
+      'Position Offered',
+      'Offer Date',
+      'Work Mode',
+      'Location',
+      'Offer Status',
+      'Onboarding Date',
+      'Attended',
+    ];
+    for (const label of labels) {
+      expect(screen.getByLabelText(new RegExp('^' + label)).disabled).toBe(true);
+    }
+    expect(screen.getByRole('button', { name: 'Save Offer' }).disabled).toBe(true);
+    expect(document.querySelector('.form-grid--two')).toBeTruthy();
+    expect(document.querySelector('.form-actions--end')).toBeTruthy();
+
+    // Selected Candidate is the one control at the top of the page.
+    expect(screen.getByLabelText('Selected Candidate')).toBeTruthy();
+
+    // Choosing a candidate switches the fields on and fills them in.
+    choose(1);
+    await formReady();
+    expect(screen.getByLabelText(/^Position Offered/).disabled).toBe(false);
+    expect(screen.getByLabelText(/^Position Offered/).value).toBe('1');
+    expect(screen.getByRole('button', { name: 'Save Offer' }).disabled).toBe(false);
+    expect(document.querySelector('.form-grid--two')).toBeTruthy();
+    expect(document.querySelector('.form-actions--end')).toBeTruthy();
   });
 
   test('selecting a candidate loads their existing offer into the form', async () => {
@@ -478,6 +512,35 @@ describe('prepare offer', () => {
     await waitFor(() => expect(screen.getByLabelText('Location').value).toBe('Sample Office'));
     expect(screen.getByLabelText('Offer Status').value).toBe('sent');
     expect(screen.getByRole('button', { name: 'Save Offer' })).toBeTruthy();
+  });
+
+  test('the result of Save Offer brings itself into view, refusal and success alike', async () => {
+    const scrolled = vi.fn();
+    window.HTMLElement.prototype.scrollIntoView = scrolled;
+    try {
+      fakeBackend({
+        entries: [automatic(1)],
+        refuse: { offerStatus: 'This offer cannot move to that status.' },
+      });
+      open('/offers/new?candidate=1');
+      await formReady();
+      saveOffer();
+      expect(
+        await screen.findByText('Some fields need correcting. Nothing was saved.'),
+      ).toBeTruthy();
+      await waitFor(() => expect(scrolled).toHaveBeenCalled());
+      cleanup();
+
+      scrolled.mockClear();
+      fakeBackend({ entries: [automatic(1)] });
+      open('/offers/new?candidate=1');
+      await formReady();
+      saveOffer();
+      expect(await screen.findByText(/Offer saved\./)).toBeTruthy();
+      await waitFor(() => expect(scrolled).toHaveBeenCalled());
+    } finally {
+      delete window.HTMLElement.prototype.scrollIntoView;
+    }
   });
 
   test('a missing position is stopped before anything is sent', async () => {
@@ -581,13 +644,7 @@ describe('prepare offer', () => {
 
   test('a candidate who is not Selected is explained and gets no form', async () => {
     fakeBackend({ entries: [entry(3, null, 'interviewed')] });
-    open('/offers/new');
-    await screen.findByLabelText('Selected Candidate');
-
-    fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'Person 3' } });
-    fireEvent.click(
-      await screen.findByRole('button', { name: 'Why Sample Person 3 cannot receive an offer' }),
-    );
+    open('/offers/new?candidate=3');
 
     expect(await screen.findByText('This candidate cannot receive an offer yet')).toBeTruthy();
     expect(screen.getByText('Interviewed', { selector: 'strong' })).toBeTruthy();
@@ -612,7 +669,8 @@ describe('prepare offer', () => {
     open('/offers/new');
 
     expect(await screen.findByText('You do not have permission to view offers')).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Save Offer' })).toBeNull();
+    // Nothing can be saved: the form stays switched off.
+    expect(screen.getByRole('button', { name: 'Save Offer' }).disabled).toBe(true);
   });
 
   test('someone who may view but not manage offers sees the offer with no Save button', async () => {
@@ -637,11 +695,9 @@ describe('prepare offer', () => {
     await formReady();
 
     noSalaryAnywhere();
-    expect(
-      screen.getByText(
-        "Salary is never entered on this form. The Main User records it separately, on the offer's details page, where every view and change is logged.",
-      ),
-    ).toBeTruthy();
+    // No salary banner, heading or paragraph either.
+    expect(screen.queryByText('Salary is not part of this screen')).toBeNull();
+    expect(screen.queryByText(/Salary is never entered on this form/)).toBeNull();
   });
 
   test('with no positions yet, explains where to add them with a working link', async () => {

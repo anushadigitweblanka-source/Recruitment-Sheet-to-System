@@ -1,9 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { listLookup } from '../../api/lookups.js';
 import { useAuth } from '../../auth/AuthContext.jsx';
 import CandidateSummary from '../../components/CandidateSummary.jsx';
-import DataTable from '../../components/DataTable.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
 import ErrorState from '../../components/ErrorState.jsx';
 import FormField from '../../components/FormField.jsx';
@@ -11,10 +10,8 @@ import FormPanel from '../../components/FormPanel.jsx';
 import LoadingState from '../../components/LoadingState.jsx';
 import Notice from '../../components/Notice.jsx';
 import PageHeader from '../../components/PageHeader.jsx';
-import SearchInput from '../../components/SearchInput.jsx';
-import StatusBadge from '../../components/StatusBadge.jsx';
 import { useApi } from '../../hooks/useApi.js';
-import { getCandidate, listCandidates } from '../candidates/api.js';
+import { getCandidate } from '../candidates/api.js';
 import { createOffer, getOffer, listOffers, updateOffer } from './api.js';
 import { ATTENDED_OPTIONS, OFFER_STATUS_OPTIONS, WORK_MODE_OPTIONS } from './fields.js';
 import SalaryPendingNotice from './SalaryPendingNotice.jsx';
@@ -126,31 +123,24 @@ const NEXT_STEP = {
 };
 const DEFAULT_NEXT_STEP = 'An offer can be created once the direct interview result is Selected.';
 
-const SEARCH_DELAY_MS = 300;
+// The result of Save Offer is shown above a long form while the button is at
+// the bottom, so a message brings itself into view when it appears.
+function Announce({ children }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    ref.current?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
+  }, []);
+  return <div ref={ref}>{children}</div>;
+}
 
 const candidateLabel = (candidate) => `${candidate.candidateCode} — ${candidate.fullName}`;
 
-// Where HR picks the candidate: a searchable list of Selected candidates,
-// each with the offer the direct interview created automatically. Both lists
-// come from the database through the existing offer and candidate APIs.
+// The candidate dropdown: Selected candidates, each with the offer the direct
+// interview created automatically (or, for the safe exception, none yet).
+// The list comes from the database through the existing offers API.
 function CandidateSelector({ selectedId, selectedLabel }) {
   const [, setSearchParams] = useSearchParams();
-  const [text, setText] = useState('');
-  const [search, setSearch] = useState('');
-
-  useEffect(() => {
-    const timer = setTimeout(() => setSearch(text.trim()), SEARCH_DELAY_MS);
-    return () => clearTimeout(timer);
-  }, [text]);
-
-  const eligible = useApi(() => listOffers({ search, pageSize: 100 }), [search]);
-  const others = useApi(
-    () =>
-      search
-        ? listCandidates({ search, pageSize: 8 })
-        : Promise.resolve({ ok: true, body: { items: [] } }),
-    [search],
-  );
+  const eligible = useApi(() => listOffers({ pageSize: 100 }), []);
 
   const choose = (id) => setSearchParams(id ? { candidate: String(id) } : {});
 
@@ -163,30 +153,18 @@ function CandidateSelector({ selectedId, selectedLabel }) {
     value: String(candidate.id),
     label: `${candidateLabel(candidate)}${offer ? '' : ' (no offer yet)'}`,
   }));
-  // The chosen candidate stays in the list even when the search has moved on.
+  // A candidate opened by address stays in the list even when they are not in it.
   if (selectedId && selectedLabel && !options.some((o) => o.value === String(selectedId))) {
     options.unshift({ value: String(selectedId), label: selectedLabel });
   }
 
-  const eligibleIds = new Set(entries.map(({ candidate }) => String(candidate.id)));
-  const notReady =
-    others.status === 'ready'
-      ? others.data.items.filter((candidate) => !eligibleIds.has(String(candidate.id)))
-      : [];
-
-  const nothingToPrepare = !search && eligible.status === 'ready' && entries.length === 0;
+  const nothingToPrepare = eligible.status === 'ready' && entries.length === 0;
 
   return (
     <section className="panel" aria-labelledby="offer-picker-title">
       <h2 id="offer-picker-title" className="panel__title">
         Candidate
       </h2>
-      <SearchInput
-        label="Search"
-        placeholder="Candidate ID or name"
-        value={text}
-        onChange={setText}
-      />
       <FormField
         label="Selected Candidate"
         type="select"
@@ -194,8 +172,7 @@ function CandidateSelector({ selectedId, selectedLabel }) {
         value={selectedId ? String(selectedId) : ''}
         options={options}
         onChange={(event) => choose(event.target.value)}
-        disabled={eligible.status === 'loading' && entries.length === 0}
-        hint="Candidates whose direct interview result is Selected. Their offer was created automatically."
+        disabled={eligible.status === 'loading'}
       />
       {nothingToPrepare && (
         <EmptyState
@@ -207,31 +184,6 @@ function CandidateSelector({ selectedId, selectedLabel }) {
         <p>
           <Link to="/offers">Go to the Offer List</Link>
         </p>
-      )}
-      {notReady.length > 0 && (
-        <DataTable
-          caption="Other candidates found"
-          columns={[
-            { key: 'candidate', label: 'Not ready for an offer' },
-            { key: 'stage', label: 'Current Status' },
-            { key: 'action', label: 'Action' },
-          ]}
-          rows={notReady.map((candidate) => ({
-            id: candidate.id,
-            candidate: candidateLabel(candidate),
-            stage: <StatusBadge tone="info">{candidate.stage.name}</StatusBadge>,
-            action: (
-              <button
-                type="button"
-                className="button-link"
-                aria-label={`Why ${candidate.fullName} cannot receive an offer`}
-                onClick={() => choose(candidate.id)}
-              >
-                Why not?
-              </button>
-            ),
-          }))}
-        />
       )}
     </section>
   );
@@ -265,9 +217,11 @@ function SelectedCandidate({ selected, notice, version, onSaved }) {
 
   const { candidate, offer } = selected.data;
   const banner = notice && (
-    <Notice tone="success" role="status">
-      {notice}
-    </Notice>
+    <Announce key={notice.id}>
+      <Notice tone="success" role="status">
+        {notice.text}
+      </Notice>
+    </Announce>
   );
 
   if (offer) {
@@ -343,6 +297,30 @@ export default function OfferFormPage({ page }) {
   return <PrepareOffer header={header} candidateId={candidateId} />;
 }
 
+// The same seven fields, shown but switched off until a candidate is chosen.
+function OfferFieldsPlaceholder() {
+  const off = { disabled: true, value: '', onChange: () => {} };
+  return (
+    <section className="panel" aria-label="Offer details">
+      <div className="form-grid form-grid--two">
+        <FormField label="Position Offered" type="select" options={[]} {...off} />
+        <FormField label="Offer Date" type="date" {...off} />
+        <FormField label="Work Mode" type="select" options={WORK_MODE_OPTIONS} {...off} />
+        <FormField label="Location" {...off} />
+        <FormField label="Offer Status" type="select" options={OFFER_STATUS_OPTIONS} {...off} />
+        <FormField label="Onboarding Date" type="date" {...off} />
+        <FormField label="Attended" type="select" options={ATTENDED_OPTIONS} {...off} />
+      </div>
+      <p className="field__hint">Choose a Selected candidate above to load their offer.</p>
+      <div className="form-actions form-actions--end">
+        <button type="button" className="button button--primary" disabled>
+          Save Offer
+        </button>
+      </div>
+    </section>
+  );
+}
+
 function PrepareOffer({ header, candidateId }) {
   const [version, setVersion] = useState(0);
   const [notice, setNotice] = useState(null);
@@ -373,8 +351,8 @@ function PrepareOffer({ header, candidateId }) {
   return (
     <>
       {header}
-      <SalaryPendingNotice />
       <CandidateSelector key="selector" selectedId={candidateId} selectedLabel={selectedLabel} />
+      {!candidateId && <OfferFieldsPlaceholder />}
       {candidateId && (
         <SelectedCandidate
           key={candidateId}
@@ -386,7 +364,7 @@ function PrepareOffer({ header, candidateId }) {
           notice={notice}
           version={version}
           onSaved={(message) => {
-            setNotice(message);
+            setNotice({ id: Date.now(), text: message });
             setVersion((n) => n + 1);
           }}
         />
@@ -408,6 +386,7 @@ function OfferForm({ id, candidateId, header, showSalaryNotice = true, inline = 
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(null);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     if (loaded.status === 'ready') setValues(toFormValues(loaded.data));
@@ -427,6 +406,7 @@ function OfferForm({ id, candidateId, header, showSalaryNotice = true, inline = 
     const problems = validate(values);
     setErrors(problems);
     setSaveError(null);
+    setAttempt((n) => n + 1);
     if (Object.keys(problems).length > 0) return;
 
     setSaving(true);
@@ -527,14 +507,18 @@ function OfferForm({ id, candidateId, header, showSalaryNotice = true, inline = 
       <CandidateSummary candidate={candidate} />
 
       {saveError && (
-        <Notice tone="danger" role="alert">
-          {saveError}
-        </Notice>
+        <Announce key={`save-${attempt}`}>
+          <Notice tone="danger" role="alert">
+            {saveError}
+          </Notice>
+        </Announce>
       )}
       {errors.candidateId && (
-        <Notice tone="danger" role="alert">
-          {errors.candidateId}
-        </Notice>
+        <Announce key={`candidate-${attempt}`}>
+          <Notice tone="danger" role="alert">
+            {errors.candidateId}
+          </Notice>
+        </Announce>
       )}
 
       {locked && (
@@ -552,7 +536,7 @@ function OfferForm({ id, candidateId, header, showSalaryNotice = true, inline = 
 
       {readOnly ? (
         <section className="panel">
-          <div className="form-grid">
+          <div className={`form-grid${inline ? ' form-grid--two' : ''}`}>
             <FormField
               label="Position Offered"
               type="select"
@@ -612,8 +596,9 @@ function OfferForm({ id, candidateId, header, showSalaryNotice = true, inline = 
           onSubmit={save}
           saving={saving}
           saveLabel={inline ? 'Save Offer' : 'Save'}
+          actionsAlign={inline ? 'end' : 'start'}
         >
-          <div className="form-grid">
+          <div className={`form-grid${inline ? ' form-grid--two' : ''}`}>
             <FormField
               label="Position Offered"
               type="select"
