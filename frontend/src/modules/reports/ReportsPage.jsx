@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { loadCandidateLookups } from '../../api/lookups.js';
+import { useAuth } from '../../auth/AuthContext.jsx';
 import DataTable from '../../components/DataTable.jsx';
 import ErrorState from '../../components/ErrorState.jsx';
 import FilterBar, { FilterSelect } from '../../components/FilterBar.jsx';
@@ -18,6 +19,7 @@ import {
   funnelReport,
   onboardingReport,
   positionReport,
+  salaryOfferReport,
   sourceReport,
   weeklyReport,
 } from './api.js';
@@ -34,6 +36,10 @@ const TABS = [
   ['onboarding', 'Onboarding'],
   ['exit', 'Exit'],
 ];
+
+// Shown only to people who hold salary.view (the Main User). The server
+// enforces it too; hiding the tab is only courtesy.
+const SALARY_TAB = ['salary', 'Salary & Offers'];
 
 const PAGE_SIZE = 20;
 
@@ -373,6 +379,144 @@ function RangeListReport({ load, caption, columns, mapRow, empty, rangeLabels, r
   );
 }
 
+const OFFER_STATUS_OPTIONS = [
+  { value: 'sent', label: 'Sent' },
+  { value: 'accepted', label: 'Accepted' },
+  { value: 'pending', label: 'Not sent yet' },
+];
+const OFFER_STATUS_LABELS = { sent: 'Sent', accepted: 'Accepted' };
+const LKR = new Intl.NumberFormat('en-LK', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const lkr = (value) => (value === null || value === undefined ? '--' : LKR.format(value));
+
+function SalaryOfferReport({ lookups }) {
+  const [filters, setFilters] = useState({
+    positionId: '',
+    sourceId: '',
+    offerStatus: '',
+    from: '',
+    to: '',
+    page: 1,
+  });
+  const setFilter = (name, value) => setFilters((old) => ({ ...old, [name]: value, page: 1 }));
+  const result = useApi(
+    () => salaryOfferReport({ ...filters, pageSize: PAGE_SIZE }),
+    [
+      filters.positionId,
+      filters.sourceId,
+      filters.offerStatus,
+      filters.from,
+      filters.to,
+      filters.page,
+    ],
+  );
+
+  return (
+    <>
+      <Notice tone="warning" title="Restricted">
+        This report shows salaries. Opening it and exporting it are recorded in the audit log.
+      </Notice>
+      <FilterBar label="Salary and offer filters">
+        <FilterSelect
+          label="Position"
+          value={filters.positionId}
+          onChange={(value) => setFilter('positionId', value)}
+          options={toOptions(lookups?.positions)}
+        />
+        <FilterSelect
+          label="Source"
+          value={filters.sourceId}
+          onChange={(value) => setFilter('sourceId', value)}
+          options={toOptions(lookups?.sources)}
+        />
+        <FilterSelect
+          label="Offer status"
+          value={filters.offerStatus}
+          onChange={(value) => setFilter('offerStatus', value)}
+          options={OFFER_STATUS_OPTIONS}
+        />
+        <FormField
+          label="Offer date from"
+          type="date"
+          value={filters.from}
+          onChange={(event) => setFilter('from', event.target.value)}
+        />
+        <FormField
+          label="Offer date to"
+          type="date"
+          value={filters.to}
+          onChange={(event) => setFilter('to', event.target.value)}
+        />
+      </FilterBar>
+      <ExportButtons
+        report="salary-offers"
+        filters={{
+          positionId: filters.positionId,
+          sourceId: filters.sourceId,
+          offerStatus: filters.offerStatus,
+          from: filters.from,
+          to: filters.to,
+        }}
+      />
+      <ReportState result={result}>
+        {(data) => (
+          <>
+            <DataTable
+              caption="Offered salary by position and offer status"
+              columns={[
+                { key: 'position', label: 'Position' },
+                { key: 'status', label: 'Offer status' },
+                { key: 'offers', label: 'Offers' },
+                { key: 'priced', label: 'With salary' },
+                { key: 'lowest', label: 'Lowest (LKR)' },
+                { key: 'average', label: 'Average (LKR)' },
+                { key: 'highest', label: 'Highest (LKR)' },
+              ]}
+              rows={data.groups.map((group) => ({
+                id: `${group.position}-${group.offerStatus ?? 'none'}`,
+                position: group.position,
+                status: OFFER_STATUS_LABELS[group.offerStatus] ?? 'Not sent yet',
+                offers: group.offers,
+                priced: group.priced,
+                lowest: lkr(group.lowest),
+                average: lkr(group.average),
+                highest: lkr(group.highest),
+              }))}
+              emptyTitle="No offers match"
+              emptyMessage="No offer matches the chosen filters."
+            />
+            <DataTable
+              caption="Offers"
+              columns={[
+                { key: 'candidate', label: 'Candidate' },
+                { key: 'position', label: 'Position' },
+                { key: 'status', label: 'Offer status' },
+                { key: 'offerDate', label: 'Offer date' },
+                { key: 'salary', label: 'Offered salary (LKR)' },
+              ]}
+              rows={data.items.map((row) => ({
+                id: row.id,
+                candidate: `${row.fullName} (${row.candidateCode})`,
+                position: row.position,
+                status: OFFER_STATUS_LABELS[row.offerStatus] ?? 'Not sent yet',
+                offerDate: row.offerDate ? formatDate(row.offerDate) : '--',
+                salary: row.salaryLkr === null ? 'Not set' : lkr(row.salaryLkr),
+              }))}
+              emptyTitle="No offers match"
+              emptyMessage="No offer matches the chosen filters."
+            />
+            <Pagination
+              page={data.page}
+              pageSize={data.pageSize}
+              total={data.total}
+              onPageChange={(page) => setFilters((old) => ({ ...old, page }))}
+            />
+          </>
+        )}
+      </ReportState>
+    </>
+  );
+}
+
 const PHASE_LABELS = {
   evaluation: 'Evaluation',
   probation: 'Probation',
@@ -386,7 +530,10 @@ const STATUS_LABELS = {
 };
 
 export default function ReportsPage({ page }) {
+  const { user } = useAuth();
   const [tab, setTab] = useState('status');
+  const showSalary = Boolean(user?.permissions?.includes('salary.view'));
+  const tabs = showSalary ? [...TABS, SALARY_TAB] : TABS;
   const lookups = useApi(loadCandidateLookups, []);
   const lists = lookups.status === 'ready' ? lookups.data : null;
 
@@ -395,7 +542,7 @@ export default function ReportsPage({ page }) {
       <PageHeader title={page.label} description={page.description} />
 
       <div className="filter-bar" role="tablist" aria-label="Reports">
-        {TABS.map(([key, label]) => (
+        {tabs.map(([key, label]) => (
           <button
             key={key}
             type="button"
@@ -412,6 +559,7 @@ export default function ReportsPage({ page }) {
       <section className="panel">
         {tab === 'status' && <CandidateStatusReport lookups={lists} />}
         {tab === 'funnel' && <FunnelReport />}
+        {tab === 'salary' && showSalary && <SalaryOfferReport lookups={lists} />}
         {tab === 'sources' && (
           <BreakdownReport
             load={sourceReport}

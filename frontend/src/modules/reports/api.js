@@ -18,6 +18,8 @@ export const positionReport = () => apiGet('/reports/positions');
 export const weeklyReport = (filters) => apiGet(withQuery('/reports/weekly', filters));
 export const onboardingReport = (filters) => apiGet(withQuery('/reports/onboarding', filters));
 export const exitReport = (filters) => apiGet(withQuery('/reports/exit', filters));
+// Main User only: the server refuses everyone else, and each view is audited.
+export const salaryOfferReport = (filters) => apiGet(withQuery('/reports/salary-offers', filters));
 
 // Downloads one report as a file. The session travels in the cookie like
 // every other call; no token is handled here. Returns { ok, filename, blob }.

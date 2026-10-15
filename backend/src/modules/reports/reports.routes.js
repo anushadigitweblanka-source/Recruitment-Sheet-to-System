@@ -10,6 +10,7 @@ import {
   weeklyReport,
 } from './reports.repository.js';
 import { parseRangeQuery, parseStatusQuery, parseWeeklyQuery } from './reports.validation.js';
+import { mountSalaryOfferRoutes } from './salaryOffer.report.js';
 import {
   buildExportData,
   EXPORT_FORMATS,
@@ -55,6 +56,12 @@ export function reportsRouter({ pool }) {
   router.get('/exit', canView, async (req, res) => {
     res.json({ items: await exitReport(pool, parseRangeQuery(req.query)) });
   });
+
+  // The Salary and Offer report is the only report that reads salary. It is
+  // mounted before the shared export route and behind salary.view (the Main
+  // User alone), and it is not in EXPORT_REPORTS, so no other permission can
+  // reach it through the shared route.
+  mountSalaryOfferRoutes(router, { pool, guard: requirePermission('salary.view') });
 
   // One export route for every report: /reports/:report/export?format=xlsx.
   // The dataset is built by the same functions and filters as the screen, so
