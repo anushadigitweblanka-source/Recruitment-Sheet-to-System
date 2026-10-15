@@ -93,7 +93,9 @@ A plain-language guide to every page in the application, written for someone usi
 - Fill in the offer as it progresses: **Offer Status = Sent** moves the candidate to Offer Sent; **Accepted** moves them to Offer Accepted.
 - Set the **Onboarding Date** (joining date) when agreed.
 - On the joining day, record **Attended**. **Attended = Yes creates the employee record automatically**, with the 7-day evaluation already started. Attended can only be recorded once the offer is Accepted and the joining date is set.
-- A Selected candidate with no applied position shows as _waiting_: create their offer by hand with **Create Offer** (you must choose the position).
+- A Selected candidate with no applied position shows as _waiting_: create their offer by hand with **Prepare Offer** (you must choose the position).
+- **Prepare Offer** (Offer Management → Prepare Offer) is the quickest way to complete an offer: pick the candidate in **Selected Candidate**, the seven fields fill in from their offer, change what you need and press **Save Offer** (bottom right). It updates the same offer; it never creates a second one. If the offer is finalized (the candidate has joined) the status, joining date and attendance are locked and the page says so. People who may view offers but not manage them see the offer without a Save button.
+- The **Offer List** has an **Offered Salary (LKR)** column and an **Add Salary / Edit Salary** action for the Main User only. Nobody else sees the column or the action.
 
 **Important validation:** the offered position must be an approved, in-use position. **Work Mode** currently allows only `office`; see the open business decisions in the approval checklist. Salary is recorded separately on the offer details page and is visible only to the Main User.
 
@@ -113,6 +115,12 @@ A plain-language guide to every page in the application, written for someone usi
 - The Lifecycle Timeline page shows the full phase history; the Discontinued / Exit page lists everyone who left.
 
 **What not to do:** don't look for a way to edit past phases — history is never overwritten; corrections happen as new decisions.
+
+## The notification bell
+
+The bell in the top bar shows your **own** in-app alerts: the same reminders the system emails, 24 hours before each deadline (evaluation, probation, junior, interview, joining, CV pending). The red number is how many you have not read. Click the bell to see each alert's type, candidate, deadline and whether its email was scheduled, sent or failed; **Open** goes to the record (when your role may open it) and marks the alert read; **Mark as read** and **Mark all as read** only affect you.
+
+You see an alert when your login email is one of its recipients, or you are the Team Lead whose login is linked in Administration → Team Leads. If you expect alerts and see none, ask the administrator to check that your login email is in the reminder recipients in Settings.
 
 ## Notifications
 
@@ -138,6 +146,12 @@ The weekly report goes out every Monday at 08:00 (Asia/Colombo) for the previous
 
 **Sending a one-off mail:** open the candidate's page → _Send an email_ → pick the type → _Preview_ → edit this one copy if needed → _Send_. It is blocked when the candidate's email, the interview date or the Team Lead is missing, and cannot be sent twice unless you press _Resend_.
 
+## WhatsApp / SMS text and calendar invitation
+
+On a candidate's page, **WhatsApp / SMS text** prepares the interview invitation or joining information as plain text from the same details as the email. Check the preview and press **Copy Message**, then paste it into WhatsApp or an SMS tool yourself. **Nothing is sent from the system.** The wording is development wording that HR still needs to confirm.
+
+The email to the Team Lead about an interview carries a calendar invitation (an .ics file, Asia/Colombo time). If the interview is rescheduled, use **Resend**: the same event is updated with the new time. It is blocked when the interview time or the Team Lead is missing.
+
 ## Salary (Main User only)
 
 Salary is recorded on the offer's details page, in its own panel, by the Main User. HR, Team Lead and Intern / Dev never see it. Every view and change is written to the audit log (without the amount). It never appears in lists, reports, exports, mail or notifications.
@@ -156,7 +170,7 @@ Marking an offer **Attended = Yes** requests a company account. IT marks it **Cr
 
 ## Reports
 
-**What it does:** seven on-screen reports, each queried live: Candidate Status, Funnel, Sources, Positions, Weekly summary, Onboarding, Exit.
+**What it does:** seven on-screen reports (and, for the Main User only, an eighth **Salary & Offers** tab showing offered salary by position and offer status with Excel, CSV and PDF export; every view and export is recorded in the audit log without the amounts), each queried live: Candidate Status, Funnel, Sources, Positions, Weekly summary, Onboarding, Exit.
 
 **How to use it:** open Reports and switch tabs. Each tab has its own filters (stage, position, source, date ranges). All dates follow the office calendar (Asia/Colombo). The Weekly tab shows a Monday-to-Sunday week — by default the last completed one.
 

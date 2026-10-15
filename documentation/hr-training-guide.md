@@ -78,6 +78,17 @@ Open the **Lifecycle Timeline**: the whole journey is there, every phase with it
 
 ---
 
+## Added since this guide was first written
+
+Practise these on the development system with made-up people only:
+
+- **Prepare Offer** (Offer Management): pick a Selected candidate, check the seven fields, press **Save Offer**. As HR you may be able to view the offer but not save it; that depends on your role's permissions, which are still being confirmed (see the sign-off checklist).
+- **The notification bell**: shows alerts addressed to your login email. Mark one as read and see the number fall.
+- **WhatsApp / SMS text**: on a candidate page, preview, then **Copy Message**. Nothing is sent by the system.
+- **Calendar invitation**: the Team Lead's interview email includes an .ics invite; **Resend** after a reschedule updates it.
+
+---
+
 ## After practice: clean up
 
 Demo candidates can't be deleted from the screens (by design — nothing is ever deleted). Leave the fictional records in the development database, or ask the technical owner to remove them with the documented cleanup used in validation. The current mentor-approved scope is **dummy/test data only** — never enter a real person's details while practising, and never touch the protected sample candidates 2002 and 2003. (If real data ever arrives in a future go-live phase, practice stops on that system entirely.)
