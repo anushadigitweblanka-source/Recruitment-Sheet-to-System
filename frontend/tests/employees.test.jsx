@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, useLocation } from 'react-router';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import App from '../src/App.jsx';
@@ -610,12 +610,17 @@ describe('edit employee', () => {
     open('/employees/1/edit');
 
     await waitFor(() => expect(screen.getByLabelText('Employee').value).toBe('Sample Person 1'));
+    // The form appears one step before the page copies the saved track into it
+    // (an effect). Flush that step first, or it can overwrite the change below.
+    await act(async () => {});
     expect(optionsOf('Track')).toEqual(['Select…', 'Intern', 'Staff']);
     fireEvent.change(screen.getByLabelText('Track'), { target: { value: 'intern' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     expect(await screen.findByText('Track saved.')).toBeTruthy();
     expect(currentPath()).toBe('/employees/1');
-    expect(callsTo(backend, 'PATCH', '/api/employees/1')[0].body).toEqual({ track: 'intern' });
+    const patches = callsTo(backend, 'PATCH', '/api/employees/1');
+    expect(patches).toHaveLength(1);
+    expect(patches[0].body).toEqual({ track: 'intern' });
   });
 });
