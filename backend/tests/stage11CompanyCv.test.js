@@ -320,8 +320,11 @@ describe('CV pending', () => {
 
   test('the CV status values are Not sent, Sent, Received and Overdue only', async () => {
     const bad = await h.query(
-      `SELECT pg_get_constraintdef(oid) AS d FROM pg_constraint
-        WHERE conname = 'candidates_company_cv_status_valid'`,
+      // Only this test's own schema: other test files create and drop theirs at the
+      // same time, and reading another schema's constraint while it is dropped fails.
+      `SELECT pg_get_constraintdef(c.oid) AS d FROM pg_constraint c
+         JOIN pg_namespace n ON n.oid = c.connamespace
+        WHERE c.conname = 'candidates_company_cv_status_valid' AND n.nspname = current_schema()`,
     );
     assert.match(bad[0].d, /not_sent.*sent.*received.*overdue/s);
   });
