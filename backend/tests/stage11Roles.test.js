@@ -60,6 +60,7 @@ describe('the roles from the guide', () => {
       'candidates.edit',
       'candidates.view',
       'company_accounts.manage',
+      'historical.view',
       'interviews.manage',
       'notifications.manage',
     ]);
@@ -72,6 +73,7 @@ describe('the roles from the guide', () => {
       'notifications.manage',
       'offers.manage',
     ]);
+    assert.ok(byRole.main_user.includes('historical.view'));
     assert.ok(byRole.main_user.includes('salary.view'));
     assert.ok(byRole.main_user.includes('salary.edit'));
     assert.ok(byRole.main_user.includes('admin.manage'));

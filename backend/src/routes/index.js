@@ -10,6 +10,8 @@ import {
 } from '../modules/company-cv/companyCv.routes.js';
 import { dashboardRouter } from '../modules/dashboard/dashboard.routes.js';
 import { employeesRouter } from '../modules/employees/employees.routes.js';
+import { historicalRouter } from '../modules/historical/historical.routes.js';
+import { recruitmentRecordsRouter } from '../modules/historical/recruitmentRecords.routes.js';
 import { interviewsRouter } from '../modules/interviews/interviews.routes.js';
 import { lookupsRouter } from '../modules/lookups/lookups.routes.js';
 import { inboxRouter } from '../modules/notifications/inbox.routes.js';
@@ -55,6 +57,10 @@ export function apiRouter(deps) {
   router.use('/interviews', interviewsRouter(deps));
   // A user's own in-app alerts: any signed-in user, scoped to themselves.
   router.use('/me/notifications', inboxRouter(deps));
+  // Read-only imported interview log; needs historical.view and the tables.
+  router.use('/historical-interviews', historicalRouter(deps));
+  // One read-only list of the imported history and the live candidates.
+  router.use('/recruitment-records', recruitmentRecordsRouter(deps));
   router.use('/offers', offersRouter(deps));
   router.use('/reports', reportsRouter(deps));
   router.use('/admin/settings', settingsRouter(deps));

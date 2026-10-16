@@ -24,6 +24,7 @@ const SIGNED_IN = {
       'notifications.manage',
       'admin.manage',
       'company_accounts.manage',
+      'historical.view',
     ],
   },
   login: async () => ({ ok: true }),

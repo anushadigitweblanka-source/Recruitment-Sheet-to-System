@@ -9,7 +9,8 @@
     "test": "node --test",
     "migrate": "node scripts/migrate.js",
     "create-dev-admin": "node scripts/create-dev-admin.js",
-    "import:dry-run": "node scripts/import-dry-run.js"
+    "import:dry-run": "node scripts/import-dry-run.js",
+    "import:historical": "node scripts/import-historical.js"
   },
   "dependencies": {
     "argon2": "^0.45.1",

@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
+import { useAuth } from '../../auth/AuthContext.jsx';
+import RecruitmentRecordsList from '../historical/RecruitmentRecordsList.jsx';
 import { loadCandidateLookups } from '../../api/lookups.js';
 import DataTable from '../../components/DataTable.jsx';
 import ErrorState from '../../components/ErrorState.jsx';
@@ -43,7 +45,8 @@ function toRow(candidate) {
   };
 }
 
-export default function CandidateListPage({ page }) {
+// The live candidate list: what everyone without access to the imported history sees.
+function CurrentCandidatesList({ page }) {
   const [searchText, setSearchText] = useState('');
   const [filters, setFilters] = useState({
     search: '',
@@ -174,6 +177,29 @@ export default function CandidateListPage({ page }) {
           </>
         )}
       </section>
+    </>
+  );
+}
+
+// Main User and HR get one Recruitment Records list that holds the imported
+// history and the live candidates together; everyone else keeps the live list.
+export default function CandidateListPage({ page }) {
+  const { user } = useAuth();
+  if (!(user?.permissions ?? []).includes('historical.view')) {
+    return <CurrentCandidatesList page={page} />;
+  }
+  return (
+    <>
+      <PageHeader
+        title={page.label}
+        description={page.description}
+        actions={
+          <Link to="/candidates/new" className="button button--primary">
+            Add Candidate
+          </Link>
+        }
+      />
+      <RecruitmentRecordsList />
     </>
   );
 }

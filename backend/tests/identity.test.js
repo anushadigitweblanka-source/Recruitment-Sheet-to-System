@@ -71,6 +71,8 @@ describe('migrations', () => {
         'email_log',
         'email_templates',
         'employees',
+        'historical_import_batches',
+        'historical_interview_records',
         'interviews',
         'notification_reads',
         'notifications',

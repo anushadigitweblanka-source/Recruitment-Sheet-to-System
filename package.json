@@ -23,7 +23,8 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "import:dry-run": "npm run import:dry-run -w backend --"
+    "import:dry-run": "npm run import:dry-run -w backend --",
+    "import:historical": "npm run import:historical -w backend --"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
