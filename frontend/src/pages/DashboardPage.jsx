@@ -116,10 +116,58 @@ export default function DashboardPage({ page }) {
 
       {state.status === 'ready' && (
         <>
+          {data.recruitmentRecords && (
+            <>
+              <section aria-labelledby="records-title">
+                <h2 id="records-title" className="section-title">
+                  Recruitment Records
+                </h2>
+                <div className="stat-grid">
+                  <StatCard
+                    label="Total Recruitment Records"
+                    value={data.recruitmentRecords.totalRecords}
+                  />
+                  <StatCard
+                    label="Historical Interview Records"
+                    value={data.recruitmentRecords.historicalInterviewRecords}
+                  />
+                  <StatCard
+                    label="Current Candidate Profiles"
+                    value={data.recruitmentRecords.currentCandidateProfiles}
+                  />
+                </div>
+              </section>
+
+              <section aria-labelledby="outcomes-title">
+                <h2 id="outcomes-title" className="section-title">
+                  Historical Interview Outcomes
+                </h2>
+                <p className="field__hint">
+                  Interview-log entries by their original status. One person can appear more than
+                  once, so these are not unique candidates and are not live pipeline stages.
+                </p>
+                <div className="stat-grid">
+                  {data.recruitmentRecords.historicalOutcomes.map((outcome) => (
+                    <StatCard
+                      key={outcome.status ?? '__blank'}
+                      label={outcome.status ?? '(blank)'}
+                      value={outcome.count}
+                    />
+                  ))}
+                </div>
+              </section>
+            </>
+          )}
+
           <section aria-labelledby="recruitment-title">
             <h2 id="recruitment-title" className="section-title">
               Recruitment Summary
             </h2>
+            {data.recruitmentRecords && (
+              <p className="field__hint">
+                Live pipeline: current candidate profiles only, by the stage they are in now.
+              </p>
+            )}
             <div className="stat-grid">
               {RECRUITMENT_CARDS.map(([key, label]) => (
                 <StatCard key={key} label={label} value={data.counts[key]} />

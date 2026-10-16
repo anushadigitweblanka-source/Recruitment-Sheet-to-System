@@ -1,7 +1,6 @@
 import { matchPath } from 'react-router';
 import { candidatesModule } from './modules/candidates/index.js';
 import { employeesModule } from './modules/employees/index.js';
-import { historicalPages } from './modules/historical/index.js';
 import { interviewsModule } from './modules/interviews/index.js';
 import { notificationsModule } from './modules/notifications/index.js';
 import { offersModule } from './modules/offers/index.js';
@@ -59,10 +58,6 @@ export const sections = [
         nav: true,
       },
     ],
-  },
-  {
-    title: 'Historical Data',
-    pages: historicalPages,
   },
   {
     title: 'Administration',
@@ -144,7 +139,6 @@ const MENU_PERMISSIONS = [
   ['/email-templates', ['candidates.view']],
   ['/email-log', ['candidates.view']],
   ['/reports', ['candidates.view']],
-  ['/historical-interviews', ['historical.view']],
   ['/dashboard', ['candidates.view']],
 ];
 

@@ -160,6 +160,104 @@ describe('dashboard page', () => {
     expect(screen.getByText('No deadlines in the next 7 days')).toBeTruthy();
   });
 
+  describe('Recruitment Records figures', () => {
+    const withRecords = (overrides = {}) => ({
+      ...filledSummary(),
+      recruitmentRecords: {
+        totalRecords: 408,
+        historicalInterviewRecords: 404,
+        currentCandidateProfiles: 4,
+        historicalOutcomes: [
+          { status: 'Selected', count: 120 },
+          { status: 'Rejected', count: 90 },
+          { status: 'On Hold', count: 12 },
+          { status: null, count: 23 },
+        ],
+        ...overrides,
+      },
+    });
+    const card = (name) => screen.getByText(name).closest('.stat-card').textContent;
+
+    test('shows the total, historical and current profile counts', async () => {
+      mockSummary({ summary: withRecords() });
+      renderDashboard();
+      const section = (await screen.findByText('Recruitment Records')).closest('section');
+      expect(
+        within(section).getByText('Total Recruitment Records').closest('.stat-card').textContent,
+      ).toContain('408');
+      expect(
+        within(section).getByText('Historical Interview Records').closest('.stat-card').textContent,
+      ).toContain('404');
+      expect(
+        within(section).getByText('Current Candidate Profiles').closest('.stat-card').textContent,
+      ).toContain('4');
+    });
+
+    test('shows each original interview outcome, with blanks labelled, apart from live stages', async () => {
+      mockSummary({ summary: withRecords() });
+      renderDashboard();
+      const outcomes = (await screen.findByText('Historical Interview Outcomes')).closest(
+        'section',
+      );
+      for (const [label, count] of [
+        ['Selected', '120'],
+        ['Rejected', '90'],
+        ['On Hold', '12'],
+        ['(blank)', '23'],
+      ]) {
+        expect(within(outcomes).getByText(label).closest('.stat-card').textContent).toContain(
+          count,
+        );
+      }
+      expect(within(outcomes).getByText(/not unique candidates/)).toBeTruthy();
+
+      // The live pipeline keeps its own, separate figures.
+      const live = screen.getByText('Recruitment Summary').closest('section');
+      expect(within(live).getByText('Selected').closest('.stat-card').textContent).toContain('3');
+      expect(within(live).getByText(/current candidate profiles only/)).toBeTruthy();
+      expect(card('Total Candidates')).toContain('42');
+    });
+
+    test('employee lifecycle, upcoming interviews and deadlines are still shown from their own data', async () => {
+      mockSummary({ summary: withRecords() });
+      renderDashboard();
+      await screen.findByText('Recruitment Records');
+      expect(card('Currently Working')).toContain('5');
+      expect(
+        within(screen.getByRole('table', { name: 'Upcoming interviews' })).getByText(
+          'Sample Person One (TEST-901)',
+        ),
+      ).toBeTruthy();
+      expect(screen.getByRole('table', { name: 'Upcoming employee deadlines' })).toBeTruthy();
+    });
+
+    test('without the record figures the dashboard looks exactly as before', async () => {
+      mockSummary({ summary: filledSummary() });
+      renderDashboard();
+      await screen.findByText('Recruitment Summary');
+      expect(screen.queryByText('Recruitment Records')).toBeNull();
+      expect(screen.queryByText('Historical Interview Outcomes')).toBeNull();
+      expect(screen.queryByText(/current candidate profiles only/)).toBeNull();
+    });
+
+    test('opening the dashboard again reads the new figures from the server', async () => {
+      mockSummary({ summary: withRecords() });
+      renderDashboard();
+      const first = (await screen.findByText('Total Recruitment Records')).closest('.stat-card');
+      expect(first.textContent).toContain('408');
+      cleanup();
+
+      // A candidate was added in the meantime: the next visit shows the new totals.
+      mockSummary({
+        summary: withRecords({ totalRecords: 409, currentCandidateProfiles: 5 }),
+      });
+      renderDashboard();
+      const second = (await screen.findByText('Total Recruitment Records')).closest('.stat-card');
+      expect(second.textContent).toContain('409');
+      expect(card('Current Candidate Profiles')).toContain('5');
+    });
+  });
+
   test('shows an error state with retry when the API fails', async () => {
     mockSummary({ fail: true });
     renderDashboard();

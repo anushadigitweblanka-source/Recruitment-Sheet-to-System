@@ -970,3 +970,65 @@ describe('junior end date', () => {
     assert.equal(passed.body.employee.phaseStart, '2027-11-09');
   });
 });
+
+describe('the lifecycle pages together', () => {
+  // The five pages send exactly these filters (frontend employees/index.js).
+  const PAGES = {
+    evaluation: '?phase=evaluation&status=active&pageSize=100',
+    probation: '?phase=probation&status=active&pageSize=100',
+    junior: '?phase=junior&status=active&pageSize=100',
+    senior: '?phase=senior&status=active&pageSize=100',
+    exits: '?status=exited&pageSize=100',
+  };
+  const page = async (name) => (await api(`/employees${PAGES[name]}`, as(admin))).body;
+
+  test('each employee is on exactly one page, in the phase stored for them', async () => {
+    const made = {
+      evaluation: await inPhase('evaluation'),
+      probation: await inPhase('probation'),
+      junior: await inPhase('junior'),
+      senior: await inPhase('senior'),
+    };
+    const gone = await joined();
+    await decide(gone.id, { result: 'discontinue', reason: 'Sample', exitDate: '2026-11-04' });
+
+    const pages = Object.fromEntries(
+      await Promise.all(Object.keys(PAGES).map(async (name) => [name, await page(name)])),
+    );
+    const ids = (name) => pages[name].items.map((item) => item.id);
+    for (const phase of ['evaluation', 'probation', 'junior', 'senior']) {
+      assert.ok(ids(phase).includes(made[phase].id), `${phase} page lists its employee`);
+    }
+    assert.ok(ids('exits').includes(gone.id), 'the exit page lists the discontinued employee');
+
+    // The five pages partition the whole list: nobody is missing or shown twice.
+    const everyone = (await api('/employees?pageSize=100', as(admin))).body;
+    const onPages = Object.keys(PAGES).flatMap(ids);
+    assert.equal(new Set(onPages).size, onPages.length, 'no one appears on two pages');
+    assert.deepEqual(
+      [...onPages].sort((a, b) => a - b),
+      everyone.items.map((item) => item.id).sort((a, b) => a - b),
+    );
+
+    // And each total matches a direct count of the stored rows.
+    const stored = async (where) =>
+      (await db.pool.query(`SELECT count(*)::int AS n FROM employees WHERE ${where}`)).rows[0].n;
+    assert.equal(
+      pages.evaluation.total,
+      await stored(`status = 'active' AND current_phase = 'evaluation'`),
+    );
+    assert.equal(
+      pages.probation.total,
+      await stored(`status = 'active' AND current_phase = 'probation'`),
+    );
+    assert.equal(
+      pages.junior.total,
+      await stored(`status = 'active' AND current_phase = 'junior'`),
+    );
+    assert.equal(
+      pages.senior.total,
+      await stored(`status = 'active' AND current_phase = 'senior'`),
+    );
+    assert.equal(pages.exits.total, await stored(`status <> 'active'`));
+  });
+});

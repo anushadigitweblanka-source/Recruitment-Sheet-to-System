@@ -25,6 +25,9 @@ export default function App() {
             const Page = page.component;
             return <Route key={page.path} path={page.path} element={<Page page={page} />} />;
           })}
+          {/* The standalone Historical Interviews page is gone; its records are in the
+              Candidate List, so an old bookmark opens that. */}
+          <Route path="/historical-interviews" element={<Navigate to="/candidates" replace />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Route>

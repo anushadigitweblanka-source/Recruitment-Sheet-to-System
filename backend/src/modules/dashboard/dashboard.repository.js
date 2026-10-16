@@ -69,6 +69,42 @@ export async function readCounts(db) {
   return counts;
 }
 
+// The Recruitment Records figures, matching the Candidate List: the imported
+// historical interview records plus the current candidate profiles.
+//
+// A historical record is one line of an old interview log, NOT a unique person,
+// so it is counted as an interview record and never as a candidate. Its outcome
+// is the status text exactly as imported (grouped by that exact text, a blank
+// cell shown as null); it is never mapped onto a live pipeline stage, and the
+// live stage counts above never include it. Only completed (not rolled back)
+// import batches count. Counts only - no name, phone or remark is selected.
+// Returns null in a database that has no historical tables.
+export async function readRecruitmentRecords(db) {
+  const exists = await db.query(
+    `SELECT to_regclass('historical_interview_records') IS NOT NULL
+        AND to_regclass('historical_import_batches') IS NOT NULL AS ok`,
+  );
+  if (!exists.rows[0].ok) return null;
+
+  const profiles = await db.query('SELECT count(*)::int AS total FROM candidates');
+  const outcomes = await db.query(
+    `SELECT r.original_status AS status, count(*)::int AS total
+       FROM historical_interview_records r
+       JOIN historical_import_batches b ON b.id = r.batch_id
+      WHERE b.status = 'completed'
+      GROUP BY r.original_status
+      ORDER BY count(*) DESC, r.original_status NULLS LAST`,
+  );
+  const historical = outcomes.rows.reduce((sum, row) => sum + row.total, 0);
+  const currentProfiles = profiles.rows[0].total;
+  return {
+    totalRecords: historical + currentProfiles,
+    historicalInterviewRecords: historical,
+    currentCandidateProfiles: currentProfiles,
+    historicalOutcomes: outcomes.rows.map((row) => ({ status: row.status, count: row.total })),
+  };
+}
+
 export async function readEmployeePhases(db) {
   const phases = { evaluation: 0, probation: 0, junior: 0, senior: 0 };
   const { rows } = await db.query(

@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import App from '../src/App.jsx';
 import { AuthContext } from '../src/auth/AuthContext.jsx';
-import { isInMenuFor } from '../src/navigation.js';
+import { allPages } from '../src/navigation.js';
 
 // The Historical Interviews page. Every name and number is made up.
 
@@ -166,10 +166,7 @@ function fakeBackend({
   return calls;
 }
 
-const open = (
-  permissions = ['candidates.view', 'historical.view'],
-  path = '/historical-interviews',
-) =>
+const open = (permissions = ['candidates.view', 'historical.view'], path = '/candidates') =>
   render(
     <AuthContext.Provider value={as(permissions)}>
       <MemoryRouter initialEntries={[path]}>
@@ -183,175 +180,31 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('Historical Interviews page', () => {
-  test('shows the eight fields exactly as stored, with dashes only for empty cells', async () => {
+describe('the standalone Historical Interviews page is gone', () => {
+  test('is not in the sidebar for anyone, including people with historical.view', async () => {
     fakeBackend();
-    open();
-    const table = await screen.findByRole('table', { name: 'Historical interview records' });
+    open(['candidates.view', 'historical.view'], '/dashboard');
+    await screen.findAllByRole('link', { name: 'Candidate List' });
+    expect(screen.queryByRole('link', { name: /historical interviews/i })).toBeNull();
+    expect(screen.queryByText('Historical Data')).toBeNull();
+    expect(allPages.some((page) => page.path === '/historical-interviews')).toBe(false);
+  });
 
-    for (const label of [
-      'Interview Date',
-      'Candidate Name',
-      'Contact Number',
-      'Source',
-      'Mode',
-      'Position',
-      'Original Status',
-      'Remarks',
-      'Review',
-    ]) {
-      expect(within(table).getByRole('columnheader', { name: label })).toBeTruthy();
-    }
-    expect(within(table).getAllByText('04/11/2026 14:30').length).toBe(2);
+  test('an old bookmark opens the Candidate List, where the records are', async () => {
+    fakeBackend();
+    open(['candidates.view', 'historical.view'], '/historical-interviews');
+    const table = await screen.findByRole('table', { name: 'Recruitment records' });
     expect(within(table).getByText('Hist Sample 1')).toBeTruthy();
-    expect(within(table).getByText('0770000001')).toBeTruthy();
-    // A phone with a lost zero is shown as it is, never repaired.
-    expect(within(table).getByText('771222222')).toBeTruthy();
-    expect(within(table).getByText('Rejected')).toBeTruthy();
-    expect(within(table).getByText('Remark 2')).toBeTruthy();
-    expect(within(table).getAllByText('--').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Page not found')).toBeNull();
+    expect(screen.getAllByRole('link', { name: 'Add Candidate' }).length).toBeGreaterThan(0);
   });
 
-  test('marks records needing review and still lists them', async () => {
-    fakeBackend();
-    open();
-    const table = await screen.findByRole('table', { name: 'Historical interview records' });
-
-    expect(within(table).getByText('Phone looks unusual')).toBeTruthy();
-    expect(within(table).getByText('Date missing')).toBeTruthy();
-    expect(within(table).getAllByText('Hist Sample', { exact: false }).length).toBe(3);
-  });
-
-  test('says what the records are and that they trigger nothing', async () => {
-    fakeBackend();
-    open();
-    expect(
-      await screen.findByText(/never create\s+emails, reminders, offers or employees/),
-    ).toBeTruthy();
-    expect(await screen.findByText(/404 records imported, 31/)).toBeTruthy();
-  });
-
-  test('filters and search are sent to the server, with the empty-cell marker for blanks', async () => {
+  test('the old address is no longer a page of its own for someone without historical access', async () => {
     const calls = fakeBackend();
-    open();
-    await screen.findByRole('table', { name: 'Historical interview records' });
-    await screen.findByRole('option', { name: 'Rejected (1)' });
-
-    fireEvent.change(screen.getByLabelText('Original status'), { target: { value: 'Rejected' } });
-    await waitFor(() =>
-      expect(calls.filter((c) => c.path === '/historical-interviews').at(-1).query.status).toBe(
-        'Rejected',
-      ),
-    );
-
-    fireEvent.change(screen.getByLabelText('Original status'), { target: { value: '__none' } });
-    await waitFor(() =>
-      expect(calls.filter((c) => c.path === '/historical-interviews').at(-1).query.status).toBe(
-        '__none',
-      ),
-    );
-
-    fireEvent.click(screen.getByLabelText('Needs review only'));
-    await waitFor(() =>
-      expect(calls.filter((c) => c.path === '/historical-interviews').at(-1).query.review).toBe(
-        'true',
-      ),
-    );
-
-    fireEvent.change(screen.getByLabelText('Review reason'), {
-      target: { value: 'phone_unusual' },
-    });
-    fireEvent.change(screen.getByLabelText('Interview date from'), {
-      target: { value: '2026-11-01' },
-    });
-    await waitFor(() => {
-      const last = calls.filter((c) => c.path === '/historical-interviews').at(-1).query;
-      expect(last.flag).toBe('phone_unusual');
-      expect(last.dateFrom).toBe('2026-11-01');
-      expect(last.page).toBe('1'); // a changed filter returns to the first page
-    });
-  });
-
-  test('the position filter is sent to the server, with the empty-cell marker', async () => {
-    const calls = fakeBackend();
-    open();
-    await screen.findByRole('table', { name: 'Historical interview records' });
-    await screen.findByRole('option', { name: 'Sample Position B (1)' });
-
-    fireEvent.change(screen.getByLabelText('Position'), { target: { value: 'Sample Position B' } });
-    await waitFor(() => {
-      const last = calls.filter((c) => c.path === '/historical-interviews').at(-1).query;
-      expect(last.position).toBe('Sample Position B');
-      expect(last.page).toBe('1');
-    });
-  });
-
-  test('says each row is an interview entry, not a unique candidate', async () => {
-    fakeBackend();
-    open();
-    expect(await screen.findByText(/not a unique candidate/)).toBeTruthy();
-  });
-
-  test('searching asks the server', async () => {
-    const calls = fakeBackend();
-    open();
-    await screen.findByRole('table', { name: 'Historical interview records' });
-
-    fireEvent.change(screen.getByLabelText('Search'), { target: { value: 'Sample 2' } });
-    await waitFor(() =>
-      expect(calls.filter((c) => c.path === '/historical-interviews').at(-1).query.search).toBe(
-        'Sample 2',
-      ),
-    );
-  });
-
-  test('has no edit, delete, import or send action anywhere', async () => {
-    fakeBackend();
-    open();
-    await screen.findByRole('table', { name: 'Historical interview records' });
-    expect(screen.queryByRole('button', { name: /edit|delete|import|send|save/i })).toBeNull();
-    expect(screen.queryByRole('link', { name: /edit|delete|import|send/i })).toBeNull();
-  });
-
-  test('says so when there are no records', async () => {
-    fakeBackend({ items: [] });
-    open();
-    expect(await screen.findByText('No historical records yet')).toBeTruthy();
-  });
-
-  test('shows a loading message', async () => {
-    fakeBackend({ hang: true });
-    open();
-    expect(await screen.findByText('Loading historical records…')).toBeTruthy();
-  });
-
-  test('shows an error with a way to retry', async () => {
-    fakeBackend({ listStatus: 500 });
-    open();
-    expect(await screen.findByText('The historical records could not be loaded')).toBeTruthy();
-  });
-
-  test('says the page is not allowed for someone without permission', async () => {
-    fakeBackend({ listStatus: 403 });
-    open(['candidates.view']);
-    expect(
-      await screen.findByText('You do not have permission to view historical interviews'),
-    ).toBeTruthy();
-  });
-
-  test('says the feature is not enabled while the tables do not exist', async () => {
-    fakeBackend({ listStatus: 503, summaryStatus: 503 });
-    open();
-    expect(await screen.findByText('Not enabled in this database yet')).toBeTruthy();
-    expect(screen.queryByRole('table', { name: 'Historical interview records' })).toBeNull();
-  });
-});
-
-describe('menu', () => {
-  test('is offered only to people holding historical.view', () => {
-    expect(isInMenuFor('/historical-interviews', ['historical.view'])).toBe(true);
-    expect(isInMenuFor('/historical-interviews', ['candidates.view'])).toBe(false);
-    expect(isInMenuFor('/historical-interviews', [])).toBe(false);
+    open(['candidates.view'], '/historical-interviews');
+    await screen.findAllByRole('link', { name: 'Add Candidate' });
+    expect(screen.queryByRole('table', { name: 'Recruitment records' })).toBeNull();
+    expect(calls.some((c) => c.path.startsWith('/historical-interviews'))).toBe(false);
   });
 });
 

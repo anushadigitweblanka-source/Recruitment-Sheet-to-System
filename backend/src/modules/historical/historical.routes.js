@@ -190,18 +190,29 @@ export function historicalRouter({ pool }) {
 
   // The values the filters offer, taken from the stored data.
   router.get('/options', async (req, res) => {
+    // Optionally only the records with one exact original status, so a screen
+    // that shows just those records offers counts that match what it lists.
+    const status =
+      typeof req.query.status === 'string' && req.query.status !== ''
+        ? req.query.status.slice(0, 200)
+        : null;
+    const only = status === null ? '' : 'AND r.original_status = $1';
+    const params = status === null ? [] : [status];
     const distinct = async (column) =>
       (
         await pool.query(
           `SELECT r.${column} AS value, count(*)::int AS n ${FROM}
-            WHERE b.status = 'completed' GROUP BY r.${column} ORDER BY r.${column} NULLS FIRST`,
+            WHERE b.status = 'completed' ${only}
+            GROUP BY r.${column} ORDER BY r.${column} NULLS FIRST`,
+          params,
         )
       ).rows.map((row) => ({ value: row.value, count: row.n }));
     const flags = await pool.query(
       `SELECT f AS flag, count(*)::int AS n
          FROM historical_interview_records r JOIN historical_import_batches b ON b.id = r.batch_id,
               unnest(r.review_flags) f
-        WHERE b.status = 'completed' GROUP BY f ORDER BY f`,
+        WHERE b.status = 'completed' ${only} GROUP BY f ORDER BY f`,
+      params,
     );
     res.json({
       statuses: await distinct('original_status'),

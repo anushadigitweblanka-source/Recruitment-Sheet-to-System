@@ -21,8 +21,7 @@ async function call(path) {
 }
 
 export const listHistorical = (filters) => call(withQuery('/historical-interviews', filters));
-export const loadSummary = () => call('/historical-interviews/summary');
-export const loadOptions = () => call('/historical-interviews/options');
+export const loadOptions = (filters) => call(withQuery('/historical-interviews/options', filters));
 
 // Recruitment Records: the imported history and the live candidates in one
 // read-only list.
