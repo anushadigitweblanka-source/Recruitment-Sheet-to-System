@@ -1,7 +1,7 @@
 ﻿// @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
-import { afterEach, describe, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import App from '../src/App.jsx';
 import { AuthContext } from '../src/auth/AuthContext.jsx';
 import { allPages } from '../src/navigation.js';
@@ -98,6 +98,7 @@ function fakeBackend({
   records = RECORDS,
   recordsStatus = 200,
   hang = false,
+  onRequest = () => undefined,
 } = {}) {
   const calls = [];
   const json = (body, status = 200) => new Response(JSON.stringify(body), { status });
@@ -107,6 +108,8 @@ function fakeBackend({
       const url = new URL(address, 'http://test.local');
       const path = url.pathname.replace('/api', '');
       calls.push({ path, query: Object.fromEntries(url.searchParams) });
+      const custom = onRequest(path, Object.fromEntries(url.searchParams));
+      if (custom) return custom;
 
       if (path === '/historical-interviews') {
         if (hang) return new Promise(() => {});
@@ -409,5 +412,179 @@ describe('Candidate List: one Recruitment Records list', () => {
     expect(screen.queryByRole('table', { name: 'Recruitment records' })).toBeNull();
     expect(calls.some((c) => c.path.startsWith('/historical-interviews'))).toBe(false);
     expect(calls.some((c) => c.path.startsWith('/recruitment-records'))).toBe(false);
+  });
+});
+
+// Clicking View Details has to show the record where the person is looking.
+// With 25 rows on a page, a panel placed after the table is off screen, so
+// these tests click the buttons and check where the panel is, what has focus
+// and what was scrolled into view - not only that the panel exists.
+describe('Candidate List: View Details by clicking', () => {
+  const PERMISSIONS = ['candidates.view', 'historical.view'];
+  const json = (body, status = 200) => new Response(JSON.stringify(body), { status });
+  const many = (from, count) =>
+    Array.from({ length: count }, (_, i) =>
+      toRecord(record(from + i, { candidateName: `Row Sample ${from + i}` })),
+    );
+  let scrolled;
+
+  beforeEach(() => {
+    scrolled = vi.fn();
+    Element.prototype.scrollIntoView = scrolled;
+  });
+  afterEach(() => {
+    delete Element.prototype.scrollIntoView;
+  });
+
+  const openRows = async (options = {}) => {
+    const calls = fakeBackend(options);
+    open(PERMISSIONS, '/candidates');
+    const table = await screen.findByRole('table', { name: 'Recruitment records' });
+    return { calls, table };
+  };
+  const panel = () => screen.queryByRole('region', { name: 'Historical record details' });
+  const heading = (name) => within(panel()).getByRole('heading', { name });
+
+  test('a registered candidate opens its own profile by database ID', async () => {
+    const { calls } = await openRows({
+      onRequest: (path) =>
+        path === '/candidates/91'
+          ? json({
+              candidate: {
+                id: 91,
+                candidateCode: 'S11-0091',
+                fullName: 'Registration Sample One',
+                stage: { code: 'applied', name: 'Applied' },
+                phone: '0761234567',
+              },
+            })
+          : undefined,
+    });
+    fireEvent.click(screen.getByRole('link', { name: 'View details of Registration Sample One' }));
+
+    expect(await screen.findByText('Loading candidate…')).toBeTruthy();
+    await waitFor(() => expect(screen.getAllByText('Registration Sample One').length).toBe(1));
+    expect(screen.getByText('S11-0091')).toBeTruthy();
+    // The database ID (91) is requested, never the Candidate ID text.
+    expect(calls.some((c) => c.path === '/candidates/91')).toBe(true);
+    expect(calls.some((c) => c.path.includes('S11-0091'))).toBe(false);
+    expect(panel()).toBeNull();
+  });
+
+  test('an imported record shows its details above the table, scrolled to and focused', async () => {
+    const { table } = await openRows();
+    fireEvent.click(screen.getByRole('button', { name: 'View details of record 3' }));
+
+    const details = await screen.findByRole('region', { name: 'Historical record details' });
+    expect(within(details).getByText('Remark 2')).toBeTruthy();
+    // Before the table, so it is in view without scrolling past every row.
+    expect(details.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(scrolled).toHaveBeenCalled();
+    expect(scrolled.mock.contexts.at(-1)).toBe(details);
+    // Focus moves to the panel heading, for keyboard and screen reader users.
+    expect(document.activeElement).toBe(heading('Historical record 3'));
+  });
+
+  test('clicking another row shows that row, never the previous one', async () => {
+    await openRows();
+    fireEvent.click(screen.getByRole('button', { name: 'View details of record 2' }));
+    await screen.findByRole('region', { name: 'Historical record details' });
+    expect(within(panel()).getByText('Remark 1')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'View details of record 3' }));
+    await waitFor(() => expect(heading('Historical record 3')).toBeTruthy());
+    expect(screen.getAllByRole('region', { name: 'Historical record details' }).length).toBe(1);
+    expect(within(panel()).getByText('Remark 2')).toBeTruthy();
+    expect(within(panel()).queryByText('Remark 1')).toBeNull();
+    expect(document.activeElement).toBe(heading('Historical record 3'));
+  });
+
+  test('works after filtering and after changing page, and never shows a stale record', async () => {
+    const page1 = many(1, 25);
+    const page2 = many(26, 5);
+    const filtered = [
+      toRecord(record(77, { candidateName: 'Filtered Sample', remarks: 'Only me' })),
+    ];
+    const { calls } = await openRows({
+      onRequest: (path, query) => {
+        if (path !== '/recruitment-records') return undefined;
+        if (query.position) return json({ items: filtered, total: 1, page: 1, pageSize: 25 });
+        const second = query.page === '2';
+        return json({
+          items: second ? page2 : page1,
+          total: 30,
+          page: second ? 2 : 1,
+          pageSize: 25,
+        });
+      },
+    });
+
+    // Page 1, row 5 (record number 6).
+    fireEvent.click(await screen.findByRole('button', { name: 'View details of record 6' }));
+    await screen.findByRole('region', { name: 'Historical record details' });
+    expect(within(panel()).getByText('Remark 5')).toBeTruthy();
+
+    // Next page: the old panel is gone, and a row there shows its own values.
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    await screen.findByText('Row Sample 26');
+    expect(panel()).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'View details of record 27' }));
+    await screen.findByRole('region', { name: 'Historical record details' });
+    expect(within(panel()).getByText('Remark 26')).toBeTruthy();
+
+    // A filter: the panel is cleared, and the filtered row opens correctly.
+    fireEvent.change(screen.getByLabelText('Position'), { target: { value: 'Sample Position A' } });
+    await screen.findByText('Filtered Sample');
+    expect(panel()).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'View details of record 78' }));
+    await screen.findByRole('region', { name: 'Historical record details' });
+    expect(within(panel()).getByText('Only me')).toBeTruthy();
+    expect(calls.some((c) => c.path === '/recruitment-records' && c.query.page === '2')).toBe(true);
+  });
+
+  test('imported records stay read only: no writes, no links or edit actions in the panel', async () => {
+    await openRows();
+    fireEvent.click(screen.getByRole('button', { name: 'View details of record 2' }));
+    const details = await screen.findByRole('region', { name: 'Historical record details' });
+
+    expect(within(details).queryAllByRole('link')).toEqual([]);
+    expect(
+      within(details)
+        .queryAllByRole('button')
+        .map((b) => b.textContent),
+    ).toEqual(['Close details']);
+    // Every request so far is a plain read.
+    const writes = fetch.mock.calls.filter(([, init]) => init?.method && init.method !== 'GET');
+    expect(writes).toEqual([]);
+    // No link to a candidate profile built from a historical record ID.
+    const hrefs = [...document.querySelectorAll('a')].map((a) => a.getAttribute('href'));
+    expect(hrefs.some((href) => /\/candidates\/[23](\/|$)/.test(href))).toBe(false);
+  });
+
+  test('Close details hides the panel and returns focus to the button that opened it', async () => {
+    await openRows();
+    const button = screen.getByRole('button', { name: 'View details of record 2' });
+    fireEvent.click(button);
+    await screen.findByRole('region', { name: 'Historical record details' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close details' }));
+    expect(panel()).toBeNull();
+    expect(document.activeElement).toBe(button);
+  });
+
+  test('says so when the records are denied or cannot be loaded, and offers no details', async () => {
+    fakeBackend({ recordsStatus: 403 });
+    open(PERMISSIONS, '/candidates');
+    expect(
+      await screen.findByText('You do not have permission to view recruitment records'),
+    ).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /View details of record/ })).toBeNull();
+    cleanup();
+    vi.unstubAllGlobals();
+
+    fakeBackend({ recordsStatus: 500 });
+    open(PERMISSIONS, '/candidates');
+    expect(await screen.findByText('The recruitment records could not be loaded')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
   });
 });

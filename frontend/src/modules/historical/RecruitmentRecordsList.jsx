@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { useAuth } from '../../auth/AuthContext.jsx';
 import DataTable from '../../components/DataTable.jsx';
@@ -95,7 +95,7 @@ function toRow(item, onOpen, canEdit) {
       <button
         type="button"
         className="button"
-        onClick={() => onOpen(item)}
+        onClick={(event) => onOpen(item, event.currentTarget)}
         aria-label={`View details of record ${item.recordNumber}`}
       >
         View Details
@@ -109,6 +109,9 @@ export default function RecruitmentRecordsList() {
   const canEdit = (user?.permissions ?? []).includes('candidates.edit');
   const [searchText, setSearchText] = useState('');
   const [selected, setSelected] = useState(null);
+  const panelRef = useRef(null);
+  const headingRef = useRef(null);
+  const openerRef = useRef(null);
   const [filters, setFilters] = useState({
     search: '',
     position: '',
@@ -128,6 +131,29 @@ export default function RecruitmentRecordsList() {
     }, SEARCH_DELAY_MS);
     return () => clearTimeout(timer);
   }, [searchText]);
+
+  // An imported record opens in a panel above the table. With a full page of rows
+  // a panel under the table would be off screen, so it is scrolled into view and
+  // its heading takes focus; closing it returns focus to the button that opened it.
+  // The panel is cleared when the list changes, so it never shows a record that
+  // is no longer on the page.
+  const open = (item, opener) => {
+    openerRef.current = opener;
+    setSelected(item);
+  };
+  const close = () => {
+    setSelected(null);
+    const opener = openerRef.current;
+    if (opener?.isConnected) opener.focus();
+  };
+  useEffect(() => {
+    if (!selected) return;
+    panelRef.current?.scrollIntoView?.({ block: 'start', behavior: 'smooth' });
+    headingRef.current?.focus();
+  }, [selected]);
+  useEffect(() => {
+    setSelected(null);
+  }, [filters.search, filters.position, filters.source, filters.status, filters.page]);
 
   const options = useApi(loadRecordOptions, []);
   const list = useApi(
@@ -189,20 +215,11 @@ export default function RecruitmentRecordsList() {
 
       {data && (
         <>
-          <DataTable
-            caption="Recruitment records"
-            columns={COLUMNS}
-            rows={data.items.map((item) => toRow(item, setSelected, canEdit))}
-            emptyTitle={isFiltered ? 'No records match' : 'No recruitment records yet'}
-            emptyMessage={
-              isFiltered
-                ? 'Try a different search or clear the filters.'
-                : 'Use Add Candidate to register the first one.'
-            }
-          />
           {selected && (
-            <section className="panel" aria-label="Historical record details">
-              <h3>Historical record {selected.recordNumber}</h3>
+            <section className="panel" aria-label="Historical record details" ref={panelRef}>
+              <h3 tabIndex={-1} ref={headingRef}>
+                Historical record {selected.recordNumber}
+              </h3>
               <p className="field__hint">
                 Exactly as stored from the imported file. This is an interview-log entry, not a
                 candidate profile.
@@ -223,11 +240,22 @@ export default function RecruitmentRecordsList() {
                   </dd>
                 </div>
               </dl>
-              <button type="button" className="button" onClick={() => setSelected(null)}>
+              <button type="button" className="button" onClick={close}>
                 Close details
               </button>
             </section>
           )}
+          <DataTable
+            caption="Recruitment records"
+            columns={COLUMNS}
+            rows={data.items.map((item) => toRow(item, open, canEdit))}
+            emptyTitle={isFiltered ? 'No records match' : 'No recruitment records yet'}
+            emptyMessage={
+              isFiltered
+                ? 'Try a different search or clear the filters.'
+                : 'Use Add Candidate to register the first one.'
+            }
+          />
           <Pagination
             page={data.page}
             pageSize={data.pageSize}
