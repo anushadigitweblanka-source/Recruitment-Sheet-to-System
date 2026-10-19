@@ -23,7 +23,7 @@ Table: `interviews` (migration 004). Stage changes go through `../pipeline/pipel
 - **Status** (the decision) is `selected`, `not_selected` or `on_hold`. It needs Attended and all five scores.
 - A candidate who did **not attend** cannot have scores or a status.
 - **Not Selected** requires a reason for rejection; **On Hold** requires a reason for hold and may carry a next follow-up date. These are stored with the candidate's pipeline status, not on the interview.
-- **Recommendation** has no approved list of values, so no value is accepted yet. The column exists for when the list is approved.
+- **Recommendation** accepts a proposed list: Strongly Recommended, Recommended, Consider, Not Recommended (or empty). It is separate from the decision and never changes the candidate's stage. The list is proposed, not mentor-approved.
 
 The database repeats the score range, all-or-none, attendance, decision and did-not-attend rules as constraints, so they hold even if the application is bypassed.
 
@@ -59,7 +59,7 @@ Once an offer exists for the candidate, the decision, attendance and scores can 
 
 - **The stage mapping above.** The guide says "Selected goes to Offer Tracker, Not Selected to the Rejected sheet, On Hold to the On Hold sheet" and lists the stages, but does not spell out the stage for Attended-without-status, for Not Attended, or for a cleared record.
 - **Attendance values.** `attended` and `not_attended` are used. The approved list has not been supplied (for example whether Rescheduled or Cancelled exist).
-- **Recommendation values.** No approved list, so nothing can be saved in this field yet.
+- **Recommendation values.** The four values are proposed and still need mentor approval.
 - **Interviewer storage.** Stored as plain text (`interviewer_name`), as in the workbook, because interviewers do not have logins. To be confirmed whether it should link to a user, and whether an interview can have several interviewers.
 - **One direct interview per candidate, or several?** The table allows several (for example after a no-show). The application keeps one for now and refuses a second with a pointer to the first.
 - **Automatic offer creation.** Whether Selected should create an offer record automatically. Tracked in `../offers/README.md`; no record is created automatically today.

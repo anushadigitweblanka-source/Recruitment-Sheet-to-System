@@ -3,6 +3,13 @@
 
 export const ATTENDANCE = ['attended', 'not_attended'];
 export const DECISIONS = ['selected', 'not_selected', 'on_hold'];
+// Stored as written. The column is free text, so no migration is needed.
+export const RECOMMENDATIONS = [
+  'Strongly Recommended',
+  'Recommended',
+  'Consider',
+  'Not Recommended',
+];
 
 // The five scores named in the task guide.
 export const SCORE_FIELDS = [
@@ -112,13 +119,14 @@ export function validateInterview(input) {
     }
   }
 
-  // The list of allowed Recommendation values has not been approved, so no
-  // value is accepted yet.
-  values.recommendation = null;
-  if (!isBlank(source.recommendation)) {
-    errors.recommendation =
-      'Recommendation values have not been approved yet, so none can be saved.';
-  }
+  // Proposed list; it is separate from the decision below and never changes it.
+  values.recommendation = oneOf(
+    source,
+    'recommendation',
+    RECOMMENDATIONS,
+    `Recommendation must be one of: ${RECOMMENDATIONS.join(', ')}.`,
+    errors,
+  );
 
   values.decision = oneOf(
     source,

@@ -12,7 +12,7 @@ import { useApi } from '../../hooks/useApi.js';
 import { fromOfficeInput, toOfficeInput } from '../../utils/format.js';
 import { getPhoneInterview } from '../phone-interviews/api.js';
 import { createInterview, getInterview, updateInterview } from './api.js';
-import { ATTENDANCE_OPTIONS, DECISION_OPTIONS } from './fields.js';
+import { ATTENDANCE_OPTIONS, DECISION_OPTIONS, RECOMMENDATION_OPTIONS } from './fields.js';
 import {
   MAX_SCORE,
   MAX_TOTAL,
@@ -28,6 +28,7 @@ const EMPTY_VALUES = {
   attendance: '',
   interviewerName: '',
   ...EMPTY_SCORES,
+  recommendation: '',
   decision: '',
   holdReason: '',
   nextFollowupDate: '',
@@ -50,6 +51,7 @@ function toFormValues(data, isNew) {
     attendance: text(interview.attendance),
     interviewerName: text(interview.interviewerName),
     ...Object.fromEntries(SCORE_CRITERIA.map((c) => [c.name, text(interview[c.name])])),
+    recommendation: text(interview.recommendation),
     decision: text(interview.decision),
     holdReason: text(data.holdReason),
     nextFollowupDate: text(data.nextFollowupDate),
@@ -101,6 +103,7 @@ function toPayload(values) {
     ...Object.fromEntries(
       SCORE_CRITERIA.map((c) => [c.name, values[c.name] === '' ? null : Number(values[c.name])]),
     ),
+    recommendation: values.recommendation || null,
     decision: values.decision || null,
     holdReason: values.holdReason,
     nextFollowupDate: values.nextFollowupDate || null,
@@ -303,9 +306,9 @@ export default function InterviewEvaluationPage({ page }) {
           <FormField
             label="Recommendation"
             type="select"
-            name="recommendation"
-            pending
-            error={errors.recommendation}
+            options={RECOMMENDATION_OPTIONS}
+            hint="The interviewer's view. It does not change the Status."
+            {...field('recommendation')}
           />
           <FormField
             label="Status"

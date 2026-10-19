@@ -430,7 +430,7 @@ describe('interview evaluation: the form', () => {
     );
   });
 
-  test('offers only the confirmed statuses, and no made-up Recommendation values', async () => {
+  test('offers the confirmed statuses and the four proposed Recommendation values', async () => {
     fakeBackend({ entries: [entry(1)] });
     open('/interviews/new?candidate=1');
     await formReady();
@@ -448,8 +448,16 @@ describe('interview evaluation: the form', () => {
     ]);
 
     const recommendation = screen.getByLabelText('Recommendation');
-    expect(recommendation.disabled).toBe(true);
-    expect([...recommendation.options].map((o) => o.textContent)).toEqual(['Not defined yet']);
+    expect(recommendation.disabled).toBe(false);
+    expect([...recommendation.options].map((o) => o.textContent)).toEqual([
+      'Select…',
+      'Strongly Recommended',
+      'Recommended',
+      'Consider',
+      'Not Recommended',
+    ]);
+    fireEvent.change(recommendation, { target: { value: 'Consider' } });
+    expect(screen.getByLabelText('Status').value).toBe('');
   });
 
   test('Not Attended switches off the scores and the status, and clears them', async () => {
@@ -517,6 +525,7 @@ describe('interview evaluation: the form', () => {
     fireEvent.change(screen.getByLabelText('Attendance'), { target: { value: 'attended' } });
     type('Interviewer', 'Sample Interviewer');
     typeScores(8, 7, 9, 6, 10);
+    fireEvent.change(screen.getByLabelText('Recommendation'), { target: { value: 'Recommended' } });
     fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'selected' } });
     type('Remarks', 'Sample remark');
     save();
@@ -536,6 +545,7 @@ describe('interview evaluation: the form', () => {
       scoreCommunication: 9,
       scoreConfidence: 6,
       scoreCultureFit: 10,
+      recommendation: 'Recommended',
       decision: 'selected',
       holdReason: '',
       nextFollowupDate: null,

@@ -37,7 +37,7 @@ Migration 004 creates this one table and three indexes, and nothing else. Stage 
 - `total_score` is a generated column, the sum of the five. It cannot be written directly and is empty until all five scores are present.
 - `attendance` is `attended`, `not_attended` or empty; `decision` is `selected`, `not_selected`, `on_hold` or empty.
 - An interview marked `not_attended` cannot have scores or a decision.
-- `interviewer_name` is plain text. `recommendation` has no enforced list because its values are not approved yet.
+- `interviewer_name` is plain text. `recommendation` has no database constraint; the four proposed values are checked by the backend.
 - `candidate_id` is indexed but not unique, so several interviews per candidate remain possible. The application keeps one for now.
 
 The open decisions behind these choices are listed in `backend/src/modules/interviews/README.md`.

@@ -241,7 +241,7 @@ describe('recording an interview', () => {
     ]);
   });
 
-  test('does not accept a Recommendation value while the list is unapproved', async () => {
+  test('refuses a Recommendation outside the four proposed values', async () => {
     const candidate = await scheduledCandidate();
     const res = await record({
       candidateId: candidate.id,
@@ -250,7 +250,39 @@ describe('recording an interview', () => {
     });
 
     assert.equal(res.status, 422);
-    assert.match(res.body.fields.recommendation, /not been approved/);
+    assert.match(res.body.fields.recommendation, /must be one of/);
+  });
+
+  test('saves each Recommendation, reloads it, and can leave it empty', async () => {
+    for (const recommendation of [
+      'Strongly Recommended',
+      'Recommended',
+      'Consider',
+      'Not Recommended',
+    ]) {
+      const { id } = await interviewed({ recommendation });
+      assert.equal((await view(id)).body.interview.recommendation, recommendation);
+    }
+    const { id } = await interviewed();
+    assert.equal((await view(id)).body.interview.recommendation, null);
+  });
+
+  test('changing the Recommendation never changes the decision, scores or stage', async () => {
+    const { candidate, id } = await interviewed({ ...ATTENDED, decision: 'selected' });
+    const before = await pipelineOf(candidate.id);
+
+    const res = await change(id, { recommendation: 'Not Recommended' });
+
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.equal(res.body.interview.recommendation, 'Not Recommended');
+    assert.equal(res.body.interview.decision, 'selected');
+    assert.equal(res.body.interview.totalScore, 40);
+    assert.equal(res.body.candidate.stage.code, 'selected');
+    assert.deepEqual(await pipelineOf(candidate.id), before);
+
+    const cleared = await change(id, { recommendation: null });
+    assert.equal(cleared.body.interview.recommendation, null);
+    assert.equal(cleared.body.interview.decision, 'selected');
   });
 });
 

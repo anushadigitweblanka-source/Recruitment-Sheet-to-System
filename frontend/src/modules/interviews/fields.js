@@ -11,6 +11,14 @@ export const INTERVIEW_COLUMNS = [
   { key: 'actions', label: 'Actions' },
 ];
 
+// Separate from the Status below; choosing one never changes the decision.
+export const RECOMMENDATION_OPTIONS = [
+  'Strongly Recommended',
+  'Recommended',
+  'Consider',
+  'Not Recommended',
+].map((label) => ({ value: label, label }));
+
 export const ATTENDANCE_OPTIONS = [
   { value: 'attended', label: 'Attended' },
   { value: 'not_attended', label: 'Not Attended' },
