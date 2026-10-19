@@ -7,6 +7,7 @@ export function createPool(dbConfig) {
     database: dbConfig.database,
     user: dbConfig.user,
     password: dbConfig.password,
+    ssl: dbConfig.ssl || undefined,
     // Optional: work inside one named schema instead of the default. The tests
     // use this to run against a throwaway schema.
     options: dbConfig.schema ? `-c search_path=${dbConfig.schema}` : undefined,

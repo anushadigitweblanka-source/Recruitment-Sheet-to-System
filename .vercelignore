@@ -1,0 +1,17 @@
+# Used only when deploying from this computer with the Vercel CLI (a Git-connected
+# deploy uses the committed files instead). Keeps private and local-only material
+# out of an upload.
+.env
+.env.*
+!.env.example
+prompts/
+validation/
+docs/
+evidence/
+database/proposed/
+backend/.dev-storage/
+*.csv
+*.dump
+*.bak
+*.sql.gz
+node_modules/

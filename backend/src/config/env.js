@@ -21,6 +21,17 @@ function parsePort(name, value) {
   return port;
 }
 
+// DB_SSL: unset or "false" = no TLS (the local development default); "true" =
+// TLS with the server certificate checked (what a hosted database needs);
+// "no-verify" = TLS without checking the certificate (less safe; only for a
+// provider that cannot be verified).
+function parseDbSsl(value) {
+  if (value === undefined || value === '' || value === 'false') return false;
+  if (value === 'true') return { rejectUnauthorized: true };
+  if (value === 'no-verify') return { rejectUnauthorized: false };
+  throw new Error('Invalid configuration: DB_SSL must be true, false or no-verify');
+}
+
 // Builds the application config from environment variables.
 // Error messages name the variables only; values are never included.
 export function loadConfig(env = process.env) {
@@ -54,6 +65,7 @@ export function loadConfig(env = process.env) {
       database: env.DB_NAME,
       user: env.DB_USER,
       password: env.DB_PASSWORD,
+      ssl: parseDbSsl(env.DB_SSL),
     }),
   });
 }

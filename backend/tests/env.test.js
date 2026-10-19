@@ -49,3 +49,15 @@ test('loadConfig never puts a value in its error message', () => {
 test('loadConfig rejects an out-of-range port', () => {
   assert.throws(() => loadConfig({ ...validEnv, DB_PORT: '70000' }), /DB_PORT/);
 });
+
+test('loadConfig keeps database TLS off unless DB_SSL asks for it', () => {
+  assert.equal(loadConfig(validEnv).db.ssl, false);
+  assert.equal(loadConfig({ ...validEnv, DB_SSL: 'false' }).db.ssl, false);
+  assert.deepEqual(loadConfig({ ...validEnv, DB_SSL: 'true' }).db.ssl, {
+    rejectUnauthorized: true,
+  });
+  assert.deepEqual(loadConfig({ ...validEnv, DB_SSL: 'no-verify' }).db.ssl, {
+    rejectUnauthorized: false,
+  });
+  assert.throws(() => loadConfig({ ...validEnv, DB_SSL: 'maybe' }), /DB_SSL/);
+});
