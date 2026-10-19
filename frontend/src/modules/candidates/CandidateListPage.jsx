@@ -21,7 +21,7 @@ const SEARCH_DELAY_MS = 300;
 
 const toOptions = (items) => items.map((item) => ({ value: String(item.id), label: item.name }));
 
-function toRow(candidate) {
+function toRow(candidate, canEdit) {
   return {
     id: candidate.id,
     candidateCode: <Link to={`/candidates/${candidate.id}`}>{candidate.candidateCode}</Link>,
@@ -34,12 +34,17 @@ function toRow(candidate) {
     createdAt: formatDate(candidate.createdAt),
     actions: (
       <span className="table-actions">
-        <Link to={`/candidates/${candidate.id}`} aria-label={`View ${candidate.fullName}`}>
-          View
+        <Link
+          to={`/candidates/${candidate.id}`}
+          aria-label={`View details of ${candidate.fullName}`}
+        >
+          View Details
         </Link>
-        <Link to={`/candidates/${candidate.id}/edit`} aria-label={`Edit ${candidate.fullName}`}>
-          Edit
-        </Link>
+        {canEdit && (
+          <Link to={`/candidates/${candidate.id}/edit`} aria-label={`Edit ${candidate.fullName}`}>
+            Edit
+          </Link>
+        )}
       </span>
     ),
   };
@@ -47,6 +52,8 @@ function toRow(candidate) {
 
 // The live candidate list: what everyone without access to the imported history sees.
 function CurrentCandidatesList({ page }) {
+  const { user } = useAuth();
+  const canEdit = (user?.permissions ?? []).includes('candidates.edit');
   const [searchText, setSearchText] = useState('');
   const [filters, setFilters] = useState({
     search: '',
@@ -160,7 +167,7 @@ function CurrentCandidatesList({ page }) {
             <DataTable
               caption="Candidates"
               columns={CANDIDATE_COLUMNS}
-              rows={list.data.items.map(toRow)}
+              rows={list.data.items.map((candidate) => toRow(candidate, canEdit))}
               emptyTitle={isFiltered ? 'No candidates match' : 'No candidates yet'}
               emptyMessage={
                 isFiltered

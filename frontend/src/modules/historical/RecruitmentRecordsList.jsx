@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
+import { useAuth } from '../../auth/AuthContext.jsx';
 import DataTable from '../../components/DataTable.jsx';
 import ErrorState from '../../components/ErrorState.jsx';
 import FilterBar, { FilterSelect } from '../../components/FilterBar.jsx';
@@ -28,9 +29,9 @@ const COLUMNS = [
   { key: 'date', label: 'Date' },
   { key: 'mode', label: 'Mode' },
   { key: 'status', label: 'Status' },
-  { key: 'remarks', label: 'Remarks' },
+  { key: 'remarks', label: 'Remarks', className: 'data-table__wrap' },
   { key: 'review', label: 'Review' },
-  { key: 'actions', label: 'Actions' },
+  { key: 'actions', label: 'Actions', className: 'data-table__sticky-end' },
 ];
 
 const DETAIL_FIELDS = [
@@ -54,7 +55,7 @@ const optionList = (items) =>
     label: `${value === null ? '(blank)' : value} (${count})`,
   }));
 
-function toRow(item, onOpen) {
+function toRow(item, onOpen, canEdit) {
   const isCandidate = item.kind === 'candidate';
   return {
     id: `${item.kind}-${item.id}`,
@@ -81,27 +82,31 @@ function toRow(item, onOpen) {
       ),
     actions: isCandidate ? (
       <span className="table-actions">
-        <Link to={`/candidates/${item.id}`} aria-label={`View ${item.candidateName}`}>
-          View
+        <Link to={`/candidates/${item.id}`} aria-label={`View details of ${item.candidateName}`}>
+          View Details
         </Link>
-        <Link to={`/candidates/${item.id}/edit`} aria-label={`Edit ${item.candidateName}`}>
-          Edit
-        </Link>
+        {canEdit && (
+          <Link to={`/candidates/${item.id}/edit`} aria-label={`Edit ${item.candidateName}`}>
+            Edit
+          </Link>
+        )}
       </span>
     ) : (
       <button
         type="button"
         className="button"
         onClick={() => onOpen(item)}
-        aria-label={`Details for record ${item.recordNumber}`}
+        aria-label={`View details of record ${item.recordNumber}`}
       >
-        Details
+        View Details
       </button>
     ),
   };
 }
 
 export default function RecruitmentRecordsList() {
+  const { user } = useAuth();
+  const canEdit = (user?.permissions ?? []).includes('candidates.edit');
   const [searchText, setSearchText] = useState('');
   const [selected, setSelected] = useState(null);
   const [filters, setFilters] = useState({
@@ -187,7 +192,7 @@ export default function RecruitmentRecordsList() {
           <DataTable
             caption="Recruitment records"
             columns={COLUMNS}
-            rows={data.items.map((item) => toRow(item, setSelected))}
+            rows={data.items.map((item) => toRow(item, setSelected, canEdit))}
             emptyTitle={isFiltered ? 'No records match' : 'No recruitment records yet'}
             emptyMessage={
               isFiltered

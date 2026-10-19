@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { after, before, describe, test } from 'node:test';
 import { dryRun, executeImport } from '../src/modules/historical/importer.js';
 import { startHarness } from './helpers/harness.js';
+import { createTestRole } from './helpers/testDb.js';
 
 // Recruitment Records: one list of the imported history and the live
 // candidates. Everything is fictional and lives in this file's own throwaway
@@ -273,5 +274,61 @@ describe('who may use it', () => {
       'source',
       'status',
     ]);
+  });
+});
+
+describe('view and edit from the list', () => {
+  test('an edit of a listed candidate shows in the list; the history is untouched', async () => {
+    const person = await h.newCandidate({ fullName: 'Edit Action Sample', positionId: posA.id });
+    const history = async () =>
+      JSON.stringify(
+        (await h.db.pool.query('SELECT * FROM historical_interview_records ORDER BY id')).rows,
+      );
+    const before = await history();
+
+    const saved = await h.api(`/candidates/${person.id}`, {
+      method: 'PUT',
+      ...h.asAdmin,
+      body: {
+        candidateCode: person.candidateCode,
+        fullName: 'Edit Action Renamed',
+        phone: person.phone,
+        positionId: posB.id,
+      },
+    });
+    assert.equal(saved.status, 200, JSON.stringify(saved.body));
+
+    const row = (await get('?pageSize=100')).body.items.find(
+      (i) => i.kind === 'candidate' && i.id === person.id,
+    );
+    assert.equal(row.candidateName, 'Edit Action Renamed');
+    assert.equal(row.position, 'Sample Position B');
+    assert.equal(await history(), before);
+  });
+
+  test('a user who may only view cannot save an edit, and nothing changes', async () => {
+    await createTestRole(h.db.pool, 'records_viewer', ['candidates.view', 'historical.view']);
+    const viewer = await h.signedIn({ roleCode: 'records_viewer' });
+    const person = await h.newCandidate({ fullName: 'Read Only Sample' });
+
+    assert.equal((await get('', { cookie: viewer.cookie })).status, 200);
+    const refused = await h.api(`/candidates/${person.id}`, {
+      method: 'PUT',
+      cookie: viewer.cookie,
+      body: { candidateCode: person.candidateCode, fullName: 'Changed' },
+    });
+    assert.equal(refused.status, 403);
+    const again = await h.api(`/candidates/${person.id}`, h.asAdmin);
+    assert.equal(again.body.candidate.fullName, 'Read Only Sample');
+  });
+
+  test('an imported record has no edit route', async () => {
+    const hist = (await get('?pageSize=100')).body.items.find((i) => i.kind === 'historical');
+    for (const path of [`/historical-interviews/${hist.id}`, `/recruitment-records/${hist.id}`]) {
+      for (const method of ['PUT', 'PATCH', 'DELETE']) {
+        const res = await h.api(path, { ...h.asAdmin, method, body: { candidateName: 'x' } });
+        assert.ok(res.status === 404 || res.status === 405, `${method} ${path} ${res.status}`);
+      }
+    }
   });
 });

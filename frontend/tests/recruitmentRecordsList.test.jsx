@@ -209,9 +209,9 @@ describe('the standalone Historical Interviews page is gone', () => {
 });
 
 describe('Candidate List: one Recruitment Records list', () => {
-  const openList = async () => {
+  const openList = async (permissions = ['candidates.view', 'historical.view']) => {
     const calls = fakeBackend();
-    open(['candidates.view', 'historical.view'], '/candidates');
+    open(permissions, '/candidates');
     const table = await screen.findByRole('table', { name: 'Recruitment records' });
     return { calls, table };
   };
@@ -261,11 +261,11 @@ describe('Candidate List: one Recruitment Records list', () => {
     expect(within(table).getAllByText('--').length).toBeGreaterThan(0);
   });
 
-  test('a live candidate has View and Edit; an imported record has only Details', async () => {
-    const { table } = await openList();
+  test('a live candidate has View Details and Edit; an imported record has only View Details', async () => {
+    const { table } = await openList(['candidates.view', 'candidates.edit', 'historical.view']);
     expect(
       within(table)
-        .getByRole('link', { name: 'View Registration Sample One' })
+        .getByRole('link', { name: 'View details of Registration Sample One' })
         .getAttribute('href'),
     ).toBe('/candidates/91');
     expect(
@@ -273,19 +273,92 @@ describe('Candidate List: one Recruitment Records list', () => {
         .getByRole('link', { name: 'Edit Registration Sample One' })
         .getAttribute('href'),
     ).toBe('/candidates/91/edit');
-    expect(within(table).getAllByRole('button', { name: /Details for record/ }).length).toBe(2);
+    expect(within(table).getAllByRole('button', { name: /View details of record/ }).length).toBe(2);
     expect(within(table).queryByRole('link', { name: /Edit Hist Sample/ })).toBeNull();
   });
 
-  test('opens the full stored record from Details, read only', async () => {
+  test('opens the full stored record from View Details, read only', async () => {
     await openList();
-    fireEvent.click(screen.getByRole('button', { name: 'Details for record 3' }));
+    fireEvent.click(screen.getByRole('button', { name: 'View details of record 3' }));
     const details = await screen.findByRole('region', { name: 'Historical record details' });
     expect(within(details).getByText('Remark 2')).toBeTruthy();
     expect(within(details).getByText('Phone looks unusual')).toBeTruthy();
     expect(
       screen.queryByRole('button', { name: /edit|delete|import|send|convert|create/i }),
     ).toBeNull();
+  });
+
+  test('/candidates renders Actions as the last column, right after Review, in every row', async () => {
+    const { table } = await openList(['candidates.view', 'candidates.edit', 'historical.view']);
+    const headings = within(table)
+      .getAllByRole('columnheader')
+      .map((th) => th.textContent);
+    expect(headings).toEqual([
+      'Candidate ID',
+      'Candidate Name',
+      'Contact Number',
+      'Position',
+      'Source',
+      'Date',
+      'Mode',
+      'Status',
+      'Remarks',
+      'Review',
+      'Actions',
+    ]);
+    const actionsHeading = within(table).getByRole('columnheader', { name: 'Actions' });
+    // Pinned to the right edge, so a wide table cannot push it out of sight.
+    expect(actionsHeading.className).toContain('data-table__sticky-end');
+
+    const rows = within(table).getAllByRole('row').slice(1);
+    expect(rows).toHaveLength(3);
+    for (const row of rows) {
+      const cells = within(row).getAllByRole('cell');
+      expect(cells).toHaveLength(11);
+      expect(cells[10].className).toContain('data-table__sticky-end');
+      expect(within(cells[10]).queryByText('View Details')).toBeTruthy();
+    }
+    // A registered candidate: View Details and Edit. Imported rows: View Details only.
+    const [candidateRow, ...importedRows] = rows;
+    expect(within(candidateRow).getByText('Edit')).toBeTruthy();
+    for (const row of importedRows) expect(within(row).queryByText('Edit')).toBeNull();
+  });
+
+  test('a user who may not edit sees View Details but no Edit link', async () => {
+    fakeBackend();
+    open(['candidates.view', 'historical.view'], '/candidates');
+    const table = await screen.findByRole('table', { name: 'Recruitment records' });
+    expect(within(table).getByRole('link', { name: /View details of Registration/ })).toBeTruthy();
+    expect(within(table).queryByRole('link', { name: /^Edit / })).toBeNull();
+    cleanup();
+
+    fakeBackend();
+    open(['candidates.view', 'candidates.edit', 'historical.view'], '/candidates');
+    const editable = await screen.findByRole('table', { name: 'Recruitment records' });
+    expect(
+      within(editable).getByRole('link', { name: 'Edit Registration Sample One' }),
+    ).toBeTruthy();
+  });
+
+  test('the imported record details show every stored value and no fictional Candidate ID', async () => {
+    await openList();
+    fireEvent.click(screen.getByRole('button', { name: 'View details of record 2' }));
+    const details = await screen.findByRole('region', { name: 'Historical record details' });
+    for (const text of [
+      '04/11/2026 14:30',
+      'Hist Sample 1',
+      '0770000001',
+      'Sample Position A',
+      'Fictional Board',
+      'Onsite',
+      'Selected',
+      'Remark 1',
+    ]) {
+      expect(within(details).getByText(text)).toBeTruthy();
+    }
+    expect(within(details).queryByText(/Candidate ID/i)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Close details' }));
+    expect(screen.queryByRole('region', { name: 'Historical record details' })).toBeNull();
   });
 
   test('search, position, source and status filters are sent to the server', async () => {

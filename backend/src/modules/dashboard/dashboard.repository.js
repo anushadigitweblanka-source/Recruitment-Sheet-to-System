@@ -13,7 +13,8 @@
 //                        Module 5 keeps in step with phase_history, so no
 //                        historical phase row is ever counted as current.
 //   upcomingInterviews   direct interviews whose scheduled_at is in the
-//                        future, nearest first.
+//                        future, plus the phone-interview slot of a candidate
+//                        still waiting at "Interview Scheduled", nearest first.
 //   upcomingDeadlines    active employees whose stored phase_end falls within
 //                        the next 7 days. The dates were written by Module 5's
 //                        approved calculations; nothing is recalculated here.
@@ -118,21 +119,41 @@ export async function readEmployeePhases(db) {
 }
 
 export async function readUpcomingInterviews(db, limit = 10) {
+  // Two kinds of upcoming interview, the same two the Direct Interview list
+  // shows: a recorded direct interview, and the slot a selected candidate was
+  // given at the phone interview while still waiting for it (stage "Interview
+  // Scheduled", no direct interview recorded yet).
   const { rows } = await db.query(
-    `SELECT i.id, c.candidate_code, c.full_name, p.name AS position, i.scheduled_at,
-            i.interviewer_name, s.name AS stage
-       FROM interviews i
-       JOIN candidates c ON c.id = i.candidate_id
-       LEFT JOIN positions p ON p.id = c.position_id
-       LEFT JOIN pipeline_status ps ON ps.candidate_id = c.id
-       LEFT JOIN pipeline_stages s ON s.code = ps.current_stage
-      WHERE i.scheduled_at >= now()
-      ORDER BY i.scheduled_at, i.id
+    `SELECT * FROM (
+        SELECT i.id::text AS id, c.candidate_code, c.full_name, p.name AS position,
+               i.scheduled_at, i.interviewer_name, s.name AS stage
+          FROM interviews i
+          JOIN candidates c ON c.id = i.candidate_id
+          LEFT JOIN positions p ON p.id = c.position_id
+          LEFT JOIN pipeline_status ps ON ps.candidate_id = c.id
+          LEFT JOIN pipeline_stages s ON s.code = ps.current_stage
+         WHERE i.scheduled_at >= now()
+        UNION ALL
+        SELECT 'planned-' || c.id, c.candidate_code, c.full_name, p.name,
+               ph.interview_datetime, NULL, s.name
+          FROM candidates c
+          JOIN pipeline_status ps ON ps.candidate_id = c.id AND ps.current_stage = 'interview_scheduled'
+          JOIN pipeline_stages s ON s.code = ps.current_stage
+          LEFT JOIN positions p ON p.id = c.position_id
+          JOIN LATERAL (
+            SELECT x.interview_datetime FROM phone_screens x
+             WHERE x.candidate_id = c.id AND x.interview_datetime IS NOT NULL
+             ORDER BY x.id DESC LIMIT 1
+          ) ph ON true
+         WHERE ph.interview_datetime >= now()
+           AND NOT EXISTS (SELECT 1 FROM interviews d WHERE d.candidate_id = c.id)
+      ) upcoming
+      ORDER BY scheduled_at, id
       LIMIT $1`,
     [limit],
   );
   return rows.map((row) => ({
-    id: Number(row.id),
+    id: /^\d+$/.test(row.id) ? Number(row.id) : row.id,
     candidateCode: row.candidate_code,
     candidateName: row.full_name,
     position: row.position,

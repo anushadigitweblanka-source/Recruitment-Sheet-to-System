@@ -192,9 +192,14 @@ function LocationProbe() {
 }
 const currentPath = () => screen.getByTestId('location').textContent;
 
-function open(path) {
+const VIEW_ONLY = {
+  ...SIGNED_IN,
+  user: { ...SIGNED_IN.user, permissions: ['candidates.view'] },
+};
+
+function open(path, auth = SIGNED_IN) {
   return render(
-    <AuthContext.Provider value={SIGNED_IN}>
+    <AuthContext.Provider value={auth}>
       <MemoryRouter initialEntries={[path]}>
         <App />
         <LocationProbe />
@@ -589,12 +594,68 @@ describe('edit candidate', () => {
     expect(backend.candidates[1].phone).toBe('0710000002');
   });
 
+  test('Cancel leaves without saving and returns to the unchanged profile', async () => {
+    const backend = fakeBackend({ candidates: [sampleCandidate(1)] });
+    open('/candidates/1/edit');
+    await waitFor(() => expect(screen.getByLabelText(/^Name/).value).toBe('Sample Person 1'));
+
+    type(/^Name/, 'Changed But Not Saved');
+    fireEvent.click(screen.getByRole('link', { name: 'Cancel' }));
+
+    expect(await screen.findByText('Sample Person 1')).toBeTruthy();
+    expect(currentPath()).toBe('/candidates/1');
+    expect(callsTo(backend, 'PUT', '/api/candidates/1')).toHaveLength(0);
+    expect(backend.candidates[0].fullName).toBe('Sample Person 1');
+  });
+
+  test('shows the server’s field errors and keeps the form open', async () => {
+    fakeBackend({ candidates: [sampleCandidate(1)] });
+    open('/candidates/1/edit');
+    await waitFor(() => expect(screen.getByLabelText(/^Name/).value).toBe('Sample Person 1'));
+
+    type('Email', 'not-an-email');
+    save();
+    expect(await screen.findByText('Email is not a valid address.')).toBeTruthy();
+    expect(currentPath()).toBe('/candidates/1/edit');
+  });
+
   test('says so when the candidate does not exist', async () => {
     fakeBackend();
     open('/candidates/999/edit');
 
     expect(await screen.findByText('Candidate not found')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
+  });
+});
+
+describe('view and edit permissions', () => {
+  test('the list offers View Details to everyone who may view, Edit only to editors', async () => {
+    fakeBackend({ candidates: [sampleCandidate(1)] });
+    open('/candidates', VIEW_ONLY);
+    const view = await screen.findByRole('link', { name: 'View details of Sample Person 1' });
+    expect(view.getAttribute('href')).toBe('/candidates/1');
+    expect(screen.queryByRole('link', { name: 'Edit Sample Person 1' })).toBeNull();
+    cleanup();
+
+    fakeBackend({ candidates: [sampleCandidate(1)] });
+    open('/candidates');
+    const edit = await screen.findByRole('link', { name: 'Edit Sample Person 1' });
+    expect(edit.getAttribute('href')).toBe('/candidates/1/edit');
+  });
+
+  test('a view-only user sees the profile without Edit, and the edit address gives no form', async () => {
+    const backend = fakeBackend({ candidates: [sampleCandidate(1)] });
+    open('/candidates/1', VIEW_ONLY);
+    expect(await screen.findByText('sample.person.1@example.test')).toBeTruthy();
+    expect(screen.queryByRole('link', { name: 'Edit Candidate' })).toBeNull();
+    cleanup();
+
+    open('/candidates/1/edit', VIEW_ONLY);
+    expect(
+      await screen.findByText('You do not have permission to add or edit candidates'),
+    ).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
+    expect(callsTo(backend, 'PUT', '/api/candidates/1')).toHaveLength(0);
   });
 });
 

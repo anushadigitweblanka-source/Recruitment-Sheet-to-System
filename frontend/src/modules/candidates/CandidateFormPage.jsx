@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
+import { useAuth } from '../../auth/AuthContext.jsx';
 import { loadCandidateLookups } from '../../api/lookups.js';
 import EmptyState from '../../components/EmptyState.jsx';
 import ErrorState from '../../components/ErrorState.jsx';
@@ -78,6 +79,8 @@ export default function CandidateFormPage({ page }) {
   const { id } = useParams();
   const isEdit = Boolean(id);
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const mayEdit = (user?.permissions ?? []).includes('candidates.edit');
 
   const lookups = useApi(loadCandidateLookups, []);
   const existing = useApi(() => (isEdit ? getCandidate(id) : NO_CANDIDATE()), [id]);
@@ -136,6 +139,20 @@ export default function CandidateFormPage({ page }) {
   }
 
   const header = <PageHeader title={page.label} description={page.description} />;
+
+  // The server refuses the save too; this only spares the user a form they
+  // cannot use.
+  if (!mayEdit) {
+    return (
+      <>
+        {header}
+        <ErrorState
+          title="You do not have permission to add or edit candidates"
+          message="Ask an administrator if you need access."
+        />
+      </>
+    );
+  }
 
   if (existing.status === 'loading' || lookups.status === 'loading') {
     return (

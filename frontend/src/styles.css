@@ -585,6 +585,27 @@ a {
   border-bottom: 0;
 }
 
+/* Long text (remarks) wraps instead of stretching the table. */
+.data-table .data-table__wrap {
+  min-width: 140px;
+  max-width: 240px;
+  overflow-wrap: anywhere;
+}
+
+/* The Actions column stays at the right edge while the rest scrolls sideways,
+   so it is always visible however wide the table is. */
+.data-table .data-table__sticky-end {
+  position: sticky;
+  right: 0;
+  white-space: nowrap;
+  background: var(--color-surface);
+  box-shadow: -1px 0 0 var(--color-border);
+}
+
+.data-table thead .data-table__sticky-end {
+  background: var(--color-bg);
+}
+
 .data-table__empty {
   padding: 0;
 }
@@ -1203,4 +1224,11 @@ a.button {
   gap: 16px;
   margin-top: 4px;
   font-size: 0.875rem;
+}
+
+.status-reason {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
 }

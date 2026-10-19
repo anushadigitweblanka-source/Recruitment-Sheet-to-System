@@ -7,7 +7,7 @@ export const CANDIDATE_COLUMNS = [
   { key: 'source', label: 'Source' },
   { key: 'stage', label: 'Current Status' },
   { key: 'createdAt', label: 'Created Date' },
-  { key: 'actions', label: 'Actions' },
+  { key: 'actions', label: 'Actions', className: 'data-table__sticky-end' },
 ];
 
 // The fields a user can fill in, as listed in the task guide. The options for

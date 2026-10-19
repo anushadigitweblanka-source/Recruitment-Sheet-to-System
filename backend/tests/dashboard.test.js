@@ -219,6 +219,48 @@ describe('upcoming interviews', () => {
   });
 });
 
+describe('upcoming interviews from the phone interview slot', () => {
+  test('a candidate waiting at Interview Scheduled with a future slot is listed once', async () => {
+    const waiting = await candidateAtStage('DASH-0401', 'interview_scheduled');
+    await db.pool.query(
+      `INSERT INTO phone_screens (candidate_id, called, result, interview_datetime)
+       VALUES ($1, true, 'selected', now() + interval '5 minutes')`,
+      [waiting],
+    );
+    const stalePlanned = await candidateAtStage('DASH-0402', 'interview_scheduled');
+    await db.pool.query(
+      `INSERT INTO phone_screens (candidate_id, called, result, interview_datetime)
+       VALUES ($1, true, 'selected', now() - interval '2 days')`,
+      [stalePlanned],
+    );
+
+    const list = (await summary()).body.upcomingInterviews;
+    const rows = list.filter((row) => row.candidateCode === 'DASH-0401');
+    assert.equal(rows.length, 1, 'listed once');
+    assert.equal(rows[0].stage, 'Interview Scheduled');
+    assert.equal(rows[0].interviewer, null);
+    assert.ok(
+      !list.some((row) => row.candidateCode === 'DASH-0402'),
+      'a past slot is not upcoming',
+    );
+  });
+
+  test('once the direct interview is recorded the candidate is not listed twice', async () => {
+    const both = await candidateAtStage('DASH-0403', 'interview_scheduled');
+    await db.pool.query(
+      `INSERT INTO phone_screens (candidate_id, called, result, interview_datetime)
+       VALUES ($1, true, 'selected', now() + interval '3 minutes')`,
+      [both],
+    );
+    await db.pool.query(
+      `INSERT INTO interviews (candidate_id, scheduled_at) VALUES ($1, now() + interval '4 minutes')`,
+      [both],
+    );
+    const list = (await summary()).body.upcomingInterviews;
+    assert.equal(list.filter((row) => row.candidateCode === 'DASH-0403').length, 1);
+  });
+});
+
 describe('upcoming deadlines', () => {
   test('includes 7-day window only, excludes null junior end dates and senior', async () => {
     const inWindow = await candidateAtStage('DASH-0301', 'joined');

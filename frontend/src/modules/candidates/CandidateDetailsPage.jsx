@@ -1,4 +1,5 @@
 import { Link, useLocation, useParams } from 'react-router';
+import { useAuth } from '../../auth/AuthContext.jsx';
 import DetailList from '../../components/DetailList.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
 import ErrorState from '../../components/ErrorState.jsx';
@@ -52,6 +53,8 @@ export function toDisplayValues(candidate) {
 export default function CandidateDetailsPage({ page }) {
   const { id } = useParams();
   const location = useLocation();
+  const { user } = useAuth();
+  const canEdit = (user?.permissions ?? []).includes('candidates.edit');
   const result = useApi(() => getCandidate(id), [id]);
   const candidate = result.status === 'ready' ? result.data.candidate : null;
 
@@ -66,9 +69,11 @@ export default function CandidateDetailsPage({ page }) {
               <Link to={`/candidates/${id}/documents`} className="button">
                 CV / Documents
               </Link>
-              <Link to={`/candidates/${id}/edit`} className="button button--primary">
-                Edit Candidate
-              </Link>
+              {canEdit && (
+                <Link to={`/candidates/${id}/edit`} className="button button--primary">
+                  Edit Candidate
+                </Link>
+              )}
             </>
           )
         }

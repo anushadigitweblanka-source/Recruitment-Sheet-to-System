@@ -132,21 +132,32 @@ describe('upcoming interviews and employees keep their own sources', () => {
     assert.equal(interview.status, 201, JSON.stringify(interview.body));
 
     const body = (await summary()).body;
-    assert.deepEqual(
-      body.upcomingInterviews.map((i) => i.candidateCode),
-      [scheduled.candidateCode],
+    // The candidate is listed once; others waiting at Interview Scheduled with a
+    // future phone-interview slot may be listed too, but never a historical record.
+    const codes = body.upcomingInterviews.map((i) => i.candidateCode);
+    assert.equal(codes.filter((code) => code === scheduled.candidateCode).length, 1);
+    assert.ok(
+      codes.every((code) => code !== null),
+      'every row is a live candidate',
     );
     const names = body.upcomingInterviews.map((i) => i.candidateName);
     assert.ok(
       names.every((n) => !n.startsWith('Hist Sample')),
       JSON.stringify(names),
     );
-    // Only real scheduled interviews appear, the same as the interviews table.
-    const future = (
-      await h.db.pool.query('SELECT count(*)::int AS n FROM interviews WHERE scheduled_at >= now()')
+    // Only live candidates appear: recorded interviews plus waiting phone slots.
+    const live = (
+      await h.db.pool.query(
+        `SELECT (SELECT count(*) FROM interviews WHERE scheduled_at >= now())
+              + (SELECT count(*) FROM pipeline_status ps
+                  WHERE ps.current_stage = 'interview_scheduled'
+                    AND NOT EXISTS (SELECT 1 FROM interviews i WHERE i.candidate_id = ps.candidate_id)
+                    AND EXISTS (SELECT 1 FROM phone_screens x WHERE x.candidate_id = ps.candidate_id
+                                  AND x.interview_datetime >= now()))::int AS n`,
+      )
     ).rows[0].n;
-    assert.equal(body.upcomingInterviews.length, Math.min(future, 10));
-    assert.ok(future >= 1, 'the live interview made by the previous test is listed');
+    assert.equal(body.upcomingInterviews.length, Math.min(Number(live), 10));
+    assert.ok(Number(live) >= 1, 'the live interview made by the previous test is listed');
   });
 
   test('employee lifecycle figures do not include any historical record', async () => {
