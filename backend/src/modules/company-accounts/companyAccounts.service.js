@@ -21,6 +21,7 @@ import { decryptSecret, encryptSecret, generateTemporaryPassword } from './secre
 export const REVEAL_SECONDS = 30;
 const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_PASSWORD = 200;
+const EMAIL_TAKEN = 'This company email address is already assigned to another employee.';
 
 const invalid = (fields) => ({ ok: false, reason: 'validation', fields });
 const today = () => new Date().toISOString().slice(0, 10);
@@ -185,6 +186,14 @@ export async function markCreated(pool, user, id, input) {
     if (account.status !== 'requested') {
       return invalid({ status: 'Only a requested account can be marked Created.' });
     }
+    // The address is stored trimmed and lower-case, so an exact comparison is
+    // a case-insensitive one. This check alone cannot stop two simultaneous
+    // requests; a unique index on company_email is the proposed final guard.
+    const taken = await db.query(
+      'SELECT 1 FROM company_accounts WHERE company_email = $1 AND id <> $2 LIMIT 1',
+      [email, id],
+    );
+    if (taken.rows.length > 0) return invalid({ companyEmail: EMAIL_TAKEN });
     await db.query(
       `UPDATE company_accounts
           SET status = 'created', company_email = $2, created_date = $3, created_by = $4,
@@ -202,7 +211,7 @@ export async function markCreated(pool, user, id, input) {
     });
     return { ok: true, data: { account: await findAccount(db, id) } };
   }).catch((err) => {
-    if (err.code === '23505') return invalid({ companyEmail: 'This address is already in use.' });
+    if (err.code === '23505') return invalid({ companyEmail: EMAIL_TAKEN });
     throw err;
   });
 }

@@ -133,6 +133,63 @@ describe('the lifecycle', () => {
     ]);
   });
 
+  // No unique index on company_email exists yet (proposed, not applied), so
+  // this check is the guard for now. It cannot stop two simultaneous requests.
+  describe('one company email per employee', () => {
+    const TAKEN = 'This company email address is already assigned to another employee.';
+    const mark = (accountId, companyEmail) =>
+      h.api(`/company-accounts/${accountId}/created`, {
+        method: 'POST',
+        cookie: hr.cookie,
+        body: { companyEmail, createdDate: '2026-10-14' },
+      });
+
+    test('an address already given to another employee is refused, ignoring case and spaces', async () => {
+      const first = await attended('Account Duplicate 1');
+      const second = await attended('Account Duplicate 2');
+      const third = await attended('Account Duplicate 3');
+
+      assert.equal((await mark(first.accountId, 'shared.sample@example.test')).status, 200);
+
+      for (const attempt of ['shared.sample@example.test', '  Shared.Sample@EXAMPLE.test ']) {
+        const refused = await mark(second.accountId, attempt);
+        assert.equal(refused.status, 422);
+        assert.equal(refused.body.fields.companyEmail, TAKEN);
+      }
+
+      // Nothing changed on the refused account, and no audit entry was added.
+      assert.equal(await statusOf(second.accountId), 'requested');
+      assert.deepEqual(await auditActions(h, 'company_accounts', second.accountId), [
+        'COMPANY_ACCOUNT_REQUEST',
+      ]);
+
+      // A different address still works, for the same account and for another one.
+      assert.equal((await mark(second.accountId, 'other.sample@example.test')).status, 200);
+      assert.equal((await mark(third.accountId, 'third.sample@example.test')).status, 200);
+    });
+
+    test('an authorized user is still required, and the workflow is unchanged', async () => {
+      const first = await attended('Account Duplicate 4');
+      const second = await attended('Account Duplicate 5');
+      await mark(first.accountId, 'unchanged.sample@example.test');
+
+      const denied = await h.api(`/company-accounts/${second.accountId}/created`, {
+        method: 'POST',
+        cookie: intern.cookie,
+        body: { companyEmail: 'unchanged.sample@example.test' },
+      });
+      assert.equal(denied.status, 403);
+
+      const handed = await h.api(`/company-accounts/${first.accountId}/handed-over`, {
+        method: 'POST',
+        cookie: hr.cookie,
+        body: {},
+      });
+      assert.equal(handed.status, 200);
+      assert.equal(await statusOf(first.accountId), 'handed_over');
+    });
+  });
+
   test('only people who manage company accounts may change a status', async () => {
     const { accountId } = await attended('Account Sample 3');
     for (const who of [teamLead, intern]) {
