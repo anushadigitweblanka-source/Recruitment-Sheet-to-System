@@ -113,7 +113,7 @@ export default function CandidateMessagePanel({ candidateId }) {
           </p>
           {preview.missing.length > 0 ? (
             <Notice tone="warning" title="This message cannot be prepared yet">
-              Missing: {preview.missing.join(', ')}.
+              Missing: {preview.missing.join(', ')}.{preview.hint ? ` ${preview.hint}` : ''}
             </Notice>
           ) : (
             <FormField

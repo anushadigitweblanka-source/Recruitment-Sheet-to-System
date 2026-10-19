@@ -126,6 +126,28 @@ describe('WhatsApp / SMS text panel', () => {
     expect(screen.getByRole('button', { name: 'Copy Message' }).disabled).toBe(true);
   });
 
+  test('tells HR to schedule an interview first when none is saved', async () => {
+    fakeBackend({
+      'POST /candidates/3/messages/preview': {
+        ...READY,
+        text: '',
+        missing: ['interview date and time'],
+        canCopy: false,
+        hint: 'No interview has been scheduled for this candidate yet. Record the phone interview as Selected first.',
+      },
+    });
+    show(['notifications.manage']);
+    fireEvent.change(screen.getByLabelText('Message type'), {
+      target: { value: 'interview_invitation' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Preview message' }));
+
+    expect(
+      await screen.findByText(/No interview has been scheduled for this candidate yet/),
+    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Copy Message' }).disabled).toBe(true);
+  });
+
   test('shows the server’s reason when the preview is refused', async () => {
     fakeBackend({
       'POST /candidates/3/messages/preview': json(422, {

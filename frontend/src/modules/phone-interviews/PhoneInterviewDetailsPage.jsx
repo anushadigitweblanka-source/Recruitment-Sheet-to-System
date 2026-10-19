@@ -10,7 +10,7 @@ import { useApi } from '../../hooks/useApi.js';
 import { formatDateTime } from '../../utils/format.js';
 import { getPhoneInterview } from './api.js';
 import CandidateSummary from '../../components/CandidateSummary.jsx';
-import { MAIL_STATUS_NOT_AVAILABLE, RESULT_LABELS, RESULT_TONES } from './fields.js';
+import { RESULT_LABELS, RESULT_TONES, mailStatusLabel } from './fields.js';
 
 const FIELDS = [
   { name: 'called', label: 'Called' },
@@ -23,7 +23,7 @@ const FIELDS = [
   { name: 'updated', label: 'Last Updated' },
 ];
 
-function toDisplayValues({ phoneScreen, rejectReason }) {
+function toDisplayValues({ candidate, phoneScreen, rejectReason }) {
   return {
     called: phoneScreen.called ? 'Yes' : 'No',
     response: phoneScreen.response,
@@ -37,7 +37,7 @@ function toDisplayValues({ phoneScreen, rejectReason }) {
     interviewAt: formatDateTime(phoneScreen.interviewAt),
     rejectReason,
     review: phoneScreen.review,
-    mailStatus: MAIL_STATUS_NOT_AVAILABLE,
+    mailStatus: mailStatusLabel(candidate.mailStatus),
     updated: `${formatDateTime(phoneScreen.updatedAt)}${phoneScreen.updatedBy ? ` by ${phoneScreen.updatedBy}` : ''}`,
   };
 }

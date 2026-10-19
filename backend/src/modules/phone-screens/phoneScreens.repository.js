@@ -1,3 +1,5 @@
+import { latestMailStatusSql } from '../notifications/notifications.repository.js';
+
 // All SQL for phone interviews. `db` is the pool, or a client inside a transaction.
 
 // API field name -> column name, for the fields a user can set.
@@ -46,6 +48,8 @@ function toCandidateSummary(row) {
     fullName: row.full_name,
     phone: row.phone,
     stage: { code: row.current_stage, name: row.stage_name },
+    // From the email log: the interview invitation's latest status, or null.
+    mailStatus: row.mail_status ?? null,
   };
 }
 
@@ -81,6 +85,7 @@ export async function listPhoneScreens(db, filters) {
   const offset = add((filters.page - 1) * filters.pageSize);
   const { rows } = await db.query(
     `SELECT c.id, c.candidate_code, c.full_name, c.phone, ps.current_stage, st.name AS stage_name,
+            ${latestMailStatusSql('interview_invitation')} AS mail_status,
             ${SCREEN_COLUMNS}
      ${FROM_CANDIDATES}
      ${whereSql}
@@ -100,6 +105,7 @@ export async function findForCandidate(db, candidateId) {
   const { rows } = await db.query(
     `SELECT c.id, c.candidate_code, c.full_name, c.phone, c.email, p.name AS position_name,
             ps.current_stage, st.name AS stage_name, ps.reject_reason,
+            ${latestMailStatusSql('interview_invitation')} AS mail_status,
             ${SCREEN_COLUMNS}, uu.full_name AS screen_updated_by_name
      ${FROM_CANDIDATES}
      LEFT JOIN positions p ON p.id = c.position_id

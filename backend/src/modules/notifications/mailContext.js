@@ -44,7 +44,8 @@ export async function loadMailContext(db, candidateId) {
             (SELECT x.scheduled_at FROM interviews x
               WHERE x.candidate_id = c.id ORDER BY x.id DESC LIMIT 1) AS interview_at,
             (SELECT x.interview_datetime FROM phone_screens x
-              WHERE x.candidate_id = c.id ORDER BY x.id DESC LIMIT 1) AS planned_at,
+              WHERE x.candidate_id = c.id AND x.interview_datetime IS NOT NULL
+              ORDER BY x.id DESC LIMIT 1) AS planned_at,
             (SELECT to_char(o.onboarding_date, 'YYYY-MM-DD') FROM offers o
               WHERE o.candidate_id = c.id ORDER BY o.id DESC LIMIT 1) AS onboarding_date,
             (SELECT o.location FROM offers o

@@ -202,7 +202,48 @@ describe('candidate email panel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Preview' }));
 
     expect(await screen.findByText(/Missing: candidate email/)).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Send' }).disabled).toBe(true);
+    expect(screen.getByText(/Add the candidate’s email address/)).toBeTruthy();
+    expect(screen.getByText(/Send is unavailable until/)).toBeTruthy();
+    const send = screen.getByRole('button', { name: 'Send' });
+    expect(send.disabled).toBe(true);
+    expect(send.getAttribute('aria-describedby')).toBe('send-unavailable');
+  });
+
+  test('explains a missing interview time with the step to take', async () => {
+    fakeBackend({
+      'POST /candidates/3/emails/preview': {
+        ...PREVIEW,
+        missing: ['interview date and time'],
+        canSend: false,
+      },
+    });
+    withAuth(as(['notifications.manage']), <CandidateEmailPanel candidateId={3} />);
+    fireEvent.change(screen.getByLabelText('Mail type'), {
+      target: { value: 'interview_invitation' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Preview' }));
+    expect(await screen.findByText(/Record the phone interview as Selected/)).toBeTruthy();
+  });
+
+  test('in development mode says so, and never claims a real delivery', async () => {
+    fakeBackend({
+      'POST /candidates/3/emails/preview': { ...PREVIEW, deliveryMode: 'development' },
+      'POST /candidates/3/emails/send': json(201, {
+        logId: 1,
+        delivered: true,
+        simulated: true,
+        deliveryMode: 'development',
+      }),
+    });
+    withAuth(as(['notifications.manage']), <CandidateEmailPanel candidateId={3} />);
+    fireEvent.change(screen.getByLabelText('Mail type'), {
+      target: { value: 'interview_invitation' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Preview' }));
+    expect(await screen.findByText('Development mode')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    expect(await screen.findByText(/no real email was delivered/)).toBeTruthy();
+    expect(screen.queryByText(/Mail sent and recorded/)).toBeNull();
   });
 });
 

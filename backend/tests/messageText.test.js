@@ -56,6 +56,45 @@ describe('interview invitation text', () => {
     assert.deepEqual(res.body.missing, ['interview date and time']);
     assert.equal(res.body.canCopy, false);
     assert.equal(res.body.text, '');
+    assert.match(res.body.hint, /No interview has been scheduled for this candidate yet/);
+  });
+
+  test('uses each candidate’s own saved slot, never another candidate’s', async () => {
+    const first = await h.newCandidate({ positionId: position.id, fullName: 'Slot First' });
+    const second = await h.newCandidate({ positionId: position.id, fullName: 'Slot Second' });
+    const third = await h.newCandidate({ positionId: position.id, fullName: 'Slot None' });
+    await h.phoneSelected(first, new Date('2030-03-04T05:00:00Z')); // 10:30 in Colombo
+    await h.phoneSelected(second, new Date('2030-03-05T08:30:00Z')); // 14:00 in Colombo
+
+    const a = await preview(first.id, 'interview_invitation');
+    const b = await preview(second.id, 'interview_invitation');
+    const c = await preview(third.id, 'interview_invitation');
+    assert.match(a.body.text, /^Hello Slot First,.* on 04 Mar 2030 at 10:30/);
+    assert.match(b.body.text, /^Hello Slot Second,.* on 05 Mar 2030 at 14:00/);
+    assert.deepEqual(c.body.missing, ['interview date and time']);
+    assert.equal(a.body.hint, null);
+  });
+
+  test('prefers the recorded direct interview over the phone interview slot', async () => {
+    const candidate = await h.newCandidate({ positionId: position.id, fullName: 'Slot Direct' });
+    await h.phoneSelected(candidate, new Date('2030-04-01T05:00:00Z'));
+    const direct = await h.directInterview(candidate, new Date('2030-04-03T09:00:00Z'));
+    assert.equal(direct.status, 201, JSON.stringify(direct.body));
+
+    const res = await preview(candidate.id, 'interview_invitation');
+    assert.match(res.body.text, /on 03 Apr 2030 at 14:30/);
+  });
+
+  test('still finds the saved slot when a later phone record has none', async () => {
+    const candidate = await h.newCandidate({ positionId: position.id, fullName: 'Slot Later' });
+    await h.phoneSelected(candidate, new Date('2030-05-06T05:00:00Z'));
+    await h.query(`INSERT INTO phone_screens (candidate_id, called) VALUES ($1, false)`, [
+      candidate.id,
+    ]);
+
+    const res = await preview(candidate.id, 'interview_invitation');
+    assert.deepEqual(res.body.missing, []);
+    assert.match(res.body.text, /on 06 May 2030 at 10:30/);
   });
 });
 

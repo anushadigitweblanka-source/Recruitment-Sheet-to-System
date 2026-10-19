@@ -11,7 +11,7 @@ import { useApi } from '../../hooks/useApi.js';
 import { formatDate, formatDateTime } from '../../utils/format.js';
 import { getOffer } from './api.js';
 import {
-  EMAIL_STATUS_UNAVAILABLE,
+  emailStatusLabel,
   OFFER_STATUS_LABELS,
   OFFER_STATUS_TONES,
   attendedLabel,
@@ -31,7 +31,7 @@ const FIELDS = [
   { name: 'updated', label: 'Last Updated' },
 ];
 
-function toDisplayValues({ offer }) {
+function toDisplayValues({ candidate, offer }) {
   return {
     position: offer.position,
     offerDate: formatDate(offer.offerDate),
@@ -44,7 +44,7 @@ function toDisplayValues({ offer }) {
     ) : (
       <StatusBadge>Not sent</StatusBadge>
     ),
-    emailStatus: EMAIL_STATUS_UNAVAILABLE,
+    emailStatus: emailStatusLabel(candidate.mailStatus),
     onboardingDate: formatDate(offer.onboardingDate),
     attended: attendedLabel(offer.attended),
     updated: `${formatDateTime(offer.updatedAt)}${offer.updatedBy ? ` by ${offer.updatedBy}` : ''}`,

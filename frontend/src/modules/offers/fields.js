@@ -36,6 +36,13 @@ export const ATTENDED_OPTIONS = [
 export const attendedLabel = (attended) =>
   attended === true ? 'Yes' : attended === false ? 'No' : null;
 
-// Email status is read from the email log, which belongs to Module 6 and does
-// not exist yet. It is never typed by hand and never stored with the offer.
-export const EMAIL_STATUS_UNAVAILABLE = 'Not available yet';
+// Email status is read from the email log by the server (the joining mail). It
+// is never typed by hand and never stored with the offer. null means no
+// joining mail has been prepared for the candidate.
+const EMAIL_STATUS_LABELS = {
+  sent: 'Sent',
+  simulated: 'Simulated (not delivered)',
+  failed: 'Failed',
+  queued: 'Awaiting approval',
+};
+export const emailStatusLabel = (status) => EMAIL_STATUS_LABELS[status] ?? 'Not sent';

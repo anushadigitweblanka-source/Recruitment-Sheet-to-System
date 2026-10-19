@@ -28,7 +28,7 @@ const STAGE_NAMES = {
   rejected: 'Rejected',
 };
 
-function entry(id, phoneScreen = null, stage = 'applied', rejectReason = null) {
+function entry(id, phoneScreen = null, stage = 'applied', rejectReason = null, mailStatus = null) {
   return {
     candidate: {
       id,
@@ -38,6 +38,7 @@ function entry(id, phoneScreen = null, stage = 'applied', rejectReason = null) {
       email: null,
       position: null,
       stage: { code: stage, name: STAGE_NAMES[stage] },
+      mailStatus,
     },
     phoneScreen,
     rejectReason,
@@ -82,6 +83,7 @@ function fakeBackend({ entries = [], listFails = 0, hang = false, refuseResult =
     const created = !found.phoneScreen;
     found.phoneScreen = screenRecord(found.phoneScreen?.id ?? found.candidate.id + 500, {
       called: body.called,
+      response: body.response ?? null,
       result: body.result,
       review: body.review || null,
       interviewAt: body.interviewAt ? new Date(body.interviewAt).toISOString() : null,
@@ -244,14 +246,22 @@ describe('phone interview list', () => {
     ).toBeTruthy();
   });
 
-  test('shows mail status as not available, never as sent', async () => {
+  test('shows mail status from the email log: Not sent until a mail is logged', async () => {
     fakeBackend({
-      entries: [entry(1, screenRecord(51, { result: 'selected' }), 'phone_screened')],
+      entries: [
+        entry(1, screenRecord(51, { result: 'selected' }), 'phone_screened'),
+        entry(2, screenRecord(52, { result: 'selected' }), 'phone_screened', null, 'sent'),
+        entry(3, screenRecord(53, { result: 'selected' }), 'phone_screened', null, 'failed'),
+      ],
     });
     open('/phone-interviews');
 
-    const row = (await screen.findByText('Sample Person 1')).closest('tr');
-    expect(within(row).getByText('Not available yet')).toBeTruthy();
+    const none = (await screen.findByText('Sample Person 1')).closest('tr');
+    expect(within(none).getByText('Not sent')).toBeTruthy();
+    const sent = (await screen.findByText('Sample Person 2')).closest('tr');
+    expect(within(sent).getByText('Sent')).toBeTruthy();
+    const failed = (await screen.findByText('Sample Person 3')).closest('tr');
+    expect(within(failed).getByText('Failed')).toBeTruthy();
   });
 
   test('says so when there are no candidates', async () => {
@@ -327,7 +337,7 @@ describe('phone interview form', () => {
     );
   });
 
-  test('offers only Selected and Not Selected, and no made-up Response values', async () => {
+  test('offers Selected and Not Selected, and exactly the seven chosen Responses', async () => {
     fakeBackend({ entries: [entry(1)] });
     open('/phone-interviews/1/edit');
     await formReady();
@@ -339,9 +349,19 @@ describe('phone interview form', () => {
     ]);
 
     const response = screen.getByLabelText('Response');
-    expect(response.disabled).toBe(true);
-    expect([...response.options].map((o) => o.textContent)).toEqual(['Not defined yet']);
-    expect(screen.getByText('Allowed values are not confirmed yet.')).toBeTruthy();
+    expect(response.disabled).toBe(false);
+    expect([...response.options].map((o) => o.textContent)).toEqual([
+      'Select…',
+      'Interested',
+      'Not Interested',
+      'Call Back Later',
+      'No Answer',
+      'Busy',
+      'Not Reachable',
+      'Wrong Number',
+    ]);
+    expect(screen.queryByText('Not defined yet')).toBeNull();
+    expect(screen.queryByText('Allowed values are not confirmed yet.')).toBeNull();
   });
 
   test('mail status cannot be typed', async () => {
@@ -350,7 +370,18 @@ describe('phone interview form', () => {
 
     const mail = await screen.findByLabelText('Mail Status');
     expect(mail.readOnly).toBe(true);
-    expect(mail.value).toBe('Not available yet');
+    expect(mail.value).toBe('Not sent');
+    expect(screen.getByText(/No invitation email has been sent or logged/)).toBeTruthy();
+  });
+
+  test('a development-mode email reads Simulated and explains nothing was delivered', async () => {
+    fakeBackend({ entries: [entry(1, null, 'applied', null, 'simulated')] });
+    open('/phone-interviews/1/edit');
+
+    const mail = await screen.findByLabelText('Mail Status');
+    expect(mail.readOnly).toBe(true);
+    expect(mail.value).toBe('Simulated (not delivered)');
+    expect(screen.getByText(/nothing was delivered/)).toBeTruthy();
   });
 
   test('the interview date is available only when the result is Selected', async () => {
@@ -414,11 +445,34 @@ describe('phone interview form', () => {
     expect(callsTo(backend, 'POST', '/api/phone-interviews')[0].body).toEqual({
       candidateId: 1,
       called: true,
+      response: null,
       result: 'selected',
       interviewAt: '2026-11-02T10:00:00+05:30',
       rejectReason: '',
       review: 'Sample remark about the call',
     });
+  });
+
+  test('a chosen Response is sent with the save and shown again when reopened', async () => {
+    const backend = fakeBackend({ entries: [entry(1)] });
+    open('/phone-interviews/1/edit');
+    await formReady();
+
+    fireEvent.click(screen.getByLabelText('Called'));
+    fireEvent.change(screen.getByLabelText('Response'), { target: { value: 'Call Back Later' } });
+    save();
+
+    expect(await screen.findByText('Phone interview saved. Current status: Applied.')).toBeTruthy();
+    const sent = callsTo(backend, 'POST', '/api/phone-interviews')[0].body;
+    expect(sent.response).toBe('Call Back Later');
+    expect(sent.result).toBeNull();
+    expect(await screen.findByText('Call Back Later')).toBeTruthy();
+  });
+
+  test('an existing Response is loaded into the dropdown', async () => {
+    fakeBackend({ entries: [entry(1, screenRecord(51, { response: 'Busy' }))] });
+    open('/phone-interviews/1/edit');
+    await waitFor(() => expect(screen.getByLabelText('Response').value).toBe('Busy'));
   });
 
   test('saving a call with no result yet sends no result', async () => {
@@ -536,7 +590,7 @@ describe('phone interview details', () => {
     expect(screen.getByText('Selected')).toBeTruthy();
     expect(screen.getByText('02 Nov 2026, 10:00')).toBeTruthy();
     expect(screen.getByText('Sample remark')).toBeTruthy();
-    expect(screen.getByText('Not available yet')).toBeTruthy();
+    expect(screen.getByText('Not sent')).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Edit phone interview' }).getAttribute('href')).toBe(
       '/phone-interviews/1/edit',
     );

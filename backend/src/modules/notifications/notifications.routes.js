@@ -129,7 +129,12 @@ export function notificationsRouter({ config, pool }) {
   router.post('/candidates/:id/emails/preview', canManage, async (req, res) => {
     const id = positiveId(req.params.id);
     const type = typeof req.body?.type === 'string' ? req.body.type : '';
-    sendResult(res, id ? await previewMail(pool, { candidateId: id, type }) : notFound);
+    sendResult(
+      res,
+      id
+        ? await previewMail(pool, { candidateId: id, type }, { mailMode: mail.mode ?? null })
+        : notFound,
+    );
   });
 
   // The WhatsApp / SMS text for the same details: preview and copy only. Nothing

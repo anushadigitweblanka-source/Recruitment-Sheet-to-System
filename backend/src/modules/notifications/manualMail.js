@@ -136,7 +136,9 @@ async function build(db, { candidateId, type, uploadLink }) {
 }
 
 // "Preview before manual sending."
-export async function previewMail(pool, { candidateId, type }) {
+// `mailMode` is the delivery adapter's mode ("development" until a provider is
+// approved), so the screen can say whether a send would really deliver.
+export async function previewMail(pool, { candidateId, type }, { mailMode = null } = {}) {
   const built = await build(pool, { candidateId, type });
   if (!built.ok) return built;
   return {
@@ -150,6 +152,7 @@ export async function previewMail(pool, { candidateId, type }) {
       body: built.body,
       missing: built.missing,
       canSend: built.missing.length === 0,
+      deliveryMode: mailMode,
       calendarInvite: built.invite
         ? {
             filename: built.invite.filename,
@@ -286,7 +289,7 @@ export async function sendMail(pool, user, input, mail, { config }) {
           body: edited.body,
           ...(built.invite ? { attachments: [asAttachment(built.invite)] } : {}),
         });
-        await markLogSent(db, logId);
+        await markLogSent(db, logId, mail);
       } catch (err) {
         delivered = false;
         error = err.message;
@@ -303,7 +306,17 @@ export async function sendMail(pool, user, input, mail, { config }) {
         details: { type, candidateId, auto: user === null, ...(error ? { error } : {}) },
       });
 
-      return { ok: true, data: { logId, delivered, error, to: built.to } };
+      return {
+        ok: true,
+        data: {
+          logId,
+          delivered,
+          error,
+          to: built.to,
+          deliveryMode: mail.mode ?? null,
+          simulated: mail.mode === 'development',
+        },
+      };
     });
   } catch (err) {
     if (err.code === UNIQUE_VIOLATION) {
@@ -405,7 +418,7 @@ export async function approveMail(pool, user, logId, mail) {
     let error = null;
     try {
       await mail.send({ to: entry.to, cc: entry.cc, subject: entry.subject, body: entry.body });
-      await markLogSent(db, logId);
+      await markLogSent(db, logId, mail);
     } catch (err) {
       delivered = false;
       error = err.message;

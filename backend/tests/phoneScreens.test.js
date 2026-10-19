@@ -201,11 +201,80 @@ describe('recording a phone interview', () => {
     }
   });
 
-  test('does not accept a Response value while the list is unapproved', async () => {
-    const res = await record({ candidateId: (await newCandidate()).id, response: 'Answered' });
+  const RESPONSES = [
+    'Interested',
+    'Not Interested',
+    'Call Back Later',
+    'No Answer',
+    'Busy',
+    'Not Reachable',
+    'Wrong Number',
+  ];
 
-    assert.equal(res.status, 422);
-    assert.match(res.body.fields.response, /not been approved/);
+  test('saves each of the seven Response values and returns it after reloading', async () => {
+    for (const response of RESPONSES) {
+      const candidate = await newCandidate();
+      const res = await record({ candidateId: candidate.id, called: true, response });
+      assert.equal(res.status, 201, `${response}: ${JSON.stringify(res.body)}`);
+      assert.equal(res.body.phoneScreen.response, response);
+      assert.equal((await view(candidate.id)).body.phoneScreen.response, response);
+    }
+  });
+
+  test('rejects a Response outside the seven, whatever its spelling', async () => {
+    for (const response of ['Answered', 'interested', 'NO ANSWER', 'Busy ', 42, {}]) {
+      const res = await record({ candidateId: (await newCandidate()).id, response });
+      assert.equal(res.status, 422, JSON.stringify(response));
+      assert.ok(res.body.fields.response, JSON.stringify(response));
+    }
+  });
+
+  test('Response is optional, and clearing it saves nothing in its place', async () => {
+    const candidate = await newCandidate();
+    const created = await record({ candidateId: candidate.id, called: true });
+    assert.equal(created.status, 201);
+    assert.equal(created.body.phoneScreen.response, null);
+
+    const id = created.body.phoneScreen.id;
+    assert.equal((await change(id, { response: 'Busy' })).body.phoneScreen.response, 'Busy');
+    assert.equal((await change(id, { response: null })).body.phoneScreen.response, null);
+    assert.equal((await change(id, { response: '' })).body.phoneScreen.response, null);
+  });
+
+  test('Response never changes the Result or the stage, and changing it is audited', async () => {
+    for (const response of RESPONSES) {
+      const candidate = await newCandidate();
+      const res = await record({ candidateId: candidate.id, called: true, response });
+      assert.equal(res.body.phoneScreen.result, null, response);
+      assert.equal(res.body.candidate.stage.code, 'applied', response);
+      assert.deepEqual(await stageOf(candidate.id), {
+        current_stage: 'applied',
+        reject_reason: null,
+      });
+    }
+
+    const candidate = await newCandidate();
+    const created = await record({ candidateId: candidate.id, called: true });
+    const id = created.body.phoneScreen.id;
+    await change(id, { response: 'Not Interested' });
+    const {
+      rows: [row],
+    } = await db.pool.query(
+      `SELECT old_values, new_values FROM audit_log WHERE action = 'PHONE_SCREEN_UPDATE' AND entity_id = $1`,
+      [id],
+    );
+    assert.deepEqual(row.old_values, { response: null });
+    assert.deepEqual(row.new_values, { response: 'Not Interested' });
+    assert.equal((await stageOf(candidate.id)).current_stage, 'applied');
+  });
+
+  test('a record whose Response is still empty can be edited like any other', async () => {
+    const candidate = await newCandidate();
+    const created = await record({ candidateId: candidate.id, called: true, review: 'Old note' });
+    const res = await change(created.body.phoneScreen.id, { review: 'New note' });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.equal(res.body.phoneScreen.response, null);
+    assert.equal(res.body.phoneScreen.review, 'New note');
   });
 
   test('an interview date needs the result Selected, and a time zone', async () => {
@@ -302,6 +371,22 @@ describe('stage changes', () => {
 
     assert.equal(res.body.candidate.stage.code, 'interview_scheduled');
     assert.equal(res.body.phoneScreen.interviewAt, '2026-11-02T04:30:00.000Z');
+  });
+
+  test('Called, Result and the interview time are the same after reloading; Response stays empty', async () => {
+    const candidate = await newCandidate();
+    await record({
+      candidateId: candidate.id,
+      called: true,
+      result: 'selected',
+      interviewAt: SLOT,
+    });
+
+    const reloaded = (await view(candidate.id)).body.phoneScreen;
+    assert.equal(reloaded.called, true);
+    assert.equal(reloaded.result, 'selected');
+    assert.equal(reloaded.interviewAt, '2026-11-02T04:30:00.000Z');
+    assert.equal(reloaded.response, null);
   });
 
   test('Not Selected moves the candidate to Rejected and keeps the reason', async () => {
@@ -521,6 +606,7 @@ describe('listing', () => {
       'candidateCode',
       'fullName',
       'id',
+      'mailStatus',
       'phone',
       'stage',
     ]);

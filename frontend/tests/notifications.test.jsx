@@ -231,6 +231,8 @@ describe('notifications list', () => {
     const rowOf = (code) => screen.getByText(new RegExp(code)).closest('tr');
     expect(within(rowOf('TEST-002')).getByText('Sent')).toBeTruthy();
     expect(within(rowOf('TEST-003')).getByText('Failed')).toBeTruthy();
+    // A reminder that was never attempted says why it failed.
+    expect(within(rowOf('TEST-003')).getByText('Not sent yet. simulated')).toBeTruthy();
     expect(within(rowOf('TEST-004')).getByText('Cancelled')).toBeTruthy();
     expect(screen.getByText(/development mode: no real email/)).toBeTruthy();
   });

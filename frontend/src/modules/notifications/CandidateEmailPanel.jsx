@@ -5,6 +5,18 @@ import FormField from '../../components/FormField.jsx';
 import Notice from '../../components/Notice.jsx';
 import { MANUAL_MAIL_TYPE_OPTIONS } from './fields.js';
 
+// What to do about each thing the server can report as missing.
+const MISSING_HELP = {
+  'candidate email': 'Add the candidate’s email address in Edit Candidate.',
+  'interview date and time':
+    'Record the phone interview as Selected with an interview date and time first.',
+  'team lead for the candidate position':
+    'Choose a Team Lead for this position under Administration → Team Leads.',
+  'joining date': 'Record the Onboarding Date in the candidate’s offer.',
+  'candidate status Rejected or On Hold':
+    'Set the candidate’s status to Rejected or On Hold first.',
+};
+
 // One-click mail from a candidate's page: pick the mail, preview it, edit this
 // one copy if needed, send. The server blocks a send when the candidate's
 // email, the interview date or the Team Lead is missing, and refuses to send
@@ -59,7 +71,9 @@ export default function CandidateEmailPanel({ candidateId }) {
         text: res.body.pendingApproval
           ? 'Prepared. The Main User must approve this mail before it is sent.'
           : res.body.delivered
-            ? 'Mail sent and recorded in the email log.'
+            ? res.body.simulated
+              ? 'Development mode: no real email was delivered. The attempt is recorded in the email log.'
+              : 'Mail sent and recorded in the email log.'
             : 'Delivery failed. It is recorded in the email log.',
       });
     } else if (res?.status === 422) {
@@ -107,9 +121,20 @@ export default function CandidateEmailPanel({ candidateId }) {
               </>
             )}
           </p>
+          {preview.deliveryMode === 'development' && (
+            <Notice title="Development mode">
+              No email service has been approved yet, so Send does not deliver anything to the
+              candidate. The attempt is only recorded in the email log.
+            </Notice>
+          )}
           {preview.missing.length > 0 && (
             <Notice tone="warning" title="This mail cannot be sent yet">
               Missing: {preview.missing.join(', ')}.
+              <ul>
+                {preview.missing.map((item) => (
+                  <li key={item}>{MISSING_HELP[item] ?? `Provide: ${item}.`}</li>
+                ))}
+              </ul>
             </Notice>
           )}
           <FormField
@@ -132,10 +157,16 @@ export default function CandidateEmailPanel({ candidateId }) {
               type="button"
               className="button button--primary"
               disabled={busy || !preview.canSend}
+              aria-describedby={preview.canSend ? undefined : 'send-unavailable'}
               onClick={() => send(false)}
             >
               Send
             </button>
+            {!preview.canSend && (
+              <span className="field__hint" id="send-unavailable">
+                Send is unavailable until the items above are provided.
+              </span>
+            )}
             {needsResend && (
               <button type="button" className="button" disabled={busy} onClick={() => send(true)}>
                 Resend

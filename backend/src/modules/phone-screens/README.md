@@ -20,7 +20,7 @@ The folder is named `phone-screens` to match the table.
 - **Result** is `selected`, `not_selected` or empty. These are the two results the task guide names. On Hold is not offered here.
 - **Interview Date/Time** can only be set when the result is Selected, and must carry a time zone.
 - **Not Selected** requires a reason for rejection. The reason is stored with the candidate's pipeline status, not on the phone interview.
-- **Response** has no approved list of values, so no value is accepted yet. The column exists for when the list is approved.
+- **Response** is optional and accepts exactly seven values: Interested, Not Interested, Call Back Later, No Answer, Busy, Not Reachable, Wrong Number. It describes the call and never changes the Result or the stage.
 - **Mail status** is not stored. It will be read from the email log once emails are built.
 
 ## Stage changes

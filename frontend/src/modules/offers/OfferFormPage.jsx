@@ -492,8 +492,27 @@ function OfferForm({ id, candidateId, header, showSalaryNotice = true, inline = 
     .map((p) => ({ value: String(p.id), label: p.name }));
   // Once the employee record exists the joining is settled; the server refuses
   // changes to these three fields, so the form says so instead.
-  const locked = inline && offer?.attended === true;
+  const locked = offer?.attended === true;
   const canRecordAttendance = values.offerStatus === 'accepted' && Boolean(values.onboardingDate);
+  const lockedHint = 'Locked: the candidate has joined and an employee record exists.';
+  // Says which condition is missing; it unlocks as soon as the fields change,
+  // with no Save needed first. Saving Yes is what creates the employee.
+  let attendedHint;
+  if (locked) attendedHint = lockedHint;
+  else if (readOnly) attendedHint = 'You do not have permission to manage offers.';
+  else if (values.offerStatus !== 'accepted' && !values.onboardingDate) {
+    attendedHint = 'Disabled: set Offer Status to Accepted and set an Onboarding Date.';
+  } else if (values.offerStatus !== 'accepted') {
+    attendedHint = 'Disabled: set Offer Status to Accepted.';
+  } else if (!values.onboardingDate) {
+    attendedHint = 'Disabled: set an Onboarding Date.';
+  } else {
+    attendedHint =
+      'Yes moves the candidate to Joined and, once saved, creates the employee and the evaluation.';
+  }
+  const offerStatusHint = locked
+    ? lockedHint
+    : 'Leave empty until the offer has been sent. Sent moves the candidate to Offer Sent, and Accepted to Offer Accepted.';
   const field = (name) => ({
     name,
     value: values[name],
@@ -565,14 +584,14 @@ function OfferForm({ id, candidateId, header, showSalaryNotice = true, inline = 
               label="Offer Status"
               type="select"
               options={OFFER_STATUS_OPTIONS}
-              hint="Leave empty until the offer has been sent. Sent moves the candidate to Offer Sent, and Accepted to Offer Accepted."
+              hint={offerStatusHint}
               {...field('offerStatus')}
               disabled={saving || readOnly || locked}
             />
             <FormField
               label="Onboarding Date"
               type="date"
-              hint="The joining date."
+              hint={locked ? lockedHint : 'The joining date.'}
               {...field('onboardingDate')}
               disabled={saving || readOnly || locked}
             />
@@ -580,11 +599,7 @@ function OfferForm({ id, candidateId, header, showSalaryNotice = true, inline = 
               label="Attended"
               type="select"
               options={ATTENDED_OPTIONS}
-              hint={
-                canRecordAttendance
-                  ? 'Yes moves the candidate to Joined.'
-                  : 'Available once the Offer Status is Accepted and the Onboarding Date is set.'
-              }
+              hint={attendedHint}
               {...field('attended')}
               disabled={saving || readOnly || locked || !canRecordAttendance}
             />
@@ -627,14 +642,14 @@ function OfferForm({ id, candidateId, header, showSalaryNotice = true, inline = 
               label="Offer Status"
               type="select"
               options={OFFER_STATUS_OPTIONS}
-              hint="Leave empty until the offer has been sent. Sent moves the candidate to Offer Sent, and Accepted to Offer Accepted."
+              hint={offerStatusHint}
               {...field('offerStatus')}
               disabled={saving || readOnly || locked}
             />
             <FormField
               label="Onboarding Date"
               type="date"
-              hint="The joining date."
+              hint={locked ? lockedHint : 'The joining date.'}
               {...field('onboardingDate')}
               disabled={saving || readOnly || locked}
             />
@@ -642,11 +657,7 @@ function OfferForm({ id, candidateId, header, showSalaryNotice = true, inline = 
               label="Attended"
               type="select"
               options={ATTENDED_OPTIONS}
-              hint={
-                canRecordAttendance
-                  ? 'Yes moves the candidate to Joined.'
-                  : 'Available once the Offer Status is Accepted and the Onboarding Date is set.'
-              }
+              hint={attendedHint}
               {...field('attended')}
               disabled={saving || readOnly || locked || !canRecordAttendance}
             />

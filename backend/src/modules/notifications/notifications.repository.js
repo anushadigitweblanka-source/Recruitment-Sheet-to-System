@@ -292,8 +292,19 @@ export async function insertLogEntry(db, entry) {
   return Number(rows[0].id);
 }
 
-export async function markLogSent(db, id) {
-  await db.query(`UPDATE email_log SET status = 'sent', sent_at = now() WHERE id = $1`, [id]);
+// Written on a log row that the development adapter "sent". The status column
+// only allows queued/sent/failed, so a simulated send is told apart by this
+// note in `error` (a proper 'simulated' status would need a migration).
+export const SIMULATED_NOTE = 'SIMULATED: development mode, nothing was delivered.';
+
+// `mail` is the delivery adapter; a development-mode adapter delivers nothing,
+// so its sends are marked as simulated instead of passing for real delivery.
+export async function markLogSent(db, id, mail = null) {
+  const note = mail?.mode === 'development' ? SIMULATED_NOTE : null;
+  await db.query(
+    `UPDATE email_log SET status = 'sent', sent_at = now(), error = $2 WHERE id = $1`,
+    [id, note],
+  );
 }
 
 export async function markLogFailed(db, id, error) {
@@ -302,3 +313,15 @@ export async function markLogFailed(db, id, error) {
     error,
   ]);
 }
+
+// The status of the latest one-off mail of a type for a candidate, read from
+// the email log (never typed by hand): 'sent' (really delivered), 'simulated'
+// (logged by the development adapter, nothing delivered), 'failed', 'queued'
+// (waiting for the Main User's approval), or NULL when no such mail was ever
+// prepared. `type` is one of the fixed template codes, never user input.
+export const latestMailStatusSql = (type, candidateRef = 'c.id') => `(
+  SELECT CASE WHEN l.status = 'sent' AND l.error LIKE 'SIMULATED:%' THEN 'simulated'
+              ELSE l.status END
+    FROM email_log l JOIN email_templates t ON t.id = l.template_id
+   WHERE l.candidate_id = ${candidateRef} AND t.type = '${type}' AND l.notification_id IS NULL
+   ORDER BY l.id DESC LIMIT 1)`;

@@ -16,7 +16,7 @@ import { useApi } from '../../hooks/useApi.js';
 import { formatDate } from '../../utils/format.js';
 import { listOffers } from './api.js';
 import {
-  EMAIL_STATUS_UNAVAILABLE,
+  emailStatusLabel,
   OFFER_COLUMNS,
   OFFER_STATUS_LABELS,
   OFFER_STATUS_OPTIONS,
@@ -147,7 +147,7 @@ function toRow({ candidate, offer }, salary) {
           ),
         }
       : {}),
-    emailStatus: EMAIL_STATUS_UNAVAILABLE,
+    emailStatus: emailStatusLabel(candidate.mailStatus),
     onboardingDate: formatDate(offer?.onboardingDate) ?? '--',
     attended: attendedLabel(offer?.attended) ?? '--',
     actions: (

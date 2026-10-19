@@ -46,6 +46,11 @@ function missingFor(type, context) {
   return missing;
 }
 
+// Said when an invitation cannot be prepared, so HR knows the step to take
+// rather than only what is empty.
+const NO_INTERVIEW_HINT =
+  'No interview has been scheduled for this candidate yet. Record the phone interview as Selected with an interview date and time first, then preview the invitation again.';
+
 export async function previewMessage(db, { candidateId, type }) {
   if (!MESSAGE_TYPES.includes(type)) {
     return {
@@ -82,6 +87,7 @@ export async function previewMessage(db, { candidateId, type }) {
       text,
       missing,
       canCopy: missing.length === 0,
+      hint: type === 'interview_invitation' && !context.interviewAt ? NO_INTERVIEW_HINT : null,
       note: 'Nothing is sent from here. Copy the text and send it yourself.',
     },
   };

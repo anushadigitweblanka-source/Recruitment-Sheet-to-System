@@ -17,9 +17,38 @@ export const RESULT_OPTIONS = [
   { value: 'not_selected', label: 'Not Selected' },
 ];
 
+// How the call went. Stored as these exact words; separate from Result.
+export const RESPONSE_OPTIONS = [
+  'Interested',
+  'Not Interested',
+  'Call Back Later',
+  'No Answer',
+  'Busy',
+  'Not Reachable',
+  'Wrong Number',
+].map((value) => ({ value, label: value }));
+
 export const RESULT_LABELS = { selected: 'Selected', not_selected: 'Not Selected' };
 export const RESULT_TONES = { selected: 'success', not_selected: 'danger' };
 
-// Email sending is not built, so there is no mail status to show yet. When it
-// is built, the status will be read from the email log, never typed by hand.
-export const MAIL_STATUS_NOT_AVAILABLE = 'Not available yet';
+// The mail status is read from the email log by the server, never typed by
+// hand. null means no such mail has been prepared for the candidate.
+const MAIL_STATUS_LABELS = {
+  sent: 'Sent',
+  simulated: 'Simulated (not delivered)',
+  failed: 'Failed',
+  queued: 'Awaiting approval',
+};
+export const mailStatusLabel = (status) => MAIL_STATUS_LABELS[status] ?? 'Not sent';
+
+// Why the status reads as it does, shown under the read-only field.
+const MAIL_STATUS_HINTS = {
+  sent: 'The invitation email was delivered. Read from the email log.',
+  simulated:
+    'The system is in development mode: the email was logged but nothing was delivered. Real delivery needs an approved email service.',
+  failed: 'The last attempt failed. See the Email Log for the reason.',
+  queued: 'Waiting for the Main User to approve the email.',
+};
+export const mailStatusHint = (status) =>
+  MAIL_STATUS_HINTS[status] ??
+  'No invitation email has been sent or logged for this candidate yet. This updates by itself from the email log.';

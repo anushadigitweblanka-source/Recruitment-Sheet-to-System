@@ -12,7 +12,7 @@ import { useApi } from '../../hooks/useApi.js';
 import { formatDateTime } from '../../utils/format.js';
 import { listPhoneInterviews } from './api.js';
 import {
-  MAIL_STATUS_NOT_AVAILABLE,
+  mailStatusLabel,
   PHONE_INTERVIEW_COLUMNS,
   RESULT_LABELS,
   RESULT_OPTIONS,
@@ -52,7 +52,7 @@ function toRow({ candidate, phoneScreen }) {
     ),
     review: phoneScreen?.review ? shorten(phoneScreen.review) : '--',
     interviewAt: formatDateTime(phoneScreen?.interviewAt) ?? '--',
-    mailStatus: MAIL_STATUS_NOT_AVAILABLE,
+    mailStatus: mailStatusLabel(candidate.mailStatus),
     actions: (
       <span className="table-actions">
         <Link to={address} aria-label={`View phone interview of ${candidate.fullName}`}>

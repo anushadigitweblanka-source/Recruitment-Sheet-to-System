@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, test } from 'node:test';
 import { createMailService } from '../src/modules/notifications/mailService.js';
+import { sendMail } from '../src/modules/notifications/manualMail.js';
 import { runNotificationScheduler } from '../src/modules/notifications/notifications.service.js';
 import { isWeeklyReportDue, runWeeklyReport } from '../src/modules/notifications/weeklyReport.js';
 import { auditActions, inDays, isoDay, startHarness } from './helpers/harness.js';
@@ -720,5 +721,145 @@ describe('the development mail adapter', () => {
     const result = await mail.send({ to: [HR], cc: [MANAGER], subject: 'Sample' });
     assert.equal(result.delivered, false);
     assert.equal(result.simulated, true);
+  });
+});
+
+describe('sending from the candidate page is honest about delivery', () => {
+  let person;
+  const post = (path, body) =>
+    h.api(`/candidates/${person.id}/emails/${path}`, { method: 'POST', ...h.asAdmin, body });
+
+  before(async () => {
+    // One-click, so that choosing an interview slot does not send the mail by itself.
+    const invitation = (await h.api('/email-templates', h.asAdmin)).body.items.find(
+      (t) => t.type === 'interview_invitation',
+    );
+    await h.api(`/email-templates/${invitation.id}`, {
+      method: 'PATCH',
+      ...h.asAdmin,
+      body: { sendMode: 'one_click' },
+    });
+    person = await h.newCandidate({ positionId: position.id, fullName: 'Honest Mail Sample' });
+    await h.phoneSelected(person, inDays(5));
+  });
+
+  test('the preview and the send both say the adapter is the development one', async () => {
+    const preview = await post('preview', { type: 'interview_invitation' });
+    assert.equal(preview.body.deliveryMode, 'development');
+    assert.equal(preview.body.canSend, true);
+
+    const sent = await post('send', { type: 'interview_invitation' });
+    assert.equal(sent.status, 201, JSON.stringify(sent.body));
+    assert.equal(sent.body.deliveryMode, 'development');
+    assert.equal(sent.body.simulated, true);
+    assert.equal((await logFor(person.id)).length, 1);
+  });
+
+  test('Mail Status on the phone interview follows the email log, not a typed value', async () => {
+    const status = async (candidate) =>
+      (await h.api(`/candidates/${candidate.id}/phone-interview`, h.asAdmin)).body.candidate
+        .mailStatus;
+    const fresh = await h.newCandidate({ positionId: position.id, fullName: 'Status Sample' });
+    await h.phoneSelected(fresh, inDays(7));
+    assert.equal(await status(fresh), null, 'nothing prepared yet');
+
+    await sendMail(
+      h.db.pool,
+      null,
+      { candidateId: fresh.id, type: 'interview_invitation' },
+      brokenMail,
+      {
+        config: h.config,
+      },
+    );
+    assert.equal(await status(fresh), 'failed');
+    await sendMail(h.db.pool, null, { candidateId: fresh.id, type: 'interview_invitation' }, spy, {
+      config: h.config,
+    });
+    assert.equal(await status(fresh), 'sent');
+    const list = (await h.api('/phone-interviews?search=Status%20Sample', h.asAdmin)).body.items;
+    assert.equal(list[0].candidate.mailStatus, 'sent');
+  });
+
+  test('a development-mode send reads Simulated, never Sent, and is read-only', async () => {
+    const fresh = await h.newCandidate({ positionId: position.id, fullName: 'Simulated Sample' });
+    await h.phoneSelected(fresh, inDays(8));
+    const sent = await sendMail(
+      h.db.pool,
+      null,
+      { candidateId: fresh.id, type: 'interview_invitation' },
+      createMailService(),
+      { config: h.config },
+    );
+    assert.equal(sent.data.simulated, true);
+
+    const view = async () =>
+      (await h.api(`/candidates/${fresh.id}/phone-interview`, h.asAdmin)).body;
+    assert.equal((await view()).candidate.mailStatus, 'simulated');
+    const [row] = await h.query('SELECT status, error FROM email_log WHERE candidate_id = $1', [
+      fresh.id,
+    ]);
+    assert.equal(row.status, 'sent', 'the status column only allows queued, sent, failed');
+    assert.match(row.error, /^SIMULATED:/);
+
+    // HR cannot type a status: a request carrying one changes nothing.
+    const screen = (await view()).phoneScreen;
+    await h.api(`/phone-interviews/${screen.id}`, {
+      method: 'PATCH',
+      ...h.asAdmin,
+      body: { mailStatus: 'sent' },
+    });
+    assert.equal((await view()).candidate.mailStatus, 'simulated');
+  });
+
+  test('a candidate without an interview time is refused and nothing is logged', async () => {
+    const other = await h.newCandidate({ positionId: position.id, fullName: 'No Slot Sample' });
+    const path = `/candidates/${other.id}/emails`;
+    const preview = await h.api(`${path}/preview`, {
+      method: 'POST',
+      ...h.asAdmin,
+      body: { type: 'interview_invitation' },
+    });
+    assert.equal(preview.body.canSend, false);
+    assert.deepEqual(preview.body.missing, ['interview date and time']);
+
+    const send = await h.api(`${path}/send`, {
+      method: 'POST',
+      ...h.asAdmin,
+      body: { type: 'interview_invitation' },
+    });
+    assert.equal(send.status, 422);
+    assert.deepEqual(await logFor(other.id), []);
+  });
+
+  test('a delivery failure is logged as failed, never as sent, and can be retried', async () => {
+    const other = await h.newCandidate({ positionId: position.id, fullName: 'Failing Sample' });
+    await h.phoneSelected(other, inDays(6));
+    const failed = await sendMail(
+      h.db.pool,
+      null,
+      { candidateId: other.id, type: 'interview_invitation' },
+      brokenMail,
+      { config: h.config },
+    );
+    assert.equal(failed.data.delivered, false);
+    const [row] = await logFor(other.id);
+    assert.equal(row.status, 'failed');
+    assert.equal(row.sent_at, null);
+    assert.match(row.error, /simulated outage/);
+
+    // A failed attempt does not block a proper retry, and nothing is duplicated.
+    const retry = await sendMail(
+      h.db.pool,
+      null,
+      { candidateId: other.id, type: 'interview_invitation' },
+      spy,
+      { config: h.config },
+    );
+    assert.equal(retry.data.delivered, true);
+    assert.deepEqual(
+      (await logFor(other.id)).map((r) => r.status),
+      ['failed', 'sent'],
+    );
   });
 });

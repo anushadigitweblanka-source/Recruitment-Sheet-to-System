@@ -1,3 +1,5 @@
+import { latestMailStatusSql } from '../notifications/notifications.repository.js';
+
 // All SQL for offers. `db` is the pool, or a client inside a transaction.
 //
 // Salary is managed separately by the salary module.
@@ -70,6 +72,7 @@ export async function listOffers(db, filters) {
   const { rows } = await db.query(
     `SELECT c.id AS candidate_id, c.candidate_code, c.full_name,
             cp.name AS applied_position_name, ps.current_stage, st.name AS stage_name,
+            ${latestMailStatusSql('joining_onboarding')} AS mail_status,
             ${OFFER_COLUMNS}
      ${FROM_CANDIDATES}
      ${whereSql}
@@ -87,6 +90,8 @@ export async function listOffers(db, filters) {
         // The position applied for, shown while there is no offer yet.
         position: row.applied_position_name ?? null,
         stage: { code: row.current_stage, name: row.stage_name },
+        // From the email log: the joining mail's latest status, or null.
+        mailStatus: row.mail_status ?? null,
       },
       offer: row.offer_id
         ? {
@@ -110,6 +115,7 @@ export async function findOffer(db, id) {
   const { rows } = await db.query(
     `SELECT c.id AS candidate_id, c.candidate_code, c.full_name, c.phone,
             cp.name AS applied_position_name, ps.current_stage, st.name AS stage_name,
+            ${latestMailStatusSql('joining_onboarding', 'c.id')} AS mail_status,
             ${OFFER_COLUMNS}, o.updated_at, uu.full_name AS updated_by_name
        FROM offers o
        JOIN candidates c ON c.id = o.candidate_id
@@ -132,6 +138,7 @@ export async function findOffer(db, id) {
       phone: row.phone,
       position: row.applied_position_name ?? null,
       stage: { code: row.current_stage, name: row.stage_name },
+      mailStatus: row.mail_status ?? null,
     },
     offer: {
       id: Number(row.offer_id),

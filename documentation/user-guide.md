@@ -64,7 +64,7 @@ A plain-language guide to every page in the application, written for someone usi
 - **Selected, no date yet** → Phone Screened
 - **Not Selected** → Rejected (a rejection reason is required)
 
-**Important validation:** the interview date can only be set when the result is Selected. Not Selected without a reason is refused. The **Response** field accepts no values yet — its approved list is a pending mentor decision, and the system refuses guesses rather than inventing options.
+**Important validation:** the interview date can only be set when the result is Selected. Not Selected without a reason is refused. **Response** is optional and records how the call went: Interested, Not Interested, Call Back Later, No Answer, Busy, Not Reachable or Wrong Number. It does not change the Result or the candidate's stage.
 
 **What not to do:** don't try to change a phone result after the candidate has moved further (e.g. already interviewed) — the system refuses to pull them backwards, and that is intentional.
 

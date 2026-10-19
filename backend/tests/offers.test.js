@@ -732,6 +732,7 @@ describe('listing', () => {
       'candidateCode',
       'fullName',
       'id',
+      'mailStatus',
       'position',
       'stage',
     ]);

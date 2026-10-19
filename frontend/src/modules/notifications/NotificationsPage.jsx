@@ -33,9 +33,17 @@ function toRow(item) {
     sendAt: formatDateTime(item.sendAt),
     sentAt: formatDateTime(item.sentAt) ?? '--',
     status: (
-      <StatusBadge tone={NOTIFICATION_STATUS_TONES[item.status]}>
-        {NOTIFICATION_STATUS_LABELS[item.status]}
-      </StatusBadge>
+      <>
+        <StatusBadge tone={NOTIFICATION_STATUS_TONES[item.status]}>
+          {NOTIFICATION_STATUS_LABELS[item.status]}
+        </StatusBadge>
+        {item.status === 'failed' && item.lastError && (
+          <small className="status-reason">
+            {item.attempts === 0 ? 'Not sent yet. ' : ''}
+            {item.lastError}
+          </small>
+        )}
+      </>
     ),
     recipient: item.recipients.join(', '),
   };

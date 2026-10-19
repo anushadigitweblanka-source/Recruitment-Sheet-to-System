@@ -3,6 +3,18 @@
 
 export const RESULTS = ['selected', 'not_selected'];
 
+// The chosen call outcomes, stored as these exact words in the existing
+// `response` column.
+export const RESPONSES = [
+  'Interested',
+  'Not Interested',
+  'Call Back Later',
+  'No Answer',
+  'Busy',
+  'Not Reachable',
+  'Wrong Number',
+];
+
 const MAX_REVIEW = 2000;
 const MAX_REJECT_REASON = 500;
 
@@ -37,11 +49,15 @@ export function validatePhoneScreen(input) {
     values.called = source.called;
   }
 
-  // The list of allowed Response values has not been approved, so no value is
-  // accepted yet. This stops unapproved wording being saved into a closed list.
+  // Response describes the call itself. It is optional, only the seven chosen
+  // values are accepted, and it never changes the Result or the stage.
   values.response = null;
   if (source.response !== undefined && source.response !== null && source.response !== '') {
-    errors.response = 'Response values have not been approved yet, so none can be saved.';
+    if (!RESPONSES.includes(source.response)) {
+      errors.response = `Response must be one of: ${RESPONSES.join(', ')}.`;
+    } else {
+      values.response = source.response;
+    }
   }
 
   if (source.result === undefined || source.result === null || source.result === '') {

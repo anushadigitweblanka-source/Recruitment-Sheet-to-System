@@ -11,14 +11,22 @@ import { useApi } from '../../hooks/useApi.js';
 import { fromOfficeInput, toOfficeInput } from '../../utils/format.js';
 import { createPhoneInterview, getPhoneInterview, updatePhoneInterview } from './api.js';
 import CandidateSummary from '../../components/CandidateSummary.jsx';
-import { MAIL_STATUS_NOT_AVAILABLE, RESULT_OPTIONS } from './fields.js';
+import { RESPONSE_OPTIONS, RESULT_OPTIONS, mailStatusHint, mailStatusLabel } from './fields.js';
 
-const EMPTY_VALUES = { called: false, result: '', interviewAt: '', rejectReason: '', review: '' };
+const EMPTY_VALUES = {
+  called: false,
+  response: '',
+  result: '',
+  interviewAt: '',
+  rejectReason: '',
+  review: '',
+};
 
 function toFormValues({ phoneScreen, rejectReason }) {
   if (!phoneScreen) return EMPTY_VALUES;
   return {
     called: phoneScreen.called,
+    response: phoneScreen.response ?? '',
     result: phoneScreen.result ?? '',
     interviewAt: toOfficeInput(phoneScreen.interviewAt),
     rejectReason: rejectReason ?? '',
@@ -71,6 +79,7 @@ export default function PhoneInterviewFormPage({ page }) {
 
     const payload = {
       called: values.called,
+      response: values.response || null,
       result: values.result || null,
       interviewAt: fromOfficeInput(values.interviewAt),
       rejectReason: values.rejectReason,
@@ -176,8 +185,12 @@ export default function PhoneInterviewFormPage({ page }) {
             label="Response"
             type="select"
             name="response"
-            pending
+            options={RESPONSE_OPTIONS}
+            value={values.response}
+            onChange={(event) => set('response', event.target.value)}
+            disabled={saving}
             error={errors.response}
+            hint="How the call went. It does not change the Result."
           />
           <FormField
             label="Result"
@@ -231,9 +244,9 @@ export default function PhoneInterviewFormPage({ page }) {
           <FormField
             label="Mail Status"
             name="mailStatus"
-            value={MAIL_STATUS_NOT_AVAILABLE}
+            value={mailStatusLabel(loaded.data.candidate.mailStatus)}
             readOnly
-            hint="Will be set automatically from the email log once emails are built; never typed by hand."
+            hint={mailStatusHint(loaded.data.candidate.mailStatus)}
           />
         </div>
       </FormPanel>

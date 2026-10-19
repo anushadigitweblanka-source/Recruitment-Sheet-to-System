@@ -286,7 +286,7 @@ describe('offer list', () => {
     expect(within(joined).getByText('Accepted')).toBeTruthy();
     expect(within(joined).getByText('16 Nov 2026')).toBeTruthy();
     expect(within(joined).getByText('Yes')).toBeTruthy();
-    expect(within(joined).getByText('Not available yet')).toBeTruthy();
+    expect(within(joined).getByText('Not sent')).toBeTruthy();
     expect(
       within(joined)
         .getByRole('link', { name: 'Edit offer of Sample Person 2' })
@@ -296,9 +296,11 @@ describe('offer list', () => {
     const sent = screen.getByText('TEST-003 — Sample Person 3').closest('tr');
     expect(within(sent).getByText('Sent')).toBeTruthy();
     expect(within(sent).getByText('Sample Position B')).toBeTruthy();
+    // No offer status yet, and no joining mail in the email log.
     expect(
-      within(screen.getByText('TEST-004 — Sample Person 4').closest('tr')).getByText('Not sent'),
-    ).toBeTruthy();
+      within(screen.getByText('TEST-004 — Sample Person 4').closest('tr')).getAllByText('Not sent')
+        .length,
+    ).toBe(2);
 
     expect(screen.getAllByRole('columnheader').map((th) => th.textContent)).toEqual([
       'Candidate',
@@ -562,10 +564,20 @@ describe('prepare offer', () => {
     await formReady();
 
     expect(screen.getByLabelText('Attended').disabled).toBe(true);
+    expect(
+      screen.getByText(/Disabled: set Offer Status to Accepted and set an Onboarding/),
+    ).toBeTruthy();
     fireEvent.change(screen.getByLabelText('Offer Status'), { target: { value: 'accepted' } });
     expect(screen.getByLabelText('Attended').disabled).toBe(true);
+    expect(screen.getByText('Disabled: set an Onboarding Date.')).toBeTruthy();
     type('Onboarding Date', '2026-11-16');
+    // Unlocks at once from the form values; no Save is needed first.
     expect(screen.getByLabelText('Attended').disabled).toBe(false);
+    expect(screen.getByText(/once saved, creates the employee/)).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('Offer Status'), { target: { value: 'sent' } });
+    expect(screen.getByLabelText('Attended').disabled).toBe(true);
+    expect(screen.getByText('Disabled: set Offer Status to Accepted.')).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('Offer Status'), { target: { value: 'accepted' } });
     expect(optionsOf('Offer Status')).toEqual(['Select…', 'Sent', 'Accepted']);
     expect(optionsOf('Work Mode')).toEqual(['Select…', 'Office']);
     expect(callsTo(backend, 'PATCH', '/api/offers/401')).toHaveLength(0);
@@ -610,6 +622,7 @@ describe('prepare offer', () => {
     expect(screen.getByLabelText('Onboarding Date').disabled).toBe(true);
     expect(screen.getByLabelText('Attended').disabled).toBe(true);
     expect(screen.getByLabelText('Location').disabled).toBe(false);
+    expect(screen.getAllByText(/Locked: the candidate has joined/).length).toBe(3);
   });
 
   test('a Selected candidate with no offer explains the exception and creates the one offer', async () => {
@@ -794,7 +807,7 @@ describe('offer details', () => {
     expect(value('Work Mode').textContent).toBe('Office');
     expect(value('Location').textContent).toBe('Sample Office');
     expect(value('Offer Status').textContent).toBe('Accepted');
-    expect(value('Email Status').textContent).toBe('Not available yet');
+    expect(value('Email Status').textContent).toBe('Not sent');
     expect(value('Onboarding Date').textContent).toBe('16 Nov 2026');
     expect(value('Attended').textContent).toBe('No');
     expect(value('Current Status').textContent).toBe('Offer Accepted');
@@ -808,7 +821,8 @@ describe('offer details', () => {
     fakeBackend({ entries: [entry(1, offerRecord(401))] });
     open('/offers/401');
 
-    expect(await screen.findByText('Not sent')).toBeTruthy();
+    // Both the offer status and the email status read "Not sent".
+    expect((await screen.findAllByText('Not sent')).length).toBe(2);
   });
 
   test('says so when the offer does not exist', async () => {
