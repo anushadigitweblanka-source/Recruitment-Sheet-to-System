@@ -9,3 +9,5 @@ logs/
 
 # Development file storage (company CV uploads)
 backend/.dev-storage/
+
+.vercel
