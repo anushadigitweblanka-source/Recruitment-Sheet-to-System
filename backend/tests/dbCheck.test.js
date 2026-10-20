@@ -9,6 +9,8 @@ import {
   explainConnectionError,
   formatReport,
   inspectDatabase,
+  redact,
+  settingsStatus,
 } from '../scripts/dbCheck.js';
 import { createTestDatabase } from './helpers/testDb.js';
 
@@ -121,7 +123,71 @@ describe('inspectDatabase (throwaway schema)', () => {
   });
 });
 
+describe('error wording that used to be a dead end', () => {
+  test('explains a server that hangs up during start-up, and one without TLS', () => {
+    assert.match(
+      explainConnectionError(new Error('Connection terminated unexpectedly')),
+      /closed the connection while it was starting/,
+    );
+    assert.match(
+      explainConnectionError(new Error('The server does not support SSL connections')),
+      /does not accept encrypted connections/,
+    );
+  });
+
+  test('an unknown error shows its wording with host, user and password removed', () => {
+    const err = new Error(
+      'something odd for db.example.test as fictional_user using not-a-real-password',
+    );
+    const text = explainConnectionError(err, [
+      'db.example.test',
+      'fictional_user',
+      'not-a-real-password',
+    ]);
+    assert.match(text, /something odd/);
+    for (const secret of ['db.example.test', 'fictional_user', 'not-a-real-password']) {
+      assert.equal(text.includes(secret), false);
+    }
+    assert.equal(redact('keep abc keep', ['abc']), 'keep <hidden> keep');
+  });
+
+  test('settingsStatus shows SET or MISSING and never a value', () => {
+    const lines = settingsStatus({
+      DB_HOST: 'db.example.test',
+      DB_PASSWORD: 'not-a-real-password',
+    });
+    assert.ok(lines.some((l) => /^DB_HOST\s+SET$/.test(l)));
+    assert.ok(lines.some((l) => /^DB_PORT\s+MISSING$/.test(l)));
+    assert.ok(lines.some((l) => /^DB_SSL\s+MISSING \(optional/.test(l)));
+    assert.equal(lines.join('\n').includes('db.example.test'), false);
+    assert.equal(lines.join('\n').includes('not-a-real-password'), false);
+  });
+});
+
 describe('the check command', () => {
+  test('a missing setting is reported as a settings problem, not a connection failure', async () => {
+    const env = {
+      PATH: process.env.PATH,
+      SystemRoot: process.env.SystemRoot,
+      DB_PORT: '5432',
+      DB_NAME: 'fictional_db',
+      DB_USER: 'fictional_user',
+      DB_PASSWORD: 'not-a-real-password',
+    };
+    await assert.rejects(run(process.execPath, [CLI], { env }), (err) => {
+      assert.equal(err.code, 1);
+      assert.match(err.stdout, /DB_HOST\s+MISSING/);
+      assert.match(err.stdout, /DB_PASSWORD\s+SET/);
+      assert.match(err.stderr, /Settings problem: Missing required environment variables: DB_HOST/);
+      assert.match(err.stderr, /Nothing was contacted/);
+      assert.equal(err.stderr.includes('connection failed'), false);
+      for (const secret of ['not-a-real-password', 'fictional_user', 'fictional_db']) {
+        assert.equal((err.stdout + err.stderr).includes(secret), false);
+      }
+      return true;
+    });
+  });
+
   test('on an unreachable server it explains the failure and prints no secret', async () => {
     const env = {
       PATH: process.env.PATH,

@@ -11,3 +11,12 @@ logs/
 backend/.dev-storage/
 
 .vercel
+
+# Certificates and keys are never committed (a company database certificate is
+# supplied privately through DB_SSL_CA).
+*.pem
+*.crt
+*.cer
+*.key
+*.p12
+*.pfx

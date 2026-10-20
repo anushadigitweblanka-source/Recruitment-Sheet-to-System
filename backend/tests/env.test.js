@@ -56,8 +56,7 @@ test('loadConfig keeps database TLS off unless DB_SSL asks for it', () => {
   assert.deepEqual(loadConfig({ ...validEnv, DB_SSL: 'true' }).db.ssl, {
     rejectUnauthorized: true,
   });
-  assert.deepEqual(loadConfig({ ...validEnv, DB_SSL: 'no-verify' }).db.ssl, {
-    rejectUnauthorized: false,
-  });
+  // There is no setting that encrypts without checking the certificate.
+  assert.throws(() => loadConfig({ ...validEnv, DB_SSL: 'no-verify' }), /must be true or false/);
   assert.throws(() => loadConfig({ ...validEnv, DB_SSL: 'maybe' }), /DB_SSL/);
 });

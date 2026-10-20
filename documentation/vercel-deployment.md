@@ -100,6 +100,38 @@ from `DEMO_SUPERVISOR_PASSWORD` in your terminal; it is never printed, logged or
 
 When the demonstration is over, delete the Neon project (or the database) and the Vercel deployment.
 
+## Trusting a company PostgreSQL certificate (`DB_SSL_CA`)
+
+A company server often presents its own certificate, not one a public authority signed. The error
+`DEPTH_ZERO_SELF_SIGNED_CERT` means the server's certificate is signed by itself and this computer has no
+reason to trust it. The safe fix is to tell the application exactly which certificate to trust. Never
+switch checking off: there is no setting for that (`DB_SSL` accepts only `true` or `false`).
+
+1. **Get the certificate from the company, not from the server.** Ask IT for the PostgreSQL server
+   certificate file (`.crt` / `.pem`; for a company authority, that authority's certificate). Do not
+   download it from the server and trust it: that would trust whoever answered, including an attacker.
+2. **Verify it through a second trusted channel.** Ask IT for the certificate's SHA-256 fingerprint
+   (by phone, or from the company's internal page). In PowerShell: `Get-FileHash -Algorithm SHA256 .\cert.pem`
+   hashes the file, but the fingerprint IT quotes is of the certificate itself, so use the checker below:
+   it prints the same `SHA-256 fingerprint` form that `openssl x509 -fingerprint -sha256` gives. Only go on
+   when the two match exactly.
+3. **Keep the file out of the repository** (for example in `C:\certs\`). It is public information, not a
+   secret, but it identifies your company's server.
+4. **Supply it privately.** In your PowerShell window, with the other `DB_*` values as before:
+   `$env:DB_SSL_CA = Get-Content -Raw C:\certs\company-db.pem`, then
+   `node backend/scripts/check-db-connection.js`. The checker prints the fingerprint, the expiry date,
+   whether the certificate is self-signed and whether its name matches the server. It never prints the
+   server name or the certificate text.
+5. **Name matching.** The certificate must list the host name (or IP address) the application connects to.
+   If it lists a different name, ask IT for that name and set `DB_SSL_SERVERNAME` to it; connecting by
+   address to a certificate issued for a name is refused otherwise.
+6. **On Vercel**, add `DB_SSL_CA` as an environment variable (the dashboard accepts several lines; a
+   single-line form with `\n` or a base64 version also works) together with `DB_SSL=true`. It is not
+   committed and not shown in logs. A certificate expires: the application refuses an expired one at
+   start-up, so note the expiry date and replace the value before then.
+7. The tests use throwaway fictional certificates and a fake server. They prove that the supplied
+   certificate is trusted, a wrong name is refused, and a different certificate is not trusted.
+
 ## Still unverified until a real deployment
 
 The Express entry detection, the monorepo install from the root lockfile and the frontend fallback rule

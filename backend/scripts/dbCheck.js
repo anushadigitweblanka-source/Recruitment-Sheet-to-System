@@ -5,7 +5,9 @@
 // checks privileges with has_*_privilege() instead of trying them.
 //
 // The report never contains the host name, the user name or the password.
+import { X509Certificate } from 'node:crypto';
 import { readdirSync, readFileSync } from 'node:fs';
+import { isIP } from 'node:net';
 import { fileURLToPath } from 'node:url';
 
 // Generated columns (migration 004) need PostgreSQL 12. Nothing newer is used.
@@ -33,16 +35,18 @@ export function classifyHost(host) {
 }
 
 // What went wrong with a failed connection, without echoing the server address.
-export function explainConnectionError(err) {
+export function explainConnectionError(err, secrets = []) {
   const code = err?.code ?? '';
   const table = {
     SELF_SIGNED_CERT_IN_CHAIN:
       'The server certificate is signed by an authority this computer does not trust (often a company-private one).',
-    DEPTH_ZERO_SELF_SIGNED_CERT: 'The server uses a self-signed certificate.',
+    DEPTH_ZERO_SELF_SIGNED_CERT:
+      'The server uses a self-signed certificate. Get that certificate from the company, check its fingerprint with them, and supply it as DB_SSL_CA. Do not turn checking off.',
     UNABLE_TO_VERIFY_LEAF_SIGNATURE:
       'The certificate chain cannot be verified (a missing intermediate or private authority).',
     UNABLE_TO_GET_ISSUER_CERT_LOCALLY: 'The certificate issuer is not trusted by this computer.',
-    ERR_TLS_CERT_ALTNAME_INVALID: 'The certificate does not match the server name that was used.',
+    ERR_TLS_CERT_ALTNAME_INVALID:
+      'The certificate was not issued for the server name or address used. Ask IT which name it lists; if it differs, set DB_SSL_SERVERNAME to that name.',
     CERT_HAS_EXPIRED: 'The server certificate has expired.',
     ECONNREFUSED:
       'The connection was refused: nothing is accepting connections there, or a firewall refused it.',
@@ -55,10 +59,54 @@ export function explainConnectionError(err) {
     '57P03': 'The server is starting up or not accepting connections.',
   };
   if (table[code]) return `${table[code]} (${code})`;
-  if (/SSL|TLS/i.test(err?.message ?? ''))
-    return `The TLS handshake failed (${code || 'no code'}).`;
-  if (/timeout/i.test(err?.message ?? '')) return 'The connection timed out.';
-  return `The connection failed (${code || 'no code'}).`;
+  const message = String(err?.message ?? '');
+  if (/does not support SSL/i.test(message)) {
+    return 'The server does not accept encrypted connections, but DB_SSL is on. Ask IT whether TLS is enabled. Do not turn certificate checking off.';
+  }
+  if (/terminated unexpectedly/i.test(message)) {
+    return 'The server closed the connection while it was starting. Usual causes: a firewall or server rule rejecting this computer, or DB_SSL not matching what the server expects.';
+  }
+  if (/SSL|TLS/i.test(message)) return `The TLS handshake failed (${code || 'no code'}).`;
+  if (/timeout|timed out/i.test(message)) return 'The connection timed out.';
+  // Unknown: show the library's own wording, with every secret value removed.
+  const detail = redact(message, secrets).split('\n')[0].slice(0, 200);
+  return `The connection failed (${code || 'no code'})${detail ? `: ${detail}` : '.'}`;
+}
+
+// Replaces each secret value (host, user, password) in a text with <hidden>.
+export function redact(text, secrets = []) {
+  let out = String(text);
+  for (const secret of secrets) {
+    if (secret && String(secret).length >= 3) out = out.split(String(secret)).join('<hidden>');
+  }
+  return out;
+}
+
+export const SETTING_NAMES = [
+  'DB_HOST',
+  'DB_PORT',
+  'DB_NAME',
+  'DB_USER',
+  'DB_PASSWORD',
+  'DB_SSL',
+  'DB_SSL_CA',
+  'DB_SSL_CA_SHA256',
+  'DB_SSL_SERVERNAME',
+];
+const OPTIONAL_NOTE = {
+  DB_SSL: ' (optional; TLS stays off unless DB_SSL_CA is set)',
+  DB_SSL_CA: ' (optional; the company certificate)',
+  DB_SSL_CA_SHA256: ' (optional; the fingerprint IT gave you, recommended)',
+  DB_SSL_SERVERNAME: ' (optional)',
+};
+
+// SET or MISSING for each setting, never the value. DB_SSL is optional.
+export function settingsStatus(env = process.env) {
+  return SETTING_NAMES.map((name) => {
+    const isSet = Boolean(env[name]);
+    const note = !isSet ? (OPTIONAL_NOTE[name] ?? '') : '';
+    return `${name.padEnd(12)} ${isSet ? 'SET' : 'MISSING'}${note}`;
+  });
 }
 
 const tablesInMigrations = () => {
@@ -183,4 +231,27 @@ export function formatReport({ hostClass, tlsMode, report }) {
     `Application can sign in and work (insert/update on sessions, audit, users): ${yes(report.appCanWork)}`,
   ];
   return lines;
+}
+
+// Facts about the certificate(s) supplied as DB_SSL_CA, so they can be compared
+// with the value the company publishes. Prints no subject, issuer or server name.
+export function describeCertificates(pem, { host, servername } = {}) {
+  const blocks =
+    String(pem).match(/-----BEGIN CERTIFICATE-----[\s\S]+?-----END CERTIFICATE-----/g) ?? [];
+  const name = servername || host || '';
+  return blocks.map((block, index) => {
+    const cert = new X509Certificate(block);
+    let nameMatch = 'not applicable (a certificate authority)';
+    if (!cert.ca) {
+      const ok = isIP(name) ? Boolean(cert.checkIP(name)) : Boolean(cert.checkHost(name));
+      nameMatch = ok ? 'yes' : 'NO';
+    }
+    return [
+      `Certificate ${index + 1} of ${blocks.length} you supplied:`,
+      `  SHA-256 fingerprint: ${cert.fingerprint256}`,
+      `  valid until:         ${new Date(cert.validTo).toISOString().slice(0, 10)}`,
+      `  self-signed:         ${cert.issuer === cert.subject ? 'yes' : 'no'}`,
+      `  name matches server: ${nameMatch}`,
+    ].join('\n');
+  });
 }
