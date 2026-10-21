@@ -3,6 +3,7 @@ import { attachUser, requireAuth } from '../middleware/auth.js';
 import { auditRouter } from '../modules/audit/audit.routes.js';
 import { authRouter } from '../modules/auth/auth.routes.js';
 import { candidatesRouter } from '../modules/candidates/candidates.routes.js';
+import { cvExtractionRouter } from '../modules/cv-extraction/cvExtraction.routes.js';
 import { companyAccountsRouter } from '../modules/company-accounts/companyAccounts.routes.js';
 import {
   companyCvFilesRouter,
@@ -49,6 +50,8 @@ export function apiRouter(deps) {
   router.use(requireAuth);
 
   // Each of these also checks a specific permission on every route.
+  // CV reading (preview only) must be mounted before the candidate routes.
+  router.use('/candidates', cvExtractionRouter(deps));
   router.use('/candidates', candidatesRouter(deps));
   router.use(companyCvFilesRouter(deps));
   router.use('/dashboard', dashboardRouter(deps));

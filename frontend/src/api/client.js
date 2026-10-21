@@ -39,3 +39,7 @@ export const apiDelete = (path) => request(path, { method: 'DELETE' });
 // A file sent as it is (not JSON), for the candidate's Company CV upload.
 export const apiPutFile = (path, file) =>
   request(path, { method: 'PUT', headers: { 'Content-Type': file.type }, body: file });
+
+// A file sent as it is (not JSON) with POST, for reading a CV.
+export const apiPostFile = (path, file, contentType) =>
+  request(path, { method: 'POST', headers: { 'Content-Type': contentType }, body: file });

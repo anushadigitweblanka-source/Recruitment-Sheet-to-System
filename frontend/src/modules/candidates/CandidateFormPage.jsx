@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { useEffect, useRef, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router';
 import { useAuth } from '../../auth/AuthContext.jsx';
 import { loadCandidateLookups } from '../../api/lookups.js';
 import EmptyState from '../../components/EmptyState.jsx';
@@ -11,6 +11,7 @@ import Notice from '../../components/Notice.jsx';
 import PageHeader from '../../components/PageHeader.jsx';
 import { useApi } from '../../hooks/useApi.js';
 import { createCandidate, getCandidate, updateCandidate } from './api.js';
+import CvReader from './CvReader.jsx';
 import DuplicateWarning from './DuplicateWarning.jsx';
 import { CANDIDATE_FIELDS } from './fields.js';
 
@@ -90,6 +91,12 @@ export default function CandidateFormPage({ page }) {
   const [duplicates, setDuplicates] = useState(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(null);
+  // Set when the details were filled in from a CV; the saved candidate is then
+  // confirmed on this page (with its Candidate ID and links) instead of moving on.
+  const [fromCv, setFromCv] = useState(false);
+  const [registered, setRegistered] = useState(null);
+  // Stops a quick double click from sending the save twice.
+  const inFlight = useRef(false);
 
   // When editing, fill the form once the candidate has arrived.
   useEffect(() => {
@@ -105,12 +112,28 @@ export default function CandidateFormPage({ page }) {
     setDuplicates(null);
   }
 
+  // Values read from a CV go only into empty fields, never over what was typed.
+  function fillFromCv(draft, cvUrl) {
+    setFromCv(true);
+    setValues((old) => {
+      const next = { ...old };
+      for (const [name, value] of Object.entries({ ...draft, ...(cvUrl ? { cvUrl } : {}) })) {
+        if (!next[name]?.trim()) next[name] = value;
+      }
+      return next;
+    });
+    setErrors({});
+    setDuplicates(null);
+  }
+
   async function save({ confirmDuplicate = false } = {}) {
+    if (inFlight.current) return;
     const problems = validate(values);
     setErrors(problems);
     setSaveError(null);
     if (Object.keys(problems).length > 0) return;
 
+    inFlight.current = true;
     setSaving(true);
     let res;
     try {
@@ -119,9 +142,13 @@ export default function CandidateFormPage({ page }) {
     } catch {
       res = null;
     }
+    inFlight.current = false;
     setSaving(false);
 
-    if (res?.ok) {
+    if (res?.ok && !isEdit && fromCv) {
+      // Shown only now, after the backend has confirmed the save.
+      setRegistered(res.body.candidate);
+    } else if (res?.ok) {
       navigate(`/candidates/${res.body.candidate.id}`, {
         state: { saved: isEdit ? 'Changes saved.' : 'Candidate added.' },
       });
@@ -186,6 +213,39 @@ export default function CandidateFormPage({ page }) {
     );
   }
 
+  if (registered) {
+    return (
+      <>
+        {header}
+        <Notice tone="success" title="Candidate registered" role="status">
+          <p>
+            {registered.fullName} was added with Candidate ID{' '}
+            <strong>{registered.candidateCode}</strong> and the status Applied.
+          </p>
+          <div className="notice__actions">
+            <Link to={`/candidates/${registered.id}`} className="button button--primary">
+              View Candidate
+            </Link>
+            <Link to="/candidates" className="button">
+              Candidate List
+            </Link>
+            <button
+              type="button"
+              className="button"
+              onClick={() => {
+                setRegistered(null);
+                setFromCv(false);
+                setValues(EMPTY_VALUES);
+              }}
+            >
+              Add another candidate
+            </button>
+          </div>
+        </Notice>
+      </>
+    );
+  }
+
   const lists = lookups.status === 'ready' ? lookups.data : { positions: [], sources: [] };
   const noValuesHint = (what) =>
     `No ${what} have been defined yet. An administrator can add them under Administration → Positions & Sources.`;
@@ -229,6 +289,14 @@ export default function CandidateFormPage({ page }) {
           saving={saving}
           onConfirm={() => save({ confirmDuplicate: true })}
           onCancel={() => setDuplicates(null)}
+        />
+      )}
+
+      {!isEdit && (
+        <CvReader
+          onFill={fillFromCv}
+          onUseValue={(name, value) => handleChange(name, value)}
+          disabled={saving}
         />
       )}
 

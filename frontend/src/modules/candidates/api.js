@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiPut } from '../../api/client.js';
+import { apiGet, apiPost, apiPostFile, apiPut } from '../../api/client.js';
 
 // Empty filters are left out of the address.
 export function listCandidates(filters) {
@@ -12,3 +12,8 @@ export function listCandidates(filters) {
 export const getCandidate = (id) => apiGet(`/candidates/${id}`);
 export const createCandidate = (data) => apiPost('/candidates', data);
 export const updateCandidate = (id, data) => apiPut(`/candidates/${id}`, data);
+
+// Reading a CV only previews its details; nothing is saved by these calls.
+export const extractCvFile = (file, contentType) =>
+  apiPostFile('/candidates/extract-cv/file', file, contentType);
+export const extractCvLink = (url) => apiPost('/candidates/extract-cv/link', { url });
