@@ -279,28 +279,41 @@ export async function sendMail(pool, user, input, mail, { config }) {
         sentBy: user?.id ?? null,
       });
 
-      let delivered = true;
       let error = null;
+      let receipt;
       try {
-        await mail.send({
+        receipt = await mail.send({
           to: built.to,
           cc: built.cc,
           subject: edited.subject,
           body: edited.body,
           ...(built.invite ? { attachments: [asAttachment(built.invite)] } : {}),
         });
-        await markLogSent(db, logId, mail);
       } catch (err) {
-        delivered = false;
         error = err.message;
-        await markLogFailed(db, logId, err.message);
+      }
+      const simulated = mail.mode === 'development' && receipt?.simulated === true;
+      const delivered = receipt?.delivered === true;
+      if (!delivered && !simulated && !error) {
+        error = receipt?.error || 'The mail service did not confirm delivery.';
+      }
+
+      if (delivered || simulated) {
+        await markLogSent(db, logId, mail);
+      } else {
+        await markLogFailed(db, logId, error);
       }
 
       if (delivered && type === 'interview_invitation') await markCompanyCvSent(db, candidateId);
 
       await recordAudit(db, {
         actorUserId: user?.id ?? null,
-        action: delivered ? (resend ? 'EMAIL_RESEND' : 'EMAIL_SEND') : 'EMAIL_SEND_FAILED',
+        action:
+          delivered || simulated
+            ? resend
+              ? 'EMAIL_RESEND'
+              : 'EMAIL_SEND'
+            : 'EMAIL_SEND_FAILED',
         entityType: 'email_log',
         entityId: logId,
         details: { type, candidateId, auto: user === null, ...(error ? { error } : {}) },
@@ -314,7 +327,7 @@ export async function sendMail(pool, user, input, mail, { config }) {
           error,
           to: built.to,
           deliveryMode: mail.mode ?? null,
-          simulated: mail.mode === 'development',
+          simulated,
         },
       };
     });

@@ -13,21 +13,32 @@ export const CANDIDATE_COLUMNS = [
 // The fields a user can fill in, as listed in the task guide. The options for
 // Applied Position and Source are added by the form from the lookup lists.
 export const CANDIDATE_FIELDS = [
-  {
-    name: 'candidateCode',
-    label: 'Candidate ID',
-    required: true,
-    maxLength: 30,
-    hint: 'Must be unique. The ID format is not confirmed yet, so type the ID to use.',
-  },
+  { name: 'candidateCode', label: 'Candidate ID' },
   { name: 'fullName', label: 'Name', required: true, maxLength: 150 },
   {
     name: 'phone',
-    label: 'Phone',
+    label: 'Phone Number 1',
     type: 'tel',
     hint: 'Kept as text, so a leading 0 is never lost.',
   },
+  // The database has one phone column, so a second number is a draft on this
+  // form only: it is filled from the CV and can be edited, but it is not saved.
+  {
+    name: 'phone2',
+    label: 'Phone Number 2',
+    type: 'tel',
+    hint: 'Optional. Not saved with the candidate yet.',
+  },
   { name: 'email', label: 'Email', type: 'email', maxLength: 254 },
+  // The database has no column for this yet, so it is shown and filled from the
+  // CV but not saved with the candidate. Add Candidate only.
+  {
+    name: 'linkedinUrl',
+    label: 'LinkedIn Link',
+    type: 'url',
+    maxLength: 300,
+    hint: 'Optional. Not saved with the candidate yet.',
+  },
   { name: 'address', label: 'Address', type: 'textarea', wide: true, maxLength: 500 },
   { name: 'olMaths', label: 'O/L Maths', maxLength: 50 },
   { name: 'alResult', label: 'A/L Result', maxLength: 100 },

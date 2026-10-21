@@ -9,6 +9,7 @@ export default function FormPanel({
   cancelTo,
   onSubmit,
   saving = false,
+  saveDisabled = false,
   saveLabel = 'Save',
   actionsAlign = 'start',
   children,
@@ -26,7 +27,11 @@ export default function FormPanel({
     >
       {children}
       <div className={`form-actions${actionsAlign === 'end' ? ' form-actions--end' : ''}`}>
-        <button type="submit" className="button button--primary" disabled={!connected || saving}>
+        <button
+          type="submit"
+          className="button button--primary"
+          disabled={!connected || saving || saveDisabled}
+        >
           {saving ? 'Saving…' : saveLabel}
         </button>
         <Link to={cancelTo} className="button">

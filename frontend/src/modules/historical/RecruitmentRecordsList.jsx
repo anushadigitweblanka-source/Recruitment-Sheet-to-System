@@ -159,6 +159,7 @@ export default function RecruitmentRecordsList() {
   const list = useApi(
     () => listRecords({ ...filters, pageSize: PAGE_SIZE }),
     [filters.search, filters.position, filters.source, filters.status, filters.page],
+    { refreshOnFocus: true },
   );
 
   const choices = options.status === 'ready' && !options.data?.unavailable ? options.data : null;

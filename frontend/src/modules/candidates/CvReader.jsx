@@ -1,13 +1,10 @@
-import { useState } from 'react';
-import { Link } from 'react-router';
+import { useEffect, useRef, useState } from 'react';
 import Notice from '../../components/Notice.jsx';
 import { extractCvFile, extractCvLink } from './api.js';
-import { CANDIDATE_FIELDS } from './fields.js';
 
 const PDF = 'application/pdf';
 const DOCX = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 const MAX_BYTES = 5 * 1024 * 1024;
-const LABELS = Object.fromEntries(CANDIDATE_FIELDS.map((f) => [f.name, f.label]));
 
 // Browsers do not always report a type for .docx, so the extension is used too.
 function fileType(file) {
@@ -18,20 +15,49 @@ function fileType(file) {
   return null;
 }
 
-// Reads a CV (a PDF or Word file, or a direct link to one) and hands what it
-// found to the form. Nothing is saved here: the details go into the form, HR
-// checks them and completes the Candidate ID, and the normal Save registers
-// the candidate with all its usual checks.
+// Only a plain https address is worth sending to the backend; the backend
+// applies its own, stricter checks as well.
+function isHttpsLink(value) {
+  if (/\s/.test(value)) return false;
+  try {
+    return new URL(value).protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+// Reads a CV when HR chooses a file or clicks Read link - never while a link is
+// merely being typed or pasted - and hands what it found to the form. Nothing is saved here: HR checks the filled form and
+// presses Save.
 //
-//   onFill(draft, cvUrl)    values to put into empty form fields
-//   onUseValue(name, value) one value HR chose to use from the review list
-export default function CvReader({ onFill, onUseValue, disabled }) {
+//   onLink(url)       a valid CV link was supplied (fill the CV Link field)
+//   onExtracted(body) the backend's answer: { extraction, duplicates, cvUrl }
+//   onFailed()        a CV could not be read
+//   onRemoved()       HR removed the CV that was read
+export default function CvReader({ onLink, onExtracted, onFailed, onRemoved, disabled }) {
   const [link, setLink] = useState('');
   const [busy, setBusy] = useState(null); // null | 'file' | 'link'
   const [error, setError] = useState(null);
   const [result, setResult] = useState(null);
+  // Which read is the current one. A read that is still on its way when the CV is
+  // removed (or the page is left) is outdated: its answer is ignored.
+  const current = useRef(0);
+  // True from the moment a read starts until its answer arrives, so a quick double
+  // click cannot send the same request twice before the buttons are disabled.
+  const reading = useRef(false);
+
+  useEffect(
+    () => () => {
+      current.current += 1;
+    },
+    [],
+  );
 
   async function read(kind, send) {
+    if (reading.current) return;
+    reading.current = true;
+    current.current += 1;
+    const mine = current.current;
     setBusy(kind);
     setError(null);
     setResult(null);
@@ -41,11 +67,14 @@ export default function CvReader({ onFill, onUseValue, disabled }) {
     } catch {
       res = null;
     }
+    reading.current = false;
     setBusy(null);
+    if (mine !== current.current) return; // outdated: the CV was removed meanwhile
 
+    if (!res?.ok) onFailed();
     if (res?.ok) {
       setResult(res.body);
-      onFill(res.body.extraction.formDraft, res.body.cvUrl);
+      onExtracted(res.body);
     } else if (res?.status === 403) {
       setError('You do not have permission to read CVs.');
     } else if (res?.body?.message) {
@@ -55,35 +84,46 @@ export default function CvReader({ onFill, onUseValue, disabled }) {
     }
   }
 
+  // A file or link that is turned down before it is sent counts as a failed read.
+  function refuse(message) {
+    setError(message);
+    setResult(null);
+    onFailed();
+  }
+
+  function removeCv() {
+    current.current += 1; // anything still on its way is now outdated
+    setResult(null);
+    setError(null);
+    setLink('');
+    onRemoved();
+  }
+
   function chooseFile(event) {
     const file = event.target.files?.[0];
     event.target.value = '';
     if (!file) return;
     const type = fileType(file);
-    if (!type) return setError('Choose a PDF or Word (.docx) file.');
-    if (file.size > MAX_BYTES) return setError('The file is larger than 5 MB.');
+    if (!type) return refuse('Choose a PDF or Word (.docx) file.');
+    if (file.size > MAX_BYTES) return refuse('The file is larger than 5 MB.');
     read('file', () => extractCvFile(file, type));
   }
 
-  function submitLink(event) {
-    event.preventDefault();
-    if (!link.trim()) return setError('Enter the CV link first.');
-    read('link', () => extractCvLink(link.trim()));
+  // Called only from the Read link button (or Enter in the link box, which presses it).
+  function readLink(value) {
+    if (reading.current) return;
+    const url = value.trim();
+    if (!url) return refuse('Enter the CV link first.');
+    if (!isHttpsLink(url)) return refuse('Enter a link that starts with https://.');
+    onLink(url);
+    read('link', () => extractCvLink(url));
   }
-
-  const fields = result?.extraction.fields ?? {};
-  const review = result?.extraction.review;
 
   return (
     <section className="panel" aria-labelledby="cv-reader-title">
       <h2 id="cv-reader-title" className="panel__title">
         Fill in from a CV
       </h2>
-      <p className="panel__note">
-        Upload a PDF or Word CV, or paste a direct https link to one. The details found are put into
-        the form below for you to check. Nothing is saved until you press Save, and the CV itself is
-        not stored.
-      </p>
 
       <div className="cv-reader">
         <label className="button">
@@ -98,12 +138,19 @@ export default function CvReader({ onFill, onUseValue, disabled }) {
           />
         </label>
 
-        <form className="cv-reader__link" onSubmit={submitLink} noValidate>
+        <form
+          className="cv-reader__link"
+          onSubmit={(event) => {
+            event.preventDefault();
+            readLink(link);
+          }}
+          noValidate
+        >
           <input
             type="url"
             className="field__control"
             aria-label="CV link"
-            placeholder="https://… direct link to a PDF or Word CV"
+            placeholder="Paste an https link to a PDF, Word or web page CV"
             value={link}
             onChange={(event) => setLink(event.target.value)}
             disabled={disabled || busy !== null}
@@ -114,6 +161,13 @@ export default function CvReader({ onFill, onUseValue, disabled }) {
         </form>
       </div>
 
+      {result && !busy && (
+        <p className="panel__note">
+          <button type="button" className="button" onClick={removeCv} disabled={disabled}>
+            Remove CV
+          </button>
+        </p>
+      )}
       {busy && (
         <p role="status" className="panel__note">
           Reading the CV…
@@ -121,81 +175,15 @@ export default function CvReader({ onFill, onUseValue, disabled }) {
       )}
       {error && (
         <Notice tone="danger" role="alert">
-          {error} Nothing was filled in or saved.
+          {error}
         </Notice>
       )}
 
-      {result && (
-        <div aria-live="polite">
-          {result.duplicates.length > 0 && (
-            <Notice title="This person may already be a candidate" role="alert">
-              <ul className="duplicate-list">
-                {result.duplicates.map((match) => (
-                  <li key={match.id}>
-                    <Link to={`/candidates/${match.id}`} target="_blank" rel="noreferrer">
-                      {match.candidateCode} — {match.fullName}
-                    </Link>
-                    <span className="duplicate-list__reason">
-                      Same {match.matchedOn.join(', ')}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-              <p>Open the existing record before registering again. Nothing is merged.</p>
-            </Notice>
-          )}
-
-          <Notice tone="info" title="CV read. Please check the details below.">
-            {review.extracted.length > 0 && (
-              <p>
-                <strong>Filled in:</strong> {review.extracted.map((n) => LABELS[n]).join(', ')}.
-              </p>
-            )}
-            {review.uncertain.length > 0 && (
-              <>
-                <p>
-                  <strong>Please confirm:</strong>
-                </p>
-                <ul>
-                  {review.uncertain.map((name) => {
-                    const field = fields[name];
-                    const options = field.alternatives ?? (field.value ? [field.value] : []);
-                    return (
-                      <li key={name}>
-                        {LABELS[name]}: {field.note}
-                        {options.map((value) => (
-                          <button
-                            key={value}
-                            type="button"
-                            className="button"
-                            onClick={() => onUseValue(name, value)}
-                          >
-                            Use {value}
-                          </button>
-                        ))}
-                      </li>
-                    );
-                  })}
-                </ul>
-              </>
-            )}
-            {review.unavailable.length > 0 && (
-              <p>
-                <strong>Not found in the CV:</strong>{' '}
-                {review.unavailable.map((n) => LABELS[n]).join(', ')}. Type these in if you know
-                them.
-              </p>
-            )}
-            <p>
-              <strong>Candidate ID:</strong> type it yourself. The ID format is not confirmed, so it
-              is never generated.
-            </p>
-            {result.extraction.warnings.map((warning) => (
-              <p key={warning}>{warning}</p>
-            ))}
-          </Notice>
-        </div>
-      )}
+      {(result?.extraction.warnings ?? []).map((warning) => (
+        <p key={warning} className="panel__note">
+          {warning}
+        </p>
+      ))}
     </section>
   );
 }

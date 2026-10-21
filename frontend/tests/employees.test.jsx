@@ -392,7 +392,7 @@ describe('employee details', () => {
     expect(value('Next Review')).toBe('08 Feb 2027');
 
     expect(screen.getByRole('heading', { name: 'Probation decision' })).toBeTruthy();
-    expect(optionsOf(/^Decision/)).toEqual(['Select…', 'Pass', 'Extend', 'Discontinue']);
+    expect(optionsOf(/^Decision/)).toEqual(['Select...', 'Pass', 'Extend', 'Discontinue']);
     // Probation has passed only once a decision says so; termination is not offered yet.
     expect(screen.queryByRole('heading', { name: 'End employment (Terminated)' })).toBeNull();
 
@@ -407,12 +407,37 @@ describe('employee details', () => {
     expect(document.body.innerHTML).not.toMatch(/salary/i);
   });
 
-  test('evaluation offers only Pass and Discontinue', async () => {
-    fakeBackend({ employees: [employee(1)] });
+  test('evaluation shows approved decisions and the three unsaved draft options', async () => {
+    const backend = fakeBackend({ employees: [employee(1)] });
     open('/employees/1');
 
     await screen.findByRole('heading', { name: 'Evaluation decision' });
-    expect(optionsOf(/^Decision/)).toEqual(['Select…', 'Pass', 'Discontinue']);
+    const select = screen.getByLabelText(/^Decision/);
+    expect(optionsOf(/^Decision/)).toEqual([
+      'Select...',
+      'Pass',
+      'Discontinue',
+      'External',
+      'Reject',
+      'Probation',
+    ]);
+
+    for (const [value, label] of [
+      ['draft_external', 'External'],
+      ['draft_reject', 'Reject'],
+      ['draft_probation', 'Probation'],
+    ]) {
+      fireEvent.change(select, { target: { value } });
+      expect(select.value).toBe(value);
+      expect(
+        screen.getByText(`${label} is an unsaved draft; its lifecycle mapping is not approved.`),
+      ).toBeTruthy();
+      fireEvent.click(screen.getByRole('button', { name: 'Record decision' }));
+      expect((await screen.findByRole('alert')).textContent).toContain(
+        `${label} is a draft only. An approved lifecycle rule is required before it can be saved.`,
+      );
+    }
+    expect(callsTo(backend, 'POST', '/api/employees/1/decision')).toHaveLength(0);
   });
 
   test('records a pass and shows the next phase', async () => {

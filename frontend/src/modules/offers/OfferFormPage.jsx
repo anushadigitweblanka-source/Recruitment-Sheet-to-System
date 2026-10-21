@@ -13,7 +13,15 @@ import PageHeader from '../../components/PageHeader.jsx';
 import { useApi } from '../../hooks/useApi.js';
 import { getCandidate } from '../candidates/api.js';
 import { createOffer, getOffer, listOffers, updateOffer } from './api.js';
-import { ATTENDED_OPTIONS, OFFER_STATUS_OPTIONS, WORK_MODE_OPTIONS } from './fields.js';
+import {
+  ATTENDED_OPTIONS,
+  OFFER_EDIT_STATUS_OPTIONS,
+  OFFER_STATUS_OPTIONS,
+  OFFER_STATUS_LABELS,
+  SUPPORTED_OFFER_STATUS_VALUES,
+  SUPPORTED_WORK_MODE_VALUES,
+  WORK_MODE_OPTIONS,
+} from './fields.js';
 import SalaryPendingNotice from './SalaryPendingNotice.jsx';
 
 const EMPTY_VALUES = {
@@ -78,6 +86,14 @@ function toFormValues(data) {
 function validate(values) {
   const errors = {};
   if (!values.positionId) errors.positionId = 'Position is required.';
+  if (!SUPPORTED_WORK_MODE_VALUES.has(values.workMode)) {
+    errors.workMode =
+      'Online and Work from Home cannot be saved yet; the approved value is Office.';
+  }
+  if (!SUPPORTED_OFFER_STATUS_VALUES.has(values.offerStatus)) {
+    errors.offerStatus =
+      'Not Accepted cannot be saved yet; an approved offer-rejection status and workflow are not available.';
+  }
   if (values.attended) {
     if (!values.onboardingDate) {
       errors.onboardingDate = 'Set the Onboarding Date before recording attendance.';
@@ -307,7 +323,13 @@ function OfferFieldsPlaceholder() {
         <FormField label="Offer Date" type="date" {...off} />
         <FormField label="Work Mode" type="select" options={WORK_MODE_OPTIONS} {...off} />
         <FormField label="Location" {...off} />
-        <FormField label="Offer Status" type="select" options={OFFER_STATUS_OPTIONS} {...off} />
+        <FormField
+          label="Offer Status"
+          type="select"
+          options={OFFER_STATUS_OPTIONS}
+          emptyLabel="Select..."
+          {...off}
+        />
         <FormField label="Onboarding Date" type="date" {...off} />
         <FormField label="Attended" type="select" options={ATTENDED_OPTIONS} {...off} />
       </div>
@@ -377,15 +399,17 @@ function OfferForm({ id, candidateId, header, showSalaryNotice = true, inline = 
   const navigate = useNavigate();
   const { user } = useAuth();
   const isNew = !id;
-  // On Prepare Offer, people who may not manage offers see the offer but get no
-  // Save button. The server refuses them as well.
-  const readOnly = inline && !user?.permissions?.includes('offers.manage');
+  // The server checks this permission too; keep every Offer form read-only for
+  // users who cannot manage offers.
+  const readOnly = !user?.permissions?.includes('offers.manage');
   const loaded = useApi(() => loadForm({ id, candidateId }), [id, candidateId]);
 
   const [values, setValues] = useState(EMPTY_VALUES);
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(null);
+  const [remark, setRemark] = useState('');
+  const [lockedStatusNotice, setLockedStatusNotice] = useState('');
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
@@ -396,13 +420,24 @@ function OfferForm({ id, candidateId, header, showSalaryNotice = true, inline = 
     setValues((old) => {
       const next = { ...old, [name]: value };
       // Attendance is about the joining day of an accepted offer.
-      if (next.offerStatus !== 'accepted' || !next.onboardingDate) next.attended = '';
+      if (
+        value !== 'not_accepted_draft' &&
+        (next.offerStatus !== 'accepted' || !next.onboardingDate)
+      ) {
+        next.attended = '';
+      }
       return next;
     });
     setErrors((old) => ({ ...old, [name]: undefined }));
   }
 
   async function save() {
+    if (lockedJoinDraftChanged || lockedStatusDraftChanged) {
+      setSaveError(
+        'This joined-offer correction is not approved. The changes are drafts only; nothing was saved.',
+      );
+      return;
+    }
     const problems = validate(values);
     setErrors(problems);
     setSaveError(null);
@@ -422,7 +457,9 @@ function OfferForm({ id, candidateId, header, showSalaryNotice = true, inline = 
     setSaving(false);
 
     if (res?.ok) {
-      const saved = `Offer saved. Current status: ${res.body.candidate.stage.name}.`;
+      const saved = remark.trim()
+        ? `Offer update completed. Current status: ${res.body.candidate.stage.name}. Remark was not saved because offer remark storage is unavailable.`
+        : `Offer saved. Current status: ${res.body.candidate.stage.name}.`;
       // On the Prepare Offer page the same offer is shown again, refreshed.
       if (inline) onSaved?.(saved);
       else navigate(`/offers/${res.body.offer.id}`, { state: { saved } });
@@ -493,6 +530,31 @@ function OfferForm({ id, candidateId, header, showSalaryNotice = true, inline = 
   // Once the employee record exists the joining is settled; the server refuses
   // changes to these three fields, so the form says so instead.
   const locked = offer?.attended === true;
+  const savedAttendedValue =
+    offer?.attended === true ? 'yes' : offer?.attended === false ? 'no' : '';
+  const lockedJoinDraftChanged =
+    locked &&
+    (values.onboardingDate !== text(offer?.onboardingDate) ||
+      values.attended !== savedAttendedValue);
+  const lockedStatusDraftChanged = locked && values.offerStatus !== text(offer?.offerStatus);
+  const savedOfferStatusLabel = OFFER_STATUS_LABELS[offer?.offerStatus] ?? 'Not set';
+  const acceptedStatusOptions = [
+    { value: 'accepted', label: 'Accepted' },
+    { value: 'not_accepted_draft', label: 'Not Accepted' },
+  ];
+  const statusOptions =
+    offer?.offerStatus === 'accepted' ? acceptedStatusOptions : OFFER_EDIT_STATUS_OPTIONS;
+  const changeOfferStatus = (event) => {
+    if (locked) {
+      set('offerStatus', event.target.value);
+      setLockedStatusNotice(
+        `Draft only. The saved Offer Status remains ${savedOfferStatusLabel}; a joined-offer correction rule has not been approved.`,
+      );
+    } else {
+      setLockedStatusNotice('');
+      set('offerStatus', event.target.value);
+    }
+  };
   const canRecordAttendance = values.offerStatus === 'accepted' && Boolean(values.onboardingDate);
   const lockedHint = 'Locked: the candidate has joined and an employee record exists.';
   // Says which condition is missing; it unlocks as soon as the fields change,
@@ -512,7 +574,11 @@ function OfferForm({ id, candidateId, header, showSalaryNotice = true, inline = 
   }
   const offerStatusHint = locked
     ? lockedHint
-    : 'Leave empty until the offer has been sent. Sent moves the candidate to Offer Sent, and Accepted to Offer Accepted.';
+    : values.offerStatus === 'not_accepted_draft'
+      ? 'Not Accepted is a draft only: no approved offer-rejection workflow or database status exists.'
+      : 'Leave empty until the offer has been sent. Sent moves the candidate to Offer Sent, and Accepted to Offer Accepted.';
+  const unsupportedWorkMode = !SUPPORTED_WORK_MODE_VALUES.has(values.workMode);
+  const unsupportedOfferStatus = !SUPPORTED_OFFER_STATUS_VALUES.has(values.offerStatus);
   const field = (name) => ({
     name,
     value: values[name],
@@ -542,8 +608,22 @@ function OfferForm({ id, candidateId, header, showSalaryNotice = true, inline = 
 
       {locked && (
         <Notice tone="warning" title="This offer is finalized">
-          The candidate has joined and an employee record exists, so the offer status, onboarding
-          date and attendance can no longer be changed. The other fields can still be updated.
+          The candidate has joined and an employee record exists. Offer status, onboarding date and
+          attendance are locked by the backend; date and attendance edits here are drafts only.
+        </Notice>
+      )}
+
+      {lockedJoinDraftChanged && (
+        <Notice tone="warning" title="Joining changes are drafts only">
+          An authorized employee-lifecycle correction workflow is required to change these saved
+          values. The Save action is disabled while these drafts differ from the joined offer.
+        </Notice>
+      )}
+
+      {lockedStatusDraftChanged && (
+        <Notice tone="warning" title="Offer Status correction requires approval">
+          Saved Offer Status: {savedOfferStatusLabel}. The selected status is only a draft because
+          no joined-employee correction rule is approved. Save is blocked.
         </Notice>
       )}
 
@@ -583,25 +663,44 @@ function OfferForm({ id, candidateId, header, showSalaryNotice = true, inline = 
             <FormField
               label="Offer Status"
               type="select"
-              options={OFFER_STATUS_OPTIONS}
+              options={statusOptions}
+              emptyLabel="Select..."
+              hideEmptyOption={offer?.offerStatus === 'accepted'}
               hint={offerStatusHint}
               {...field('offerStatus')}
-              disabled={saving || readOnly || locked}
+              disabled={saving || readOnly}
+              onChange={changeOfferStatus}
             />
+            {lockedStatusNotice && (
+              <p className="field__hint" role="status">
+                {lockedStatusNotice}
+              </p>
+            )}
             <FormField
               label="Onboarding Date"
               type="date"
               hint={locked ? lockedHint : 'The joining date.'}
               {...field('onboardingDate')}
-              disabled={saving || readOnly || locked}
+              disabled={saving || readOnly}
             />
             <FormField
               label="Attended"
               type="select"
               options={ATTENDED_OPTIONS}
+              emptyLabel="Select..."
               hint={attendedHint}
               {...field('attended')}
-              disabled={saving || readOnly || locked || !canRecordAttendance}
+              disabled={saving || readOnly || (!locked && !canRecordAttendance)}
+            />
+            <FormField
+              label="Remark"
+              type="textarea"
+              placeholder="Enter remark..."
+              hint="Draft only: the current Offer Update API has no separate remark field, so this text will not be saved."
+              value={remark}
+              onChange={(event) => setRemark(event.target.value)}
+              disabled={saving || readOnly}
+              wide
             />
           </div>
         </section>
@@ -610,6 +709,12 @@ function OfferForm({ id, candidateId, header, showSalaryNotice = true, inline = 
           cancelTo={isNew || inline ? '/offers' : `/offers/${id}`}
           onSubmit={save}
           saving={saving}
+          saveDisabled={
+            unsupportedWorkMode ||
+            unsupportedOfferStatus ||
+            lockedJoinDraftChanged ||
+            lockedStatusDraftChanged
+          }
           saveLabel={inline ? 'Save Offer' : 'Save'}
           actionsAlign={inline ? 'end' : 'start'}
         >
@@ -634,32 +739,59 @@ function OfferForm({ id, candidateId, header, showSalaryNotice = true, inline = 
               label="Work Mode"
               type="select"
               options={WORK_MODE_OPTIONS}
-              hint="Office is a temporary value that requires mentor confirmation."
+              hint={
+                unsupportedWorkMode
+                  ? 'Online and Work from Home are drafts only; the backend and database currently support Office only.'
+                  : undefined
+              }
               {...field('workMode')}
             />
             <FormField label="Location" maxLength={200} {...field('location')} />
             <FormField
               label="Offer Status"
               type="select"
-              options={OFFER_STATUS_OPTIONS}
+              options={statusOptions}
+              emptyLabel="Select..."
+              hideEmptyOption={offer?.offerStatus === 'accepted'}
               hint={offerStatusHint}
               {...field('offerStatus')}
-              disabled={saving || readOnly || locked}
+              disabled={saving || readOnly}
+              onChange={changeOfferStatus}
             />
+            {lockedStatusNotice && (
+              <p className="field__hint" role="status">
+                {lockedStatusNotice}
+              </p>
+            )}
             <FormField
               label="Onboarding Date"
               type="date"
               hint={locked ? lockedHint : 'The joining date.'}
               {...field('onboardingDate')}
-              disabled={saving || readOnly || locked}
+              disabled={saving || readOnly}
             />
             <FormField
               label="Attended"
               type="select"
               options={ATTENDED_OPTIONS}
+              emptyLabel="Select..."
               hint={attendedHint}
               {...field('attended')}
-              disabled={saving || readOnly || locked || !canRecordAttendance}
+              disabled={saving || readOnly || (!locked && !canRecordAttendance)}
+            />
+            <FormField
+              label="Remark"
+              type="textarea"
+              placeholder="Enter remark..."
+              hint={
+                remark.trim()
+                  ? 'Unsaved draft: the Offer Update API has no separate remark field. Saving other offer fields will not save this remark.'
+                  : 'The Offer Update API has no separate remark field. Entered text remains a draft and will not be stored.'
+              }
+              value={remark}
+              onChange={(event) => setRemark(event.target.value)}
+              disabled={saving || readOnly}
+              wide
             />
           </div>
         </FormPanel>

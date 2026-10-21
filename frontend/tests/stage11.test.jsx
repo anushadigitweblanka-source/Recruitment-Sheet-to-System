@@ -230,7 +230,7 @@ describe('candidate email panel', () => {
       'POST /candidates/3/emails/preview': { ...PREVIEW, deliveryMode: 'development' },
       'POST /candidates/3/emails/send': json(201, {
         logId: 1,
-        delivered: true,
+        delivered: false,
         simulated: true,
         deliveryMode: 'development',
       }),
@@ -244,6 +244,26 @@ describe('candidate email panel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
     expect(await screen.findByText(/no real email was delivered/)).toBeTruthy();
     expect(screen.queryByText(/Mail sent and recorded/)).toBeNull();
+  });
+
+  test('shows the provider failure reason when delivery is not confirmed', async () => {
+    fakeBackend({
+      'POST /candidates/3/emails/preview': PREVIEW,
+      'POST /candidates/3/emails/send': json(201, {
+        logId: 2,
+        delivered: false,
+        simulated: false,
+        error: 'Provider rejected the recipient.',
+      }),
+    });
+    withAuth(as(['notifications.manage']), <CandidateEmailPanel candidateId={3} />);
+    fireEvent.change(screen.getByLabelText('Mail type'), {
+      target: { value: 'interview_invitation' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Preview' }));
+    await screen.findByDisplayValue('Interview for Sample Person');
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    expect(await screen.findByText(/Delivery failed: Provider rejected the recipient/)).toBeTruthy();
   });
 });
 

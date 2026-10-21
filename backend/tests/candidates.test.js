@@ -178,7 +178,7 @@ describe('creating a candidate', () => {
 
     assert.equal(res.status, 422);
     assert.equal(res.body.error, 'validation_failed');
-    assert.deepEqual(Object.keys(res.body.fields).sort(), ['candidateCode', 'fullName']);
+    assert.deepEqual(Object.keys(res.body.fields).sort(), ['fullName']);
     assert.equal(await countCandidates(), before);
   });
 
@@ -212,13 +212,15 @@ describe('creating a candidate', () => {
     assert.deepEqual(Object.keys(res.body.fields).sort(), ['positionId', 'sourceId']);
   });
 
-  test('refuses a Candidate ID that is already used, whatever its letter case', async () => {
-    const first = candidate();
-    await create(first);
+  test('ignores a Candidate ID sent by the browser, even one already used', async () => {
+    const first = (await create(candidate())).body.candidate;
     const res = await create(candidate({ candidateCode: first.candidateCode.toLowerCase() }));
 
-    assert.equal(res.status, 422);
-    assert.match(res.body.fields.candidateCode, /already used/);
+    assert.equal(res.status, 201);
+    assert.notEqual(
+      res.body.candidate.candidateCode.toLowerCase(),
+      first.candidateCode.toLowerCase(),
+    );
   });
 
   test('refuses a position that has been switched off', async () => {
@@ -369,7 +371,6 @@ describe('listing candidates', () => {
         sourceId: sources.a.id,
         phone: '0759990001',
         email: 'zebra.listing@example.test',
-        candidateCode: 'LIST-ZEBRA',
       }),
       yak: await make({
         fullName: 'Yak Listing',
@@ -423,7 +424,7 @@ describe('listing candidates', () => {
 
   test('searches by name, Candidate ID, email and phone digits', async () => {
     assert.deepEqual(names(await list('?search=zebra')), ['Zebra Listing']);
-    assert.deepEqual(names(await list('?search=list-zeb')), ['Zebra Listing']);
+    assert.deepEqual(names(await list(`?search=${listed.zebra.candidateCode}`)), ['Zebra Listing']);
     assert.deepEqual(names(await list('?search=zebra.listing@')), ['Zebra Listing']);
     assert.deepEqual(names(await list(`?search=${encodeURIComponent('075 999 0002')}`)), [
       'Yak Listing',
@@ -583,15 +584,15 @@ describe('editing a candidate', () => {
     assert.equal(confirmed.body.candidate.phone, other.phone);
   });
 
-  test('cannot take a Candidate ID that belongs to someone else', async () => {
-    const other = candidate();
-    await create(other);
+  test('cannot change or take over a Candidate ID', async () => {
+    const other = (await create(candidate())).body.candidate;
     const input = candidate();
     const created = (await create(input)).body.candidate;
     const res = await edit(created.id, { ...input, candidateCode: other.candidateCode });
 
-    assert.equal(res.status, 422);
-    assert.ok(res.body.fields.candidateCode);
+    assert.equal(res.status, 200);
+    assert.equal(res.body.candidate.candidateCode, created.candidateCode);
+    assert.notEqual(res.body.candidate.candidateCode, other.candidateCode);
   });
 
   test('answers "not found" for an unknown candidate', async () => {

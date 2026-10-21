@@ -810,7 +810,7 @@ describe('listing', () => {
 
   before(async () => {
     listed = {
-      waiting: await scheduledCandidate({ fullName: 'Wombat Waiting', candidateCode: 'IVL-WAIT' }),
+      waiting: await scheduledCandidate({ fullName: 'Wombat Waiting' }),
       selected: await scheduledCandidate({ fullName: 'Wombat Selected' }),
       held: await scheduledCandidate({ fullName: 'Wombat Held' }),
       absent: await scheduledCandidate({ fullName: 'Wombat Absent' }),
@@ -880,7 +880,14 @@ describe('listing', () => {
 
   test('searches by name and Candidate ID', async () => {
     assert.deepEqual(names(await list('?search=wombat%20held')), ['Wombat Held']);
-    assert.deepEqual(names(await list('?search=ivl-wait')), ['Wombat Waiting']);
+    assert.deepEqual(
+      names(
+        await list(
+          `?search=${(await db.pool.query('SELECT candidate_code FROM candidates WHERE full_name = $1', ['Wombat Waiting'])).rows[0].candidate_code}`,
+        ),
+      ),
+      ['Wombat Waiting'],
+    );
   });
 
   test('filters by status, including "not decided yet"', async () => {

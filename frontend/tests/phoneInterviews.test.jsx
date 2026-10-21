@@ -325,6 +325,30 @@ describe('phone interview list', () => {
 });
 
 describe('phone interview form', () => {
+  test('keeps Remark and Review independently editable and leaves Review as an unsaved draft', async () => {
+    const backend = fakeBackend({ entries: [entry(1)] });
+    open('/phone-interviews/1/edit');
+    await formReady();
+
+    const remark = screen.getByLabelText('Remark');
+    const review = screen.getByLabelText('Review');
+    expect(remark.placeholder).toBe('Enter call remarks...');
+    expect(review.placeholder).toBe('Enter HR review...');
+    expect(review.disabled).toBe(false);
+    expect(screen.getByText(/Draft only; not saved/)).toBeTruthy();
+
+    fireEvent.change(remark, { target: { value: 'Fictional call note' } });
+    fireEvent.change(review, { target: { value: 'Fictional HR assessment' } });
+    expect(remark.value).toBe('Fictional call note');
+    expect(review.value).toBe('Fictional HR assessment');
+
+    save();
+    await screen.findByText(/Phone interview saved/);
+    const sent = callsTo(backend, 'POST', '/api/phone-interviews')[0].body;
+    expect(sent.review).toBe('Fictional call note');
+    expect(sent).not.toHaveProperty('reviewDraft');
+  });
+
   test('shows who the candidate is and where they are in the pipeline', async () => {
     fakeBackend({ entries: [entry(1)] });
     open('/phone-interviews/1/edit');
@@ -337,7 +361,7 @@ describe('phone interview form', () => {
     );
   });
 
-  test('offers Selected and Not Selected, and exactly the seven chosen Responses', async () => {
+  test('offers Selected, Not Selected and Remark, and exactly the seven chosen Responses', async () => {
     fakeBackend({ entries: [entry(1)] });
     open('/phone-interviews/1/edit');
     await formReady();
@@ -346,6 +370,7 @@ describe('phone interview form', () => {
       'Select…',
       'Selected',
       'Not Selected',
+      'Remark',
     ]);
 
     const response = screen.getByLabelText('Response');
@@ -364,24 +389,46 @@ describe('phone interview form', () => {
     expect(screen.queryByText('Allowed values are not confirmed yet.')).toBeNull();
   });
 
-  test('mail status cannot be typed', async () => {
-    fakeBackend({ entries: [entry(1)] });
+  test('mail status is a four-option editable draft and is not submitted to the API', async () => {
+    const backend = fakeBackend({ entries: [entry(1)] });
     open('/phone-interviews/1/edit');
+    await formReady();
 
     const mail = await screen.findByLabelText('Mail Status');
-    expect(mail.readOnly).toBe(true);
-    expect(mail.value).toBe('Not sent');
-    expect(screen.getByText(/No invitation email has been sent or logged/)).toBeTruthy();
+    expect(mail.tagName).toBe('SELECT');
+    expect(mail.disabled).toBe(false);
+    expect(mail.value).toBe('not_sent');
+    expect([...mail.options].map((option) => option.textContent)).toEqual([
+      'Not sent',
+      'Pending',
+      'Sent',
+      'Failed',
+    ]);
+    for (const [value, label] of [
+      ['queued', 'Pending'],
+      ['sent', 'Sent'],
+      ['failed', 'Failed'],
+      ['not_sent', 'Not sent'],
+    ]) {
+      fireEvent.change(mail, { target: { value } });
+      expect(mail.selectedOptions[0].textContent).toBe(label);
+    }
+    expect(screen.getByText(/Mail Status is read from email_log/)).toBeTruthy();
+
+    fireEvent.change(screen.getByLabelText('Called'), { target: { checked: true } });
+    save();
+    await screen.findByText(/Phone interview saved/);
+    const body = callsTo(backend, 'POST', '/api/phone-interviews')[0].body;
+    expect(body).not.toHaveProperty('mailStatus');
   });
 
-  test('a development-mode email reads Simulated and explains nothing was delivered', async () => {
+  test('a development-mode email initializes as Not sent because it was not delivered', async () => {
     fakeBackend({ entries: [entry(1, null, 'applied', null, 'simulated')] });
     open('/phone-interviews/1/edit');
 
     const mail = await screen.findByLabelText('Mail Status');
-    expect(mail.readOnly).toBe(true);
-    expect(mail.value).toBe('Simulated (not delivered)');
-    expect(screen.getByText(/nothing was delivered/)).toBeTruthy();
+    expect(mail.tagName).toBe('SELECT');
+    expect(mail.value).toBe('not_sent');
   });
 
   test('the interview date is available only when the result is Selected', async () => {
@@ -402,20 +449,259 @@ describe('phone interview form', () => {
     expect(date.value).toBe('');
   });
 
-  test('Not Selected asks for a reason and is stopped without one', async () => {
+  test('the Result dropdown offers Select…, Selected, Not Selected and Remark', async () => {
+    fakeBackend({ entries: [entry(1)] });
+    open('/phone-interviews/1/edit');
+    await formReady();
+
+    const options = [...screen.getByLabelText('Result').options].map((o) => [o.value, o.text]);
+    expect(options).toEqual([
+      ['', 'Select…'],
+      ['selected', 'Selected'],
+      ['not_selected', 'Not Selected'],
+      ['remark', 'Remark'],
+    ]);
+    // No explanation is shown under the field.
+    expect(screen.queryByText(/moves the candidate to/)).toBeNull();
+    expect(screen.queryByText(/Remark only records/)).toBeNull();
+  });
+
+  test('Remark and Review follow Result: Remark is optional by default and required for Not Selected', async () => {
+    fakeBackend({ entries: [entry(1)] });
+    open('/phone-interviews/1/edit');
+    await formReady();
+
+    const remark = screen.getByLabelText('Remark');
+    expect(remark.required).toBe(false);
+    const order = (a, b) =>
+      Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(order(screen.getByLabelText('Result'), remark)).toBe(true);
+    expect(order(remark, screen.getByLabelText('Review'))).toBe(true);
+    expect(order(remark, screen.getByLabelText('Interview Date/Time'))).toBe(true);
+
+    fireEvent.change(screen.getByLabelText('Result'), { target: { value: 'selected' } });
+    expect(screen.getByLabelText('Remark').required).toBe(false);
+    fireEvent.change(screen.getByLabelText('Result'), { target: { value: 'not_selected' } });
+    expect(screen.getByLabelText(/^Remark/).required).toBe(true);
+    expect(screen.queryByLabelText(/^Reason for rejection/)).toBeNull();
+    expect(screen.getByLabelText('Review').disabled).toBe(false);
+  });
+
+  test('Not Selected without a remark is stopped before anything is sent', async () => {
     const backend = fakeBackend({ entries: [entry(1)] });
     open('/phone-interviews/1/edit');
     await formReady();
 
-    expect(screen.queryByLabelText(/^Reason for rejection/)).toBeNull();
     fireEvent.change(screen.getByLabelText('Result'), { target: { value: 'not_selected' } });
-    expect(screen.getByLabelText(/^Reason for rejection/)).toBeTruthy();
     save();
 
     expect(
-      await screen.findByText(
-        'A reason for rejection is required when the result is Not Selected.',
-      ),
+      await screen.findByText('A remark is required when the result is Not Selected.'),
+    ).toBeTruthy();
+    expect(callsTo(backend, 'POST', '/api/phone-interviews')).toHaveLength(0);
+
+    fireEvent.change(screen.getByLabelText(/^Remark/), { target: { value: '   ' } });
+    save();
+    expect(
+      await screen.findByText('A remark is required when the result is Not Selected.'),
+    ).toBeTruthy();
+    expect(callsTo(backend, 'POST', '/api/phone-interviews')).toHaveLength(0);
+  });
+
+  test('Not Selected with a remark rejects the candidate; the remark is kept as the call remark and the reason', async () => {
+    const backend = fakeBackend({ entries: [entry(1)] });
+    open('/phone-interviews/1/edit');
+    await formReady();
+
+    fireEvent.change(screen.getByLabelText('Result'), { target: { value: 'not_selected' } });
+    fireEvent.change(screen.getByLabelText(/^Remark/), {
+      target: { value: 'Not a fit for the role' },
+    });
+    save();
+
+    expect(
+      await screen.findByText('Phone interview saved. Current status: Rejected.'),
+    ).toBeTruthy();
+    expect(callsTo(backend, 'POST', '/api/phone-interviews')[0].body).toMatchObject({
+      result: 'not_selected',
+      review: 'Not a fit for the role',
+      rejectReason: 'Not a fit for the role',
+    });
+  });
+
+  test('Selected needs no remark; no rejection reason is sent', async () => {
+    const backend = fakeBackend({ entries: [entry(1)] });
+    open('/phone-interviews/1/edit');
+    await formReady();
+
+    fireEvent.change(screen.getByLabelText('Result'), { target: { value: 'selected' } });
+    save();
+    expect(
+      await screen.findByText('Phone interview saved. Current status: Phone Screened.'),
+    ).toBeTruthy();
+    expect(callsTo(backend, 'POST', '/api/phone-interviews')[0].body).toMatchObject({
+      result: 'selected',
+      review: '',
+      rejectReason: '',
+    });
+  });
+
+  test('choosing Remark shows an editable remark field that is required', async () => {
+    const backend = fakeBackend({ entries: [entry(1)] });
+    open('/phone-interviews/1/edit');
+    await formReady();
+
+    fireEvent.change(screen.getByLabelText('Result'), { target: { value: 'remark' } });
+    const remark = screen.getByLabelText(/^Remark/);
+    expect(remark.required).toBe(true);
+    expect(remark.disabled).toBe(false);
+    expect(screen.getByLabelText('Interview Date/Time').disabled).toBe(true);
+
+    save();
+    expect(await screen.findByText('A remark is required when the result is Remark.')).toBeTruthy();
+    expect(callsTo(backend, 'POST', '/api/phone-interviews')).toHaveLength(0);
+
+    fireEvent.change(remark, { target: { value: '   ' } });
+    save();
+    expect(await screen.findByText('A remark is required when the result is Remark.')).toBeTruthy();
+    expect(callsTo(backend, 'POST', '/api/phone-interviews')).toHaveLength(0);
+  });
+
+  test('a Remark saves the remark only: no result, no rejection reason, the stage stays', async () => {
+    const backend = fakeBackend({ entries: [entry(1)] });
+    open('/phone-interviews/1/edit');
+    await formReady();
+
+    fireEvent.change(screen.getByLabelText('Result'), { target: { value: 'remark' } });
+    fireEvent.change(screen.getByLabelText(/^Remark/), {
+      target: { value: 'Asked to call again next week' },
+    });
+    save();
+
+    expect(await screen.findByText('Phone interview saved. Current status: Applied.')).toBeTruthy();
+    expect(callsTo(backend, 'POST', '/api/phone-interviews')[0].body).toMatchObject({
+      result: null,
+      interviewAt: null,
+      rejectReason: '',
+      review: 'Asked to call again next week',
+    });
+    expect(await screen.findByText('Asked to call again next week')).toBeTruthy();
+  });
+
+  test('editing shows a saved remark again, as the Remark choice', async () => {
+    fakeBackend({
+      entries: [entry(1, screenRecord(51, { review: 'Asked to call again next week' }))],
+    });
+    open('/phone-interviews/1/edit');
+
+    await waitFor(() => expect(screen.getByLabelText('Result').value).toBe('remark'));
+    expect(screen.getByLabelText(/^Remark/).value).toBe('Asked to call again next week');
+    expect(screen.getByLabelText(/^Remark/).required).toBe(true);
+  });
+
+  test('a changed Remark is saved on an existing record without touching its stage', async () => {
+    const backend = fakeBackend({
+      entries: [entry(1, screenRecord(51, { review: 'First note' }))],
+    });
+    open('/phone-interviews/1/edit');
+    await waitFor(() => expect(screen.getByLabelText(/^Remark/).value).toBe('First note'));
+
+    fireEvent.change(screen.getByLabelText(/^Remark/), { target: { value: 'Second note' } });
+    save();
+
+    expect(await screen.findByText('Phone interview saved. Current status: Applied.')).toBeTruthy();
+    expect(callsTo(backend, 'PATCH', '/api/phone-interviews/51')[0].body).toMatchObject({
+      result: null,
+      review: 'Second note',
+    });
+  });
+
+  test('Remark on a candidate who is already Selected keeps the selection and the stage', async () => {
+    const backend = fakeBackend({
+      entries: [
+        entry(
+          1,
+          screenRecord(51, {
+            result: 'selected',
+            interviewAt: '2026-11-02T04:30:00.000Z',
+            review: 'Earlier remark',
+          }),
+          'interview_scheduled',
+        ),
+      ],
+    });
+    open('/phone-interviews/1/edit');
+    await waitFor(() => expect(screen.getByLabelText('Result').value).toBe('selected'));
+
+    fireEvent.change(screen.getByLabelText('Result'), { target: { value: 'remark' } });
+    fireEvent.change(screen.getByLabelText(/^Remark/), { target: { value: 'Confirmed by phone' } });
+    save();
+
+    expect(
+      await screen.findByText('Phone interview saved. Current status: Interview Scheduled.'),
+    ).toBeTruthy();
+    expect(callsTo(backend, 'PATCH', '/api/phone-interviews/51')[0].body).toMatchObject({
+      result: 'selected',
+      interviewAt: '2026-11-02T04:30:00.000Z',
+      review: 'Confirmed by phone',
+    });
+  });
+
+  test('Remark on a candidate who is already Not Selected keeps the rejection and its reason', async () => {
+    const backend = fakeBackend({
+      entries: [
+        entry(
+          1,
+          screenRecord(51, { result: 'not_selected', review: 'Call went badly' }),
+          'rejected',
+          'Earlier reason',
+        ),
+      ],
+    });
+    open('/phone-interviews/1/edit');
+    await waitFor(() => expect(screen.getByLabelText('Result').value).toBe('not_selected'));
+
+    fireEvent.change(screen.getByLabelText('Result'), { target: { value: 'remark' } });
+    fireEvent.change(screen.getByLabelText(/^Remark/), {
+      target: { value: 'Called back, same view' },
+    });
+    save();
+
+    expect(
+      await screen.findByText('Phone interview saved. Current status: Rejected.'),
+    ).toBeTruthy();
+    expect(callsTo(backend, 'PATCH', '/api/phone-interviews/51')[0].body).toMatchObject({
+      result: 'not_selected',
+      rejectReason: 'Earlier reason',
+      review: 'Called back, same view',
+    });
+  });
+
+  test('Select… applies no result and no stage change, whatever the remark says', async () => {
+    const backend = fakeBackend({ entries: [entry(1)] });
+    open('/phone-interviews/1/edit');
+    await formReady();
+
+    fireEvent.change(screen.getByLabelText('Remark'), { target: { value: 'Will call back' } });
+    save();
+    expect(await screen.findByText('Phone interview saved. Current status: Applied.')).toBeTruthy();
+    expect(callsTo(backend, 'POST', '/api/phone-interviews')[0].body).toMatchObject({
+      result: null,
+      review: 'Will call back',
+      rejectReason: '',
+    });
+  });
+
+  test('a remark over 500 characters is refused for Not Selected, where it is also the reason', async () => {
+    const backend = fakeBackend({ entries: [entry(1)] });
+    open('/phone-interviews/1/edit');
+    await formReady();
+
+    fireEvent.change(screen.getByLabelText('Result'), { target: { value: 'not_selected' } });
+    fireEvent.change(screen.getByLabelText(/^Remark/), { target: { value: 'x'.repeat(501) } });
+    save();
+    expect(
+      await screen.findByText('For Not Selected the remark must be at most 500 characters.'),
     ).toBeTruthy();
     expect(callsTo(backend, 'POST', '/api/phone-interviews')).toHaveLength(0);
   });
@@ -430,7 +716,7 @@ describe('phone interview form', () => {
     fireEvent.change(screen.getByLabelText('Interview Date/Time'), {
       target: { value: '2026-11-02T10:00' },
     });
-    fireEvent.change(screen.getByLabelText('Review'), {
+    fireEvent.change(screen.getByLabelText('Remark'), {
       target: { value: 'Sample remark about the call' },
     });
     save();
@@ -508,10 +794,10 @@ describe('phone interview form', () => {
     await waitFor(() => expect(screen.getByLabelText('Result').value).toBe('selected'));
     expect(screen.getByLabelText('Called').checked).toBe(true);
     expect(screen.getByLabelText('Interview Date/Time').value).toBe('2026-11-02T10:00');
-    expect(screen.getByLabelText('Review').value).toBe('Earlier remark');
+    expect(screen.getByLabelText('Remark').value).toBe('Earlier remark');
 
     fireEvent.change(screen.getByLabelText('Result'), { target: { value: 'not_selected' } });
-    fireEvent.change(screen.getByLabelText(/^Reason for rejection/), {
+    fireEvent.change(screen.getByLabelText(/^Remark/), {
       target: { value: 'Sample reason' },
     });
     save();
@@ -528,7 +814,7 @@ describe('phone interview form', () => {
     expect(callsTo(backend, 'POST', '/api/phone-interviews')).toHaveLength(0);
   });
 
-  test('shows an existing rejection reason for editing', async () => {
+  test('an existing rejection reason with no remark shows in the Remark field', async () => {
     fakeBackend({
       entries: [
         entry(1, screenRecord(51, { result: 'not_selected' }), 'rejected', 'Earlier reason'),
@@ -536,9 +822,29 @@ describe('phone interview form', () => {
     });
     open('/phone-interviews/1/edit');
 
-    await waitFor(() =>
-      expect(screen.getByLabelText(/^Reason for rejection/).value).toBe('Earlier reason'),
-    );
+    await waitFor(() => expect(screen.getByLabelText(/^Remark/).value).toBe('Earlier reason'));
+  });
+
+  test('an earlier, different rejection reason is not overwritten when the remark is untouched', async () => {
+    const backend = fakeBackend({
+      entries: [
+        entry(
+          1,
+          screenRecord(51, { result: 'not_selected', review: 'Call went badly' }),
+          'rejected',
+          'Earlier reason',
+        ),
+      ],
+    });
+    open('/phone-interviews/1/edit');
+    await waitFor(() => expect(screen.getByLabelText(/^Remark/).value).toBe('Call went badly'));
+    fireEvent.click(screen.getByLabelText('Called'));
+    save();
+    await screen.findByText(/Phone interview saved/);
+    expect(callsTo(backend, 'PATCH', '/api/phone-interviews/51')[0].body).toMatchObject({
+      review: 'Call went badly',
+      rejectReason: 'Earlier reason',
+    });
   });
 
   test('shows a refusal from the backend next to the field, and saves nothing', async () => {

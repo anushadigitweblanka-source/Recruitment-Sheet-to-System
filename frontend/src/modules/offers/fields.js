@@ -19,13 +19,28 @@ export const OFFER_STATUS_OPTIONS = [
   { value: 'sent', label: 'Sent' },
   { value: 'accepted', label: 'Accepted' },
 ];
+export const OFFER_EDIT_STATUS_OPTIONS = [
+  ...OFFER_STATUS_OPTIONS,
+  // UI draft only: no approved backend or database value exists for a decline.
+  { value: 'not_accepted_draft', label: 'Not Accepted' },
+];
+export const SUPPORTED_OFFER_STATUS_VALUES = new Set(['', 'sent', 'accepted']);
 export const OFFER_STATUS_LABELS = { sent: 'Sent', accepted: 'Accepted' };
 export const OFFER_STATUS_TONES = { sent: 'info', accepted: 'success' };
 
-// "Office" is approved as a temporary Work Mode value that still requires
-// mentor confirmation. A confirmed list replaces this one.
-export const WORK_MODE_OPTIONS = [{ value: 'office', label: 'Office' }];
-export const WORK_MODE_LABELS = { office: 'Office' };
+// Online and Work from Home are selectable drafts, but the existing backend
+// and database constraint currently permit saving Office only.
+export const WORK_MODE_OPTIONS = [
+  { value: 'online', label: 'Online' },
+  { value: 'work_from_home', label: 'Work from Home' },
+  { value: 'office', label: 'Office' },
+];
+export const SUPPORTED_WORK_MODE_VALUES = new Set(['', 'office']);
+export const WORK_MODE_LABELS = {
+  online: 'Online',
+  work_from_home: 'Work from Home',
+  office: 'Office',
+};
 export const workModeLabel = (workMode) =>
   workMode ? (WORK_MODE_LABELS[workMode] ?? workMode) : null;
 

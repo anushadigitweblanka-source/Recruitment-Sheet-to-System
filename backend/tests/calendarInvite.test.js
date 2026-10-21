@@ -41,7 +41,7 @@ function makeSpy() {
     calls,
     send: async (mail) => {
       calls.push(mail);
-      return { delivered: false, simulated: true };
+      return { delivered: true };
     },
   };
 }
@@ -453,7 +453,8 @@ describe('the Team Lead summary mail', () => {
     const dev = createMailService();
     const result = await send(candidate, {}, dev);
     assert.equal(result.ok, true, JSON.stringify(result));
-    assert.equal(result.data.delivered, true);
+    assert.equal(result.data.delivered, false);
+    assert.equal(result.data.simulated, true);
     assert.equal(dev.mode, 'development');
     assert.deepEqual(
       await dev.send({ to: [LEAD], subject: 'x', attachments: [{ filename: 'a.ics' }] }),

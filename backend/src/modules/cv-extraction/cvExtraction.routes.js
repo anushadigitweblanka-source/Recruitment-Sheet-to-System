@@ -3,25 +3,22 @@ import { requirePermission } from '../../middleware/auth.js';
 import { findLikelyDuplicates } from '../candidates/candidates.repository.js';
 import { normalizeName, phoneMatchKey } from '../candidates/candidates.validation.js';
 import { extractCv } from './extractCv.js';
+import { readCvLink } from './linkCv.js';
+import { renderCvPage } from './renderPage.js';
 import { FetchRefused, fetchCvDocument } from './safeFetch.js';
 import { DOCX_TYPE, MAX_BYTES, PDF_TYPE } from './textExtractor.js';
 
-// Reading a CV is a preview: these routes never create or change a candidate,
-// never store the file, and write nothing to the database. HR reviews the
-// result, completes the Candidate ID, and saves through the existing
-// POST /api/candidates (validation, duplicate warning, audit and all).
+// Reading a CV is a preview. These routes never create or change a candidate,
+// never store the file, and write nothing: they return the details found plus
+// any existing candidates who look like the same person. HR checks the filled
+// form and saves it through the existing POST /api/candidates (validation,
+// duplicate warning, generated Candidate ID, history and audit).
 //
 //   POST /api/candidates/extract-cv/file   the PDF/DOCX bytes as the body
 //   POST /api/candidates/extract-cv/link   { url } - fetched safely, then read
 
-// The Candidate ID format is not confirmed, and no generator is approved, so
-// extraction never supplies one.
-const REGISTRATION = Object.freeze({
-  candidateIdRequired: true,
-  reason: 'The Candidate ID format has not been approved, so HR types the ID before saving.',
-});
-
 const MAX_PARALLEL_LINK_FETCHES = 4;
+const MAX_PARALLEL_RENDERS = 2;
 
 const FETCH_STATUS = {
   invalid_link: 422,
@@ -43,8 +40,8 @@ const FETCH_STATUS = {
 async function findExistingMatches(pool, fields) {
   const values = (name) => {
     const field = fields[name];
-    if (!field || field.value === null) return [];
-    return [...new Set([field.value, ...(field.alternatives ?? [])])];
+    if (!field) return [];
+    return [...new Set([field.value, ...(field.alternatives ?? [])].filter(Boolean))];
   };
   const phones = values('phone').map(phoneMatchKey).filter(Boolean);
   const emails = values('email').map((e) => e.toLowerCase());
@@ -65,13 +62,32 @@ async function findExistingMatches(pool, fields) {
   return [...found.values()].sort((a, b) => a.id - b.id);
 }
 
-export function cvExtractionRouter({ pool, fetchDocument = fetchCvDocument }) {
+export function cvExtractionRouter({
+  pool,
+  fetchDocument = fetchCvDocument,
+  renderPage = renderCvPage,
+}) {
   const router = Router();
   const canEdit = requirePermission('candidates.edit');
   let activeFetches = 0;
+  let activeRenders = 0;
 
-  async function respond(res, buffer, { cvUrl = null } = {}) {
-    const extraction = await extractCv({ buffer });
+  // Opening a page in the isolated browser is heavy, so only a few run at once.
+  async function limitedRender(url) {
+    if (activeRenders >= MAX_PARALLEL_RENDERS) {
+      const busy = new Error('Too many pages are being opened right now. Try again in a moment.');
+      busy.reason = 'busy';
+      throw busy;
+    }
+    activeRenders += 1;
+    try {
+      return await renderPage(url);
+    } finally {
+      activeRenders -= 1;
+    }
+  }
+
+  async function respondWith(res, extraction, { cvUrl = null } = {}) {
     if (extraction.status === 'failed') {
       return res.status(422).json({
         error: 'extraction_failed',
@@ -80,7 +96,7 @@ export function cvExtractionRouter({ pool, fetchDocument = fetchCvDocument }) {
       });
     }
     const duplicates = await findExistingMatches(pool, extraction.fields);
-    res.json({ extraction, duplicates, registration: REGISTRATION, cvUrl });
+    res.json({ extraction, duplicates, cvUrl });
   }
 
   router.post(
@@ -95,7 +111,7 @@ export function cvExtractionRouter({ pool, fetchDocument = fetchCvDocument }) {
           message: 'Upload a PDF or Word (.docx) CV.',
         });
       }
-      await respond(res, req.body);
+      await respondWith(res, await extractCv({ buffer: req.body }));
     },
   );
 
@@ -108,9 +124,9 @@ export function cvExtractionRouter({ pool, fetchDocument = fetchCvDocument }) {
     }
     const url = req.body?.url;
     activeFetches += 1;
-    let document;
+    let extraction;
     try {
-      document = await fetchDocument(url);
+      extraction = await readCvLink({ url, fetchDocument, renderPage: limitedRender });
     } catch (err) {
       if (!(err instanceof FetchRefused)) throw err;
       return res.status(FETCH_STATUS[err.reason] ?? 422).json({
@@ -121,7 +137,7 @@ export function cvExtractionRouter({ pool, fetchDocument = fetchCvDocument }) {
     } finally {
       activeFetches -= 1;
     }
-    await respond(res, document.buffer, { cvUrl: url.trim() });
+    await respondWith(res, extraction, { cvUrl: url.trim() });
   });
 
   return router;

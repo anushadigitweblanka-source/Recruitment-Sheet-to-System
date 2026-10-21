@@ -11,8 +11,9 @@
 //     of these checks for every hop; a direct document link does not need one.
 //   - No cookies or credentials of this application are ever sent.
 //   - A size limit and an overall time limit apply while downloading.
-//   - The result must start like a PDF or a Word file; the bytes decide, not
-//     the content type the server claims.
+//   - The result must be a PDF, a Word file or an HTML page; the bytes decide,
+//     not the content type the server claims. An HTML page is only read as
+//     text: no script, style or other resource it names is ever fetched.
 //
 // Nothing here logs the link or the document. Errors carry a fixed reason
 // code and a fixed message, never the address, so a link with secrets in it
@@ -21,6 +22,7 @@
 import { lookup as dnsLookup } from 'node:dns/promises';
 import { request as httpsRequest } from 'node:https';
 import { BlockList, isIP } from 'node:net';
+import { looksLikeHtml } from './htmlText.js';
 import { MAX_BYTES, detectFormat } from './textExtractor.js';
 
 export const FETCH_TIMEOUT_MS = 15_000;
@@ -167,7 +169,7 @@ export async function fetchCvDocument(
         headers: {
           Host: hostname,
           Accept:
-            'application/pdf, application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'application/pdf, application/vnd.openxmlformats-officedocument.wordprocessingml.document, text/html',
           'Accept-Encoding': 'identity',
           'User-Agent': 'RecruitmentSystem-CVFetch/1',
         },
@@ -211,12 +213,12 @@ export async function fetchCvDocument(
         res.on('end', () => {
           const buffer = Buffer.concat(chunks);
           const format = detectFormat(buffer);
-          if (format !== 'pdf' && format !== 'zip') {
+          if (format !== 'pdf' && format !== 'zip' && !looksLikeHtml(buffer)) {
             return finish(
               rejectPromise,
               refuse(
                 'not_a_document',
-                'The link does not lead straight to a PDF or Word (.docx) file. Use a direct download link.',
+                'The link does not lead to a PDF, a Word (.docx) file or a web page. Use a direct link.',
               ),
             );
           }
@@ -233,6 +235,101 @@ export async function fetchCvDocument(
       finish(rejectPromise, refuse('timeout', 'The link took too long to answer.'));
     }, timeoutMs);
 
+    req.on('error', () =>
+      finish(rejectPromise, refuse('unreachable', 'The link could not be opened.')),
+    );
+    req.end();
+  });
+}
+
+// ---------------------------------------------------------------- browser subrequests
+
+export const SUBRESOURCE_MAX_BYTES = 5 * 1024 * 1024;
+export const SUBRESOURCE_TIMEOUT_MS = 10_000;
+
+// One GET for a page being rendered in the isolated browser (the page itself,
+// its scripts, data calls and so on). The browser never connects anywhere on
+// its own: every request it makes is answered by this function, so the same
+// rules as for a CV link apply to each one - HTTPS on the standard port, a
+// public host name resolved here and checked, the connection pinned to the
+// checked address, no credentials or cookies sent, a size limit and a time
+// limit. A redirect is NOT followed: the status and Location are handed back,
+// and the browser's follow-up request comes through here and is checked again.
+// Returns { status, headers, body } or throws FetchRefused.
+export async function fetchSubresource(
+  link,
+  {
+    resolve = dnsLookup,
+    transport = httpsRequest,
+    timeoutMs = SUBRESOURCE_TIMEOUT_MS,
+    maxBytes = SUBRESOURCE_MAX_BYTES,
+    accept = '*/*',
+    acceptLanguage = 'en',
+  } = {},
+) {
+  const { hostname, path } = parseCvLink(link);
+  const target = await resolvePublicAddress(hostname, resolve);
+
+  return new Promise((resolvePromise, rejectPromise) => {
+    let settled = false;
+    const finish = (fn, value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      fn(value);
+    };
+    const req = transport(
+      {
+        host: target.address,
+        family: target.family,
+        port: 443,
+        servername: hostname,
+        method: 'GET',
+        path,
+        agent: false,
+        headers: {
+          Host: hostname,
+          Accept: accept,
+          'Accept-Language': acceptLanguage,
+          'Accept-Encoding': 'identity',
+          'User-Agent': 'RecruitmentSystem-CVRender/1',
+        },
+      },
+      (res) => {
+        const declared = Number(res.headers['content-length']);
+        if (Number.isFinite(declared) && declared > maxBytes) {
+          res.resume();
+          return finish(rejectPromise, refuse('too_large', 'A file the page needs is too large.'));
+        }
+        const chunks = [];
+        let size = 0;
+        res.on('data', (chunk) => {
+          size += chunk.length;
+          if (size > maxBytes) {
+            req.destroy();
+            return finish(
+              rejectPromise,
+              refuse('too_large', 'A file the page needs is too large.'),
+            );
+          }
+          chunks.push(chunk);
+        });
+        res.on('end', () =>
+          finish(resolvePromise, {
+            status: res.statusCode ?? 0,
+            headers: res.headers,
+            body: Buffer.concat(chunks),
+          }),
+        );
+        res.on('error', () =>
+          finish(rejectPromise, refuse('unreachable', 'The download was interrupted.')),
+        );
+      },
+    );
+    const timer = setTimeout(() => {
+      req.destroy();
+      finish(rejectPromise, refuse('timeout', 'The link took too long to answer.'));
+    }, timeoutMs);
     req.on('error', () =>
       finish(rejectPromise, refuse('unreachable', 'The link could not be opened.')),
     );

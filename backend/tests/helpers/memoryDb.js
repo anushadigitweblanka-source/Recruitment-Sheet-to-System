@@ -57,20 +57,22 @@ export async function createMemoryDatabase() {
   return pool;
 }
 
+// The settings the application needs when it has no real database to describe.
+export const memoryConfig = () => ({
+  environment: 'test',
+  host: '127.0.0.1',
+  publicBaseUrl: 'http://app.example.test',
+  companySecretKey: null,
+  devStorageDir: null,
+  db: {},
+});
+
 // A running application over the in-memory database. `config` can add or
 // replace settings, and `extraDeps` is passed to createApp (for example a
 // mocked document fetcher).
 export async function startMemoryHarness({ config = {}, extraDeps = {} } = {}) {
   const pool = await createMemoryDatabase();
-  const appConfig = {
-    environment: 'test',
-    host: '127.0.0.1',
-    publicBaseUrl: 'http://app.example.test',
-    companySecretKey: null,
-    devStorageDir: null,
-    db: {},
-    ...config,
-  };
+  const appConfig = { ...memoryConfig(), ...config };
   const server = createApp({ config: appConfig, pool, ...extraDeps }).listen(0, '127.0.0.1');
   await new Promise((resolve) => server.once('listening', resolve));
   const baseUrl = `http://127.0.0.1:${server.address().port}`;
@@ -113,6 +115,7 @@ export async function startMemoryHarness({ config = {}, extraDeps = {} } = {}) {
 
   return {
     pool,
+    baseUrl,
     api,
     raw,
     signedIn,

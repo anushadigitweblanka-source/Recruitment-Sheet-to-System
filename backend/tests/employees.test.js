@@ -630,7 +630,7 @@ describe('listing', () => {
 
   before(async () => {
     listed = {
-      evaluation: await joined({ fullName: 'Quoll Evaluation', candidateCode: 'EML-EVAL' }),
+      evaluation: await joined({ fullName: 'Quoll Evaluation' }),
       probation: await inPhase('probation', { fullName: 'Quoll Probation' }),
       junior: await inPhase('junior', { fullName: 'Quoll Junior' }),
       senior: await inPhase('senior', { fullName: 'Quoll Senior' }),
@@ -673,7 +673,14 @@ describe('listing', () => {
 
   test('searches by name and Candidate ID', async () => {
     assert.deepEqual(names(await list('?search=quoll%20junior')), ['Quoll Junior']);
-    assert.deepEqual(names(await list('?search=eml-eval')), ['Quoll Evaluation']);
+    assert.deepEqual(
+      names(
+        await list(
+          `?search=${(await db.pool.query('SELECT candidate_code FROM candidates WHERE full_name = $1', ['Quoll Evaluation'])).rows[0].candidate_code}`,
+        ),
+      ),
+      ['Quoll Evaluation'],
+    );
   });
 
   test('filters by current phase, outcome and track', async () => {

@@ -27,7 +27,7 @@ before(async () => {
     calls: [],
     send: async (mail) => {
       spy.calls.push(mail);
-      return { delivered: false, simulated: true };
+      return { delivered: true };
     },
   };
   hr = await h.signedIn({ roleCode: 'hr' });

@@ -5,7 +5,7 @@ export const PHONE_INTERVIEW_COLUMNS = [
   { key: 'called', label: 'Called' },
   { key: 'response', label: 'Response' },
   { key: 'result', label: 'Result' },
-  { key: 'review', label: 'Review' },
+  { key: 'review', label: 'Remark' },
   { key: 'interviewAt', label: 'Interview Date/Time' },
   { key: 'mailStatus', label: 'Mail Status' },
   { key: 'actions', label: 'Actions' },
@@ -51,4 +51,15 @@ const MAIL_STATUS_HINTS = {
 };
 export const mailStatusHint = (status) =>
   MAIL_STATUS_HINTS[status] ??
-  'No invitation email has been sent or logged for this candidate yet. This updates by itself from the email log.';
+  'No invitation email has been logged yet. One-click templates must be previewed and sent from the candidate record; Auto templates attempt delivery after a selected interview slot is saved.';
+
+// Editable form-only draft values. The email log remains the source of truth;
+// the phone interview API does not accept manual status changes.
+export const MAIL_STATUS_OPTIONS = [
+  { value: 'not_sent', label: 'Not sent' },
+  { value: 'queued', label: 'Pending' },
+  { value: 'sent', label: 'Sent' },
+  { value: 'failed', label: 'Failed' },
+];
+export const mailStatusDraftValue = (status) =>
+  status === 'queued' || status === 'sent' || status === 'failed' ? status : 'not_sent';

@@ -6,6 +6,13 @@ import { recordDecision, recordTermination } from './api.js';
 import { PHASE_LABELS, RESULT_LABELS } from './fields.js';
 
 const EMPTY = { result: '', endDate: '', exitDate: '', reason: '', reviewDocUrl: '' };
+// These Evaluation labels have no approved lifecycle values or server mapping.
+// They are shown as selectable drafts only; the save handler rejects them.
+const EVALUATION_DRAFTS = [
+  { value: 'draft_external', label: 'External' },
+  { value: 'draft_reject', label: 'Reject' },
+  { value: 'draft_probation', label: 'Probation' },
+];
 
 // Turns a save answer into a message, or field errors for a 422.
 async function submit(call, { setErrors, setFailure }) {
@@ -36,6 +43,13 @@ export default function DecisionForm({ employeeId, decision, onSaved }) {
   const [failure, setFailure] = useState(null);
   const [saving, setSaving] = useState(false);
   const phase = PHASE_LABELS[decision.phase];
+  const allowedResults = decision.allowedResults;
+  const draftOptions = decision.phase === 'evaluation' ? EVALUATION_DRAFTS : [];
+  const decisionOptions = [
+    ...allowedResults.map((value) => ({ value, label: RESULT_LABELS[value] })),
+    ...draftOptions,
+  ];
+  const selectedDraft = draftOptions.find((option) => option.value === values.result);
 
   const set = (name, value) => {
     setValues((old) => ({ ...old, [name]: value }));
@@ -52,6 +66,13 @@ export default function DecisionForm({ employeeId, decision, onSaved }) {
   async function save(event) {
     event.preventDefault();
     if (saving) return;
+    setFailure(null);
+    if (selectedDraft) {
+      setFailure(
+        `${selectedDraft.label} is a draft only. An approved lifecycle rule is required before it can be saved.`,
+      );
+      return;
+    }
     const problems = {};
     if (!values.result) problems.result = 'Choose a decision.';
     if (values.result === 'discontinue') {
@@ -65,7 +86,6 @@ export default function DecisionForm({ employeeId, decision, onSaved }) {
       problems.endDate = 'Junior end date is required.';
     }
     setErrors(problems);
-    setFailure(null);
     if (Object.keys(problems).length > 0) return;
 
     setSaving(true);
@@ -106,14 +126,14 @@ export default function DecisionForm({ employeeId, decision, onSaved }) {
           label="Decision"
           type="select"
           required
-          options={decision.allowedResults.map((value) => ({
-            value,
-            label: RESULT_LABELS[value],
-          }))}
+          options={decisionOptions}
+          emptyLabel="Select..."
           hint={
-            decision.phase === 'junior'
-              ? 'Pass starts the senior phase the day after the junior end date.'
-              : `Pass starts the next phase the day after the ${phase.toLowerCase()} ends.`
+            selectedDraft
+              ? `${selectedDraft.label} is an unsaved draft; its lifecycle mapping is not approved.`
+              : decision.phase === 'junior'
+                ? 'Pass starts the senior phase the day after the junior end date.'
+                : `Pass starts the next phase the day after the ${phase.toLowerCase()} ends.`
           }
           {...field('result')}
         />

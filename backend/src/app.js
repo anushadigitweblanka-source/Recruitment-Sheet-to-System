@@ -7,14 +7,15 @@ import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 
 const FRONTEND_DIST = fileURLToPath(new URL('../../frontend/dist', import.meta.url));
 
-// `fetchDocument` can be replaced in tests so no real network is used.
-export function createApp({ config, pool, fetchDocument }) {
+// `fetchDocument` and `renderPage` can be replaced in tests so no real network or
+// browser is used.
+export function createApp({ config, pool, fetchDocument, renderPage }) {
   const app = express();
 
   app.disable('x-powered-by');
   app.use(express.json());
 
-  app.use('/api', apiRouter({ config, pool, fetchDocument }));
+  app.use('/api', apiRouter({ config, pool, fetchDocument, renderPage }));
   app.use('/api', notFoundHandler);
 
   // In production the backend also serves the built frontend, so the whole

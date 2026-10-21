@@ -88,18 +88,35 @@ function fakeBackend({
 
   function save(found, body) {
     if (refuse) return json(422, { error: 'validation_failed', message: 'x', fields: refuse });
-    const position = POSITIONS.find((p) => p.id === body.positionId);
+    if (body.workMode && body.workMode !== 'office') {
+      return json(422, {
+        error: 'validation_failed',
+        message: 'Some fields need correcting.',
+        fields: { workMode: 'Work Mode must be Office.' },
+      });
+    }
+    const merged = {
+      positionId: found.offer?.positionId ?? body.positionId,
+      offerDate: found.offer?.offerDate ?? null,
+      workMode: found.offer?.workMode ?? null,
+      location: found.offer?.location ?? null,
+      offerStatus: found.offer?.offerStatus ?? null,
+      onboardingDate: found.offer?.onboardingDate ?? null,
+      attended: found.offer?.attended ?? null,
+      ...body,
+    };
+    const position = POSITIONS.find((p) => p.id === merged.positionId);
     found.offer = offerRecord(found.offer?.id ?? found.candidate.id + 400, {
-      positionId: body.positionId,
+      positionId: merged.positionId,
       position: position.name,
-      offerDate: body.offerDate,
-      workMode: body.workMode,
-      location: body.location || null,
-      offerStatus: body.offerStatus,
-      onboardingDate: body.onboardingDate,
-      attended: body.attended,
+      offerDate: merged.offerDate,
+      workMode: merged.workMode,
+      location: merged.location || null,
+      offerStatus: merged.offerStatus,
+      onboardingDate: merged.onboardingDate,
+      attended: merged.attended,
     });
-    const stage = stageFor(body);
+    const stage = stageFor(merged);
     found.candidate.stage = { code: stage, name: STAGE_NAMES[stage] };
     return found;
   }
@@ -490,7 +507,12 @@ describe('prepare offer', () => {
     await formReady();
 
     type('Offer Date', '2026-11-05');
+    fireEvent.change(screen.getByLabelText('Work Mode'), { target: { value: 'online' } });
+    expect(screen.getByRole('button', { name: 'Save Offer' }).disabled).toBe(true);
+    expect(screen.getByText(/backend and database currently support Office only/)).toBeTruthy();
+    expect(callsTo(backend, 'PATCH', '/api/offers/401')).toHaveLength(0);
     fireEvent.change(screen.getByLabelText('Work Mode'), { target: { value: 'office' } });
+    expect(screen.getByRole('button', { name: 'Save Offer' }).disabled).toBe(false);
     type('Location', 'Sample Office');
     fireEvent.change(screen.getByLabelText('Offer Status'), { target: { value: 'sent' } });
     saveOffer();
@@ -514,6 +536,28 @@ describe('prepare offer', () => {
     await waitFor(() => expect(screen.getByLabelText('Location').value).toBe('Sample Office'));
     expect(screen.getByLabelText('Offer Status').value).toBe('sent');
     expect(screen.getByRole('button', { name: 'Save Offer' })).toBeTruthy();
+  });
+
+  test('Accepted uses the existing workflow and Not Accepted stays an unsaved draft', async () => {
+    const backend = fakeBackend({ entries: [automatic(1)] });
+    open('/offers/new?candidate=1');
+    await formReady();
+
+    const status = screen.getByLabelText('Offer Status');
+    expect(optionsOf('Offer Status')).toEqual(['Select...', 'Sent', 'Accepted', 'Not Accepted']);
+    fireEvent.change(status, { target: { value: 'not_accepted_draft' } });
+    expect(status.value).toBe('not_accepted_draft');
+    expect(screen.getByRole('button', { name: 'Save Offer' }).disabled).toBe(true);
+    expect(
+      screen.getByText(/no approved offer-rejection workflow or database status exists/),
+    ).toBeTruthy();
+    expect(callsTo(backend, 'PATCH', '/api/offers/401')).toHaveLength(0);
+
+    fireEvent.change(status, { target: { value: 'accepted' } });
+    expect(screen.getByRole('button', { name: 'Save Offer' }).disabled).toBe(false);
+    saveOffer();
+    expect(await screen.findByText('Offer saved. Current status: Offer Accepted.')).toBeTruthy();
+    expect(callsTo(backend, 'PATCH', '/api/offers/401')[0].body.offerStatus).toBe('accepted');
   });
 
   test('the result of Save Offer brings itself into view, refusal and success alike', async () => {
@@ -578,8 +622,8 @@ describe('prepare offer', () => {
     expect(screen.getByLabelText('Attended').disabled).toBe(true);
     expect(screen.getByText('Disabled: set Offer Status to Accepted.')).toBeTruthy();
     fireEvent.change(screen.getByLabelText('Offer Status'), { target: { value: 'accepted' } });
-    expect(optionsOf('Offer Status')).toEqual(['Select…', 'Sent', 'Accepted']);
-    expect(optionsOf('Work Mode')).toEqual(['Select…', 'Office']);
+    expect(optionsOf('Offer Status')).toEqual(['Select...', 'Sent', 'Accepted', 'Not Accepted']);
+    expect(optionsOf('Work Mode')).toEqual(['Select…', 'Online', 'Work from Home', 'Office']);
     expect(callsTo(backend, 'PATCH', '/api/offers/401')).toHaveLength(0);
   });
 
@@ -600,8 +644,8 @@ describe('prepare offer', () => {
     expect(currentPath()).toBe('/offers/new?candidate=1');
   });
 
-  test('a finalized offer locks status, onboarding date and attendance and says why', async () => {
-    fakeBackend({
+  test('a finalized offer keeps joining edits as unsaved drafts and says why', async () => {
+    const backend = fakeBackend({
       entries: [
         entry(
           1,
@@ -618,9 +662,24 @@ describe('prepare offer', () => {
     await formReady();
 
     expect(screen.getByText('This offer is finalized')).toBeTruthy();
-    expect(screen.getByLabelText('Offer Status').disabled).toBe(true);
-    expect(screen.getByLabelText('Onboarding Date').disabled).toBe(true);
-    expect(screen.getByLabelText('Attended').disabled).toBe(true);
+    const status = screen.getByLabelText('Offer Status');
+    expect(status.disabled).toBe(false);
+    expect(optionsOf('Offer Status')).toEqual(['Accepted', 'Not Accepted']);
+    expect(status.value).toBe('accepted');
+    fireEvent.change(status, { target: { value: 'not_accepted_draft' } });
+    expect(status.value).toBe('not_accepted_draft');
+    expect(
+      screen.getByText(/Saved Offer Status: Accepted\. The selected status is only a draft/),
+    ).toBeTruthy();
+    const date = screen.getByLabelText('Onboarding Date');
+    const attended = screen.getByLabelText('Attended');
+    expect(date.disabled).toBe(false);
+    expect(attended.disabled).toBe(false);
+    fireEvent.change(date, { target: { value: '2026-11-18' } });
+    fireEvent.change(attended, { target: { value: 'no' } });
+    expect(screen.getByRole('button', { name: 'Save Offer' }).disabled).toBe(true);
+    expect(screen.getByText(/employee-lifecycle correction workflow is required/)).toBeTruthy();
+    expect(callsTo(backend, 'PATCH', '/api/offers/401')).toHaveLength(0);
     expect(screen.getByLabelText('Location').disabled).toBe(false);
     expect(screen.getAllByText(/Locked: the candidate has joined/).length).toBe(3);
   });
@@ -739,6 +798,116 @@ describe('prepare offer', () => {
 });
 
 describe('edit offer', () => {
+  test('shows and saves onboarding date and attendance, while Remark remains a separate draft', async () => {
+    const backend = fakeBackend({
+      entries: [
+        entry(
+          1,
+          offerRecord(401, {
+            offerStatus: 'accepted',
+            onboardingDate: '2026-11-16',
+            attended: false,
+          }),
+          'offer_accepted',
+        ),
+      ],
+    });
+    open('/offers/401/edit');
+
+    const date = await screen.findByLabelText('Onboarding Date');
+    const attended = screen.getByLabelText('Attended');
+    const remark = screen.getByPlaceholderText('Enter remark...');
+    await waitFor(() => expect(date.value).toBe('2026-11-16'));
+    expect(date.type).toBe('date');
+    expect(date.value).toBe('2026-11-16');
+    expect(optionsOf('Attended')).toEqual(['Select...', 'Yes', 'No']);
+    expect(attended.value).toBe('no');
+    expect(attended.disabled).toBe(false);
+    expect(remark.tagName).toBe('TEXTAREA');
+    expect(screen.getByText(/Entered text remains a draft and will not be stored/)).toBeTruthy();
+
+    fireEvent.change(date, { target: { value: '2026-11-18' } });
+    fireEvent.change(attended, { target: { value: 'yes' } });
+    fireEvent.change(remark, { target: { value: 'Fictional HR comment' } });
+    expect(callsTo(backend, 'PATCH', '/api/offers/401')).toHaveLength(0);
+    save();
+
+    expect(
+      await screen.findByText(/Remark was not saved because offer remark storage is unavailable/),
+    ).toBeTruthy();
+    const payload = callsTo(backend, 'PATCH', '/api/offers/401')[0].body;
+    expect(payload).toMatchObject({ onboardingDate: '2026-11-18', attended: true });
+    expect(payload).not.toHaveProperty('remark');
+  });
+
+  test('keeps joined offer date and attendance protected while showing Remark as a draft', async () => {
+    const backend = fakeBackend({
+      entries: [
+        entry(
+          1,
+          offerRecord(401, {
+            offerStatus: 'accepted',
+            onboardingDate: '2026-11-16',
+            attended: true,
+          }),
+          'joined',
+        ),
+      ],
+    });
+    open('/offers/401/edit');
+
+    const date = await screen.findByLabelText('Onboarding Date');
+    const attended = screen.getByLabelText('Attended');
+    const remark = screen.getByPlaceholderText('Enter remark...');
+    await waitFor(() => expect(date.value).toBe('2026-11-16'));
+    expect(date.value).toBe('2026-11-16');
+    expect(date.disabled).toBe(false);
+    expect(optionsOf('Attended')).toEqual(['Select...', 'Yes', 'No']);
+    expect(attended.value).toBe('yes');
+    expect(attended.disabled).toBe(false);
+    expect(remark.disabled).toBe(false);
+    const status = screen.getByLabelText('Offer Status');
+    expect(status.value).toBe('accepted');
+    expect(optionsOf('Offer Status')).toEqual(['Accepted', 'Not Accepted']);
+    fireEvent.change(status, { target: { value: 'not_accepted_draft' } });
+    expect(status.value).toBe('not_accepted_draft');
+    expect(screen.getByText(/Saved Offer Status: Accepted/)).toBeTruthy();
+    fireEvent.change(date, { target: { value: '2026-11-18' } });
+    fireEvent.change(attended, { target: { value: 'no' } });
+    fireEvent.change(remark, { target: { value: 'Fictional joined-offer note' } });
+    expect(screen.getByRole('button', { name: 'Save' }).disabled).toBe(true);
+    expect(screen.getByText(/employee-lifecycle correction workflow is required/)).toBeTruthy();
+    expect(callsTo(backend, 'PATCH', '/api/offers/401')).toHaveLength(0);
+    expect(screen.getByText(/Saving other offer fields will not save this remark/)).toBeTruthy();
+  });
+
+  test('users without offer permission cannot draft a joined offer correction', async () => {
+    fakeBackend({
+      entries: [
+        entry(
+          1,
+          offerRecord(401, {
+            offerStatus: 'accepted',
+            onboardingDate: '2026-11-16',
+            attended: true,
+          }),
+          'joined',
+        ),
+      ],
+    });
+    const viewer = {
+      ...SIGNED_IN,
+      user: { ...SIGNED_IN.user, permissions: ['candidates.view'] },
+    };
+    open('/offers/401/edit', viewer);
+
+    expect(await screen.findByLabelText('Offer Status')).toBeTruthy();
+    expect(screen.getByLabelText('Offer Status').disabled).toBe(true);
+    expect(screen.getByLabelText('Onboarding Date').disabled).toBe(true);
+    expect(screen.getByLabelText('Attended').disabled).toBe(true);
+    expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
+  });
+
   test('loads the offer and records acceptance, joining date and attendance', async () => {
     const backend = fakeBackend({
       entries: [
@@ -752,6 +921,7 @@ describe('edit offer', () => {
     open('/offers/401/edit');
 
     await waitFor(() => expect(screen.getByLabelText('Offer Status').value).toBe('sent'));
+    expect(optionsOf('Offer Status')).toEqual(['Select...', 'Sent', 'Accepted', 'Not Accepted']);
     expect(screen.getByLabelText('Offer Date').value).toBe('2026-11-05');
     expect(screen.getByLabelText('Work Mode').value).toBe('office');
 
@@ -801,10 +971,14 @@ describe('offer details', () => {
     open('/offers/401');
 
     expect(await screen.findByText('Sample Person 1')).toBeTruthy();
+    await waitFor(() => expect(screen.getByLabelText('Work Mode').value).toBe('office'));
     const value = (label) => within(screen.getByText(label).closest('div')).getByRole('definition');
     expect(value('Position Offered').textContent).toBe('Sample Position A');
     expect(value('Offer Date').textContent).toBe('05 Nov 2026');
-    expect(value('Work Mode').textContent).toBe('Office');
+    expect(screen.getByLabelText('Work Mode').value).toBe('office');
+    expect(
+      [...screen.getByLabelText('Work Mode').options].map((option) => option.textContent),
+    ).toEqual(['Select...', 'Online', 'Work from Home', 'Office']);
     expect(value('Location').textContent).toBe('Sample Office');
     expect(value('Offer Status').textContent).toBe('Accepted');
     expect(value('Email Status').textContent).toBe('Not sent');
@@ -815,6 +989,71 @@ describe('offer details', () => {
       '/offers/401/edit',
     );
     noSalaryAnywhere();
+  });
+
+  test('Work Mode changes are saved explicitly through the offer update API', async () => {
+    const backend = fakeBackend({
+      entries: [
+        entry(
+          1,
+          offerRecord(401, {
+            workMode: null,
+            location: 'Sample Office',
+            offerStatus: 'accepted',
+            onboardingDate: '2026-11-16',
+            attended: false,
+          }),
+          'offer_accepted',
+        ),
+      ],
+    });
+    open('/offers/401');
+    const selector = await screen.findByLabelText('Work Mode');
+    fireEvent.change(selector, { target: { value: 'office' } });
+    expect(callsTo(backend, 'PATCH', '/api/offers/401')).toHaveLength(0);
+    fireEvent.click(screen.getByRole('button', { name: 'Save Work Mode' }));
+
+    expect(await screen.findByText('Work Mode saved.')).toBeTruthy();
+    await waitFor(() => expect(screen.getByLabelText('Work Mode').value).toBe('office'));
+    expect(callsTo(backend, 'PATCH', '/api/offers/401')[0].body).toEqual({ workMode: 'office' });
+    expect(screen.getByText('Sample Office')).toBeTruthy();
+    expect(screen.getByText('Accepted')).toBeTruthy();
+    expect(screen.getByText('16 Nov 2026')).toBeTruthy();
+    expect(screen.getByText('Offer Accepted')).toBeTruthy();
+  });
+
+  test('Work Mode values outside the current backend constraint cannot be saved', async () => {
+    const backend = fakeBackend({
+      entries: [entry(1, offerRecord(401, { workMode: 'office' }), 'offer_sent')],
+    });
+    open('/offers/401');
+    const selector = await screen.findByLabelText('Work Mode');
+    fireEvent.change(selector, { target: { value: 'online' } });
+    expect(screen.getByRole('button', { name: 'Save Work Mode' }).disabled).toBe(true);
+
+    expect(
+      await screen.findByText(/database constraint currently support Office only/),
+    ).toBeTruthy();
+    expect(callsTo(backend, 'PATCH', '/api/offers/401')).toHaveLength(0);
+    expect(screen.getByLabelText('Work Mode').value).toBe('online');
+    expect(backend.entries[0].offer.workMode).toBe('office');
+
+    fireEvent.change(selector, { target: { value: 'work_from_home' } });
+    expect(selector.value).toBe('work_from_home');
+    expect(screen.getByRole('button', { name: 'Save Work Mode' }).disabled).toBe(true);
+  });
+
+  test('users without offer management permission cannot edit Work Mode', async () => {
+    fakeBackend({ entries: [entry(1, offerRecord(401, { workMode: 'office' }), 'offer_sent')] });
+    const viewOnly = {
+      ...SIGNED_IN,
+      user: { ...SIGNED_IN.user, permissions: ['candidates.view'] },
+    };
+    open('/offers/401', viewOnly);
+
+    const selector = await screen.findByLabelText('Work Mode');
+    expect(selector.disabled).toBe(true);
+    expect(screen.queryByRole('button', { name: 'Save Work Mode' })).toBeNull();
   });
 
   test('an offer not sent yet shows "Not sent"', async () => {

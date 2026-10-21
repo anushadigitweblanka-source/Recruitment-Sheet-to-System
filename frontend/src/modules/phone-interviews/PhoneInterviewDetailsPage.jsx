@@ -18,7 +18,7 @@ const FIELDS = [
   { name: 'result', label: 'Result' },
   { name: 'interviewAt', label: 'Interview Date/Time' },
   { name: 'rejectReason', label: 'Reason for rejection' },
-  { name: 'review', label: 'Review' },
+  { name: 'review', label: 'Remark' },
   { name: 'mailStatus', label: 'Mail Status' },
   { name: 'updated', label: 'Last Updated' },
 ];

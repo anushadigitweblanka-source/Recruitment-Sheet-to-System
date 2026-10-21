@@ -655,6 +655,46 @@ describe('changing and viewing an offer', () => {
     assert.ok(res.body.fields.onboardingDate);
   });
 
+  test('a joined employee blocks offer status correction without changing lifecycle history', async () => {
+    const { candidate, id } = await offered({
+      offerStatus: 'accepted',
+      onboardingDate: '2026-11-16',
+      attended: true,
+    });
+    const phaseCount = async () =>
+      Number(
+        (
+          await db.pool.query(
+            `SELECT count(*) AS count FROM phase_history ph
+             JOIN employees e ON e.id = ph.employee_id WHERE e.candidate_id = $1`,
+            [candidate.id],
+          )
+        ).rows[0].count,
+      );
+    const phasesBefore = await phaseCount();
+
+    const supportedStatusChange = await change(id, { offerStatus: 'sent' });
+    assert.equal(supportedStatusChange.status, 422);
+    assert.match(supportedStatusChange.body.fields.attended, /Accepted/);
+
+    // Trying to clear attendance to satisfy the status invariant is also
+    // refused by the employee-link guard before any offer or lifecycle write.
+    const lifecycleConflict = await change(id, { offerStatus: 'sent', attended: null });
+    assert.equal(lifecycleConflict.status, 422);
+    assert.match(lifecycleConflict.body.fields.offerStatus, /employee record has been created/);
+
+    const unsupportedStatusChange = await change(id, { offerStatus: 'not_accepted' });
+    assert.equal(unsupportedStatusChange.status, 422);
+    assert.match(unsupportedStatusChange.body.fields.offerStatus, /Sent or Accepted/);
+
+    const saved = await view(id);
+    assert.equal(saved.body.offer.offerStatus, 'accepted');
+    assert.equal(saved.body.offer.attended, true);
+    assert.equal(saved.body.candidate.stage.code, 'joined');
+    assert.equal(await stageOf(candidate.id), 'joined');
+    assert.equal(await phaseCount(), phasesBefore);
+  });
+
   test('returns the full record with the candidate and the current stage', async () => {
     const { id, candidate } = await offered({
       offerStatus: 'accepted',
@@ -681,7 +721,7 @@ describe('listing', () => {
 
   before(async () => {
     listed = {
-      waiting: await selectedCandidate({ fullName: 'Numbat Waiting', candidateCode: 'OFL-WAIT' }),
+      waiting: await selectedCandidate({ fullName: 'Numbat Waiting' }),
       unsent: await selectedCandidate({ fullName: 'Numbat Unsent' }),
       sent: await selectedCandidate({ fullName: 'Numbat Sent' }),
       accepted: await selectedCandidate({ fullName: 'Numbat Accepted' }),
@@ -752,7 +792,14 @@ describe('listing', () => {
 
   test('searches by name and Candidate ID', async () => {
     assert.deepEqual(names(await list('?search=numbat%20sent')), ['Numbat Sent']);
-    assert.deepEqual(names(await list('?search=ofl-wait')), ['Numbat Waiting']);
+    assert.deepEqual(
+      names(
+        await list(
+          `?search=${(await db.pool.query('SELECT candidate_code FROM candidates WHERE full_name = $1', ['Numbat Waiting'])).rows[0].candidate_code}`,
+        ),
+      ),
+      ['Numbat Waiting'],
+    );
   });
 
   test('filters by offer status, including "no status yet"', async () => {

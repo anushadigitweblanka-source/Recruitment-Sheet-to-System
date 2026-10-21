@@ -67,14 +67,14 @@ export default function CandidateEmailPanel({ candidateId }) {
     if (res?.ok) {
       setNeedsResend(false);
       setMessage({
-        tone: res.body.delivered || res.body.pendingApproval ? 'success' : 'danger',
+        tone: res.body.delivered || res.body.simulated || res.body.pendingApproval ? 'success' : 'danger',
         text: res.body.pendingApproval
           ? 'Prepared. The Main User must approve this mail before it is sent.'
+          : res.body.simulated
+            ? 'Development mode: no real email was delivered. The attempt is recorded in the email log.'
           : res.body.delivered
-            ? res.body.simulated
-              ? 'Development mode: no real email was delivered. The attempt is recorded in the email log.'
-              : 'Mail sent and recorded in the email log.'
-            : 'Delivery failed. It is recorded in the email log.',
+            ? 'Mail sent and recorded in the email log.'
+            : `Delivery failed${res.body.error ? `: ${res.body.error}` : ''}. It is recorded in the email log.`,
       });
     } else if (res?.status === 422) {
       const text = Object.values(res.body.fields ?? {}).join(' ');

@@ -562,7 +562,6 @@ describe('listing', () => {
     listed = {
       waiting: await newCandidate({
         fullName: 'Quokka Waiting',
-        candidateCode: 'PSL-WAIT',
         phone: '0758880001',
       }),
       selected: await newCandidate({ fullName: 'Quokka Selected', phone: '0758880002' }),
@@ -617,7 +616,14 @@ describe('listing', () => {
 
   test('searches by name, Candidate ID and phone digits', async () => {
     assert.deepEqual(names(await list('?search=quokka%20wait')), ['Quokka Waiting']);
-    assert.deepEqual(names(await list('?search=psl-wait')), ['Quokka Waiting']);
+    assert.deepEqual(
+      names(
+        await list(
+          `?search=${(await db.pool.query('SELECT candidate_code FROM candidates WHERE full_name = $1', ['Quokka Waiting'])).rows[0].candidate_code}`,
+        ),
+      ),
+      ['Quokka Waiting'],
+    );
     assert.deepEqual(names(await list(`?search=${encodeURIComponent('075 888 0003')}`)), [
       'Quokka Rejected',
     ]);

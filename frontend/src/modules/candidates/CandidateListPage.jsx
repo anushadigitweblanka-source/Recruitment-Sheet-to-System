@@ -80,6 +80,7 @@ function CurrentCandidatesList({ page }) {
   const list = useApi(
     () => listCandidates({ ...filters, pageSize: PAGE_SIZE }),
     [filters.search, filters.positionId, filters.sourceId, filters.stage, filters.page],
+    { refreshOnFocus: true },
   );
 
   const lookupsReady = lookups.status === 'ready';

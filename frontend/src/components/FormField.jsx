@@ -15,6 +15,8 @@ export default function FormField({
   error,
   options = [],
   pending = false,
+  hideEmptyOption = false,
+  emptyLabel = 'Select…',
   wide = false,
   ...controlProps
 }) {
@@ -74,7 +76,7 @@ export default function FormField({
         {...described}
         {...controlProps}
       >
-        <option value="">{pending ? 'Not defined yet' : 'Select…'}</option>
+        {!hideEmptyOption && <option value="">{pending ? 'Not defined yet' : emptyLabel}</option>}
         {options.map((option) => (
           <option key={option.value} value={option.value}>
             {option.label}

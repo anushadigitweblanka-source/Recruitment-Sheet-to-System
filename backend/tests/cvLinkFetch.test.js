@@ -215,13 +215,13 @@ test('other failures give a clear error', async () => {
   await refusal(run({ networkError: true }), 'unreachable');
 });
 
-test('a web page is not accepted as a document, whatever its content type says', async () => {
+test('something that is not a document or a web page is refused, whatever its content type says', async () => {
   await refusal(
     fetchCvDocument('https://drive.example.test/file/d/abc/view', {
       resolve: resolveTo(PUBLIC_IP),
       transport: fakeTransport({
         headers: { 'content-type': 'application/pdf' },
-        body: Buffer.from('<!doctype html><html>Sign in to continue</html>'),
+        body: Buffer.from('{"error": "Sign in to continue"}'),
       }),
     }),
     'not_a_document',

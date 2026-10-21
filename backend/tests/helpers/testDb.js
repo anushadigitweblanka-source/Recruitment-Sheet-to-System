@@ -10,7 +10,15 @@ import { hashPassword } from '../../src/modules/auth/passwords.js';
 // inside the development database, by running the real migrations. The real
 // tables in the "public" schema are never read or written, and the schema is
 // dropped again by cleanup().
+// With TEST_DB=memory the same tables are built in an in-memory PostgreSQL
+// (PGlite) instead, so the whole suite can run without any database server.
 export async function createTestDatabase() {
+  if (process.env.TEST_DB === 'memory') {
+    const { createMemoryDatabase, memoryConfig } = await import('./memoryDb.js');
+    const pool = await createMemoryDatabase();
+    return { config: memoryConfig(), pool, schema: null, cleanup: () => pool.end() };
+  }
+
   loadEnvFile();
   const config = loadConfig();
   const schema = `test_${randomBytes(6).toString('hex')}`;

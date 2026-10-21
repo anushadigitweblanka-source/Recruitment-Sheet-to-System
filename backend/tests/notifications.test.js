@@ -465,7 +465,7 @@ describe('the notification list', () => {
   let listed;
 
   before(async () => {
-    listed = await newCandidate({ fullName: 'Notify Numbat', candidateCode: 'NTL-0001' });
+    listed = await newCandidate({ fullName: 'Notify Numbat' });
     await insertNotification({
       candidateId: listed.id,
       type: 'cv_pending',
@@ -481,7 +481,7 @@ describe('the notification list', () => {
     assert.equal(res.status, 200);
     assert.equal(res.body.total, 1);
     const item = res.body.items[0];
-    assert.equal(item.candidate.candidateCode, 'NTL-0001');
+    assert.equal(item.candidate.candidateCode, listed.candidateCode);
     assert.equal(item.type, 'cv_pending');
     assert.equal(item.status, 'cancelled');
     assert.deepEqual(item.recipients, ['hr.sample@example.test']);

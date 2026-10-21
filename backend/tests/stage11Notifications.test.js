@@ -28,7 +28,7 @@ function makeSpy() {
     calls,
     send: async (mail) => {
       calls.push(mail);
-      return { delivered: false, simulated: true };
+      return { delivered: true };
     },
   };
 }
@@ -37,6 +37,10 @@ const brokenMail = {
   send: async () => {
     throw new Error('simulated outage');
   },
+};
+const unconfirmedMail = {
+  mode: 'test-unconfirmed',
+  send: async () => ({ delivered: false, error: 'Provider did not confirm delivery.' }),
 };
 
 const run = (mail = spy) => runNotificationScheduler(h.db.pool, mail, { config: h.config });
@@ -466,7 +470,8 @@ describe('one-off mails', () => {
       body: { type: 'interview_invitation' },
     });
     assert.equal(res.status, 201, JSON.stringify(res.body));
-    assert.equal(res.body.delivered, true);
+    assert.equal(res.body.delivered, false);
+    assert.equal(res.body.simulated, true);
 
     const [log] = await logFor(candidate.id);
     assert.equal(log.status, 'sent');
@@ -476,8 +481,8 @@ describe('one-off mails', () => {
     assert.match(log.body_sent, /company-cv\/upload\/[A-Za-z0-9_-]{20,}/);
 
     const after = await h.api(`/candidates/${candidate.id}`, h.asAdmin);
-    assert.equal(after.body.candidate.companyCvStatus, 'sent');
-    assert.equal(after.body.candidate.companyCvPending, true);
+    assert.equal(after.body.candidate.companyCvStatus, 'not_sent');
+    assert.equal(after.body.candidate.companyCvPending, false);
 
     const again = await h.api(`/candidates/${candidate.id}/emails/send`, {
       method: 'POST',
@@ -861,5 +866,25 @@ describe('sending from the candidate page is honest about delivery', () => {
       (await logFor(other.id)).map((r) => r.status),
       ['failed', 'sent'],
     );
+  });
+
+  test('a non-throwing response without delivery confirmation is logged and displayed as failed', async () => {
+    const other = await h.newCandidate({ positionId: position.id, fullName: 'Unconfirmed Sample' });
+    await h.phoneSelected(other, inDays(6));
+    const result = await sendMail(
+      h.db.pool,
+      null,
+      { candidateId: other.id, type: 'interview_invitation' },
+      unconfirmedMail,
+      { config: h.config },
+    );
+
+    assert.equal(result.data.delivered, false);
+    assert.equal(result.data.error, 'Provider did not confirm delivery.');
+    const [log] = await logFor(other.id);
+    assert.equal(log.status, 'failed');
+    assert.equal(log.sent_at, null);
+    const status = await h.api(`/candidates/${other.id}/phone-interview`, h.asAdmin);
+    assert.equal(status.body.candidate.mailStatus, 'failed');
   });
 });

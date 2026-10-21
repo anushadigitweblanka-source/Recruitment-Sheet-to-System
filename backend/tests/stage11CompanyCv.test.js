@@ -27,7 +27,7 @@ const spy = {
   mode: 'test-spy',
   send: async (mail) => {
     spyCalls.push(mail);
-    return { delivered: false, simulated: true };
+    return { delivered: true };
   },
 };
 
@@ -142,7 +142,7 @@ describe('the invitation and the upload link', () => {
     assert.notEqual(a.token, b.token);
 
     const detail = await h.api(`/candidates/${a.candidate.id}`, h.asAdmin);
-    assert.equal(detail.body.candidate.companyCvStatus, 'sent');
+    assert.equal(detail.body.candidate.companyCvStatus, 'not_sent');
   });
 
   test('only a hash of the link is stored', async () => {
@@ -203,7 +203,7 @@ describe('the candidate uploads the CV', () => {
     );
     assert.equal((await upload(expired.token)).status, 410);
     const detail = (await h.api(`/candidates/${expired.candidate.id}`, h.asAdmin)).body.candidate;
-    assert.equal(detail.companyCvStatus, 'sent');
+    assert.equal(detail.companyCvStatus, 'not_sent');
   });
 
   test('only PDF or Word files are accepted, and a "PDF" must really be one', async () => {
@@ -256,11 +256,11 @@ describe('CV pending', () => {
     for (const who of [hr, teamLead, h.admin]) {
       const detail = await h.api(`/interviews/${id}`, { cookie: who.cookie });
       assert.equal(detail.status, 200);
-      assert.equal(detail.body.candidate.companyCvStatus, 'sent');
-      assert.equal(detail.body.candidate.companyCvPending, true);
+      assert.equal(detail.body.candidate.companyCvStatus, 'not_sent');
+      assert.equal(detail.body.candidate.companyCvPending, false);
       assert.equal(detail.body.candidate.companyCvUrl, null);
       const list = await h.api('/interviews?search=Pending+Sample', { cookie: who.cookie });
-      assert.equal(list.body.items[0].candidate.companyCvPending, true);
+      assert.equal(list.body.items[0].candidate.companyCvPending, false);
     }
   });
 

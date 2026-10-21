@@ -132,16 +132,13 @@ describe('one list of history and candidates', () => {
     );
   });
 
-  test('registering the same Candidate ID again is refused and adds no second row', async () => {
+  test('registering the same person again is warned about and adds no second row', async () => {
     const res = await h.api('/candidates', {
       method: 'POST',
       ...h.asAdmin,
-      body: {
-        candidateCode: alice.candidateCode.toLowerCase(),
-        fullName: 'Registration Duplicate',
-      },
+      body: { phone: alice.phone, fullName: 'Registration Duplicate' },
     });
-    assert.ok(res.status >= 400 && res.status < 500, String(res.status));
+    assert.equal(res.status, 409);
     assert.equal((await get()).body.total, HISTORY + 1);
   });
 

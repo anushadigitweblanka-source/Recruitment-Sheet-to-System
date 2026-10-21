@@ -50,11 +50,13 @@ describe('journey from registration to exit', () => {
     assert.equal(list.body.total, 1);
     assert.equal(list.body.items[0].candidateCode, person.candidateCode);
     assert.equal(list.body.items[0].stage.code, 'applied');
+    // Registering the same person again is warned about and saves nothing.
     const again = await post('/candidates', {
-      candidateCode: person.candidateCode,
-      fullName: 'Another Person',
+      fullName: 'Journey Person',
+      phone: person.phone,
     });
-    assert.equal(again.status, 422, 'the same Candidate ID is refused');
+    assert.equal(again.status, 409, 'the same person is not saved twice');
+    assert.equal((await get('/candidates?search=Journey%20Person')).body.total, 1);
   });
 
   test('2. no interview yet: the invitation text says what is missing', async () => {

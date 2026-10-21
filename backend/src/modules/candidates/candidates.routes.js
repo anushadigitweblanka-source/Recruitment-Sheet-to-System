@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { requireAnyPermission, requirePermission, teamScopeFor } from '../../middleware/auth.js';
+import { peekNextCandidateId } from './candidateId.js';
 import { findCandidate, listCandidates } from './candidates.repository.js';
 import { createCandidate, editCandidate } from './candidates.service.js';
 import { parseListQuery } from './candidates.validation.js';
@@ -43,6 +44,13 @@ export function candidatesRouter({ pool }) {
     const filters = parseListQuery(req.query);
     const { items, total } = await listCandidates(pool, filters, teamScopeFor(req.user));
     res.json({ items, total, page: filters.page, pageSize: filters.pageSize });
+  });
+
+  // A preview of the Candidate ID the next saved candidate would get. It reserves
+  // nothing; the real ID is assigned when the candidate is saved. This must come
+  // before the '/:id' route so "next-id" is not read as a candidate number.
+  router.get('/next-id', canEdit, async (req, res) => {
+    res.json({ candidateCode: await peekNextCandidateId(pool), preview: true });
   });
 
   router.post('/', canEdit, async (req, res) => {

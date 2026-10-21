@@ -10,8 +10,17 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { after, before, describe, test } from 'node:test';
 import { createUploadLink } from '../src/modules/company-cv/companyCv.service.js';
+import { candidateIdPrefix } from '../src/modules/candidates/candidateId.js';
 import { FetchRefused } from '../src/modules/cv-extraction/safeFetch.js';
-import { FULL_CV, SPARSE_CV, buildDocx, buildPdf } from './helpers/fictionalCv.js';
+import {
+  FULL_CV,
+  SPARSE_CV,
+  TEMPLATE_CV,
+  buildDocx,
+  buildPdf,
+  buildPositionedPdf,
+  formTablePlacements,
+} from './helpers/fictionalCv.js';
 import { startMemoryHarness } from './helpers/memoryDb.js';
 
 const PDF_TYPE = 'application/pdf';
@@ -23,8 +32,8 @@ let lead; // Team Lead: holds no candidates.edit
 let storageDir;
 let linkDocument = null; // what the stubbed link fetcher returns, or throws
 
-const extractFile = (buffer, who = hr, type = PDF_TYPE) =>
-  h.api('/candidates/extract-cv/file', {
+const extractFile = (buffer, who = hr, type = PDF_TYPE, registerNow = false) =>
+  h.api(`/candidates/extract-cv/file${registerNow ? '?register=true' : ''}`, {
     method: 'POST',
     cookie: who?.cookie,
     headers: { 'Content-Type': type },
@@ -44,6 +53,10 @@ before(async () => {
       fetchDocument: async () => {
         if (linkDocument instanceof Error) throw linkDocument;
         return { buffer: linkDocument };
+      },
+      // These tests never open a real browser.
+      renderPage: async () => {
+        throw Object.assign(new Error('no browser'), { reason: 'no_browser' });
       },
     },
   });
@@ -126,9 +139,8 @@ describe('reading a CV', () => {
     assert.equal(extraction.status, 'partial');
     assert.ok(extraction.review.unavailable.includes('phone'));
     assert.ok(extraction.review.unavailable.includes('address'));
-    assert.ok(extraction.review.uncertain.includes('fullName'));
-    assert.deepEqual(Object.keys(extraction.formDraft), ['email']);
-    assert.equal(res.body.registration.candidateIdRequired, true);
+    assert.deepEqual(extraction.review.uncertain, []);
+    assert.deepEqual(Object.keys(extraction.formDraft).sort(), ['email', 'fullName']);
   });
 
   test('a file that cannot be read is an error, not a partial result', async () => {
@@ -150,52 +162,63 @@ describe('reading a CV', () => {
   });
 });
 
-describe('registering from an extraction', () => {
-  test('reading a CV never creates or changes any record', async () => {
-    const before = [
-      await count('candidates'),
-      await count('audit_log'),
-      await count('stage_history'),
-    ];
+describe('reading a CV never saves anything', () => {
+  const snapshot = async () =>
+    Promise.all(['candidates', 'audit_log', 'stage_history'].map((t) => count(t)));
+
+  test('a preview creates and changes no record, however it is requested', async () => {
+    const before = await snapshot();
     await extractFile(await buildPdf(FULL_CV));
+    // The old "register" flag no longer does anything.
+    await extractFile(await buildPdf(FULL_CV), hr, PDF_TYPE, true);
     await extractFile(Buffer.from('not a cv'));
     linkDocument = await buildPdf(FULL_CV);
     await extractLink('https://cv.example.test/x.pdf');
-    const after = [
-      await count('candidates'),
-      await count('audit_log'),
-      await count('stage_history'),
-    ];
-    assert.deepEqual(after, before);
+    assert.deepEqual(await snapshot(), before);
   });
 
-  test('8. a valid new candidate is registered through the existing backend', async () => {
+  test('the answer carries the details to fill in, and no registration outcome', async () => {
+    const res = await extractFile(await buildPdf(FULL_CV), hr, PDF_TYPE, true);
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.equal(res.body.registration, undefined);
+    assert.equal(res.body.extraction.formDraft.fullName, 'Nimali Testperson');
+    assert.deepEqual(res.body.extraction.hints, {
+      appliedPosition: null,
+      targetPosition: null,
+      source: null,
+    });
+  });
+
+  test('14. a failed extraction inserts no candidate', async () => {
+    const total = await count('candidates');
+    const res = await extractFile(Buffer.from('%PDF-1.4 damaged'), hr, PDF_TYPE, true);
+    assert.equal(res.status, 422);
+    assert.equal(await count('candidates'), total);
+  });
+
+  test('unauthorised staff cannot read CVs', async () => {
+    const res = await extractFile(await buildPdf(FULL_CV), lead, PDF_TYPE, true);
+    assert.equal(res.status, 403);
+  });
+});
+
+describe('saving what was read goes through the existing save', () => {
+  test('8. the filled details save with a generated Candidate ID', async () => {
     const read = await extractFile(await buildPdf(FULL_CV));
     const { formDraft } = read.body.extraction;
     assert.deepEqual(read.body.duplicates, []);
 
-    // HR completes the Candidate ID, which extraction never supplies.
-    const res = await register({ ...formDraft, candidateCode: 'CVX-0001' });
+    const res = await register(formDraft);
     assert.equal(res.status, 201, JSON.stringify(res.body));
     const candidate = res.body.candidate;
-    assert.equal(candidate.candidateCode, 'CVX-0001');
+    assert.match(candidate.candidateCode, /^\d{10}$/);
+    assert.ok(candidate.candidateCode.startsWith(candidateIdPrefix()));
     assert.equal(candidate.fullName, 'Nimali Testperson');
     assert.equal(candidate.phone, '0700000001');
-    assert.equal(candidate.olMaths, 'A');
-    assert.equal(candidate.alStream, 'Physical Science');
     assert.equal(candidate.stage.code, 'applied');
-
-    const [saved] = await h.query('SELECT id, phone FROM candidates WHERE candidate_code = $1', [
-      'CVX-0001',
-    ]);
-    assert.equal(saved.phone, '0700000001');
-    const history = await h.query('SELECT 1 FROM stage_history WHERE candidate_id = $1', [
-      saved.id,
-    ]);
-    assert.equal(history.length, 1);
     const audit = await h.query(
       `SELECT action FROM audit_log WHERE entity_type = 'candidates' AND entity_id = $1`,
-      [saved.id],
+      [candidate.id],
     );
     assert.deepEqual(
       audit.map((a) => a.action),
@@ -203,70 +226,53 @@ describe('registering from an extraction', () => {
     );
   });
 
-  test('9. without a Candidate ID nothing is registered', async () => {
-    const read = await extractFile(await buildDocx(FULL_CV), hr, DOCX_TYPE);
+  test('7. the same CV again shows the existing candidate and save is still warned', async () => {
     const total = await count('candidates');
-    const res = await register({ ...read.body.extraction.formDraft });
-    assert.equal(res.status, 422);
-    assert.ok(res.body.fields.candidateCode);
-    assert.equal(await count('candidates'), total);
-  });
+    const [existing] = await h.query(
+      'SELECT candidate_code FROM candidates ORDER BY id DESC LIMIT 1',
+    );
+    const preview = await extractFile(await buildDocx(FULL_CV), hr, DOCX_TYPE);
+    assert.equal(preview.body.duplicates.length, 1);
+    assert.equal(preview.body.duplicates[0].candidateCode, existing.candidate_code);
+    assert.ok(preview.body.duplicates[0].matchedOn.includes('phone'));
 
-  test('7. a CV of an existing candidate shows the match and creates no duplicate', async () => {
-    const total = await count('candidates');
-    const read = await extractFile(await buildPdf(FULL_CV)); // Nimali, registered above
-    assert.equal(read.body.duplicates.length, 1);
-    assert.equal(read.body.duplicates[0].candidateCode, 'CVX-0001');
-    assert.ok(read.body.duplicates[0].matchedOn.includes('phone'));
-    assert.ok(read.body.duplicates[0].matchedOn.includes('email'));
-
-    // Saving it anyway is refused with the existing warning, and stores nothing.
-    const res = await register({ ...read.body.extraction.formDraft, candidateCode: 'CVX-0002' });
+    const res = await register(preview.body.extraction.formDraft);
     assert.equal(res.status, 409);
     assert.equal(res.body.error, 'possible_duplicate');
     assert.equal(await count('candidates'), total);
-
-    // Nothing was merged or changed on the existing record.
-    const [existing] = await h.query(
-      'SELECT full_name, phone FROM candidates WHERE candidate_code = $1',
-      ['CVX-0001'],
-    );
-    assert.equal(existing.full_name, 'Nimali Testperson');
   });
 
-  test('10. repeated and simultaneous requests create only one record', async () => {
-    const body = {
-      candidateCode: 'CVX-REPEAT',
-      fullName: 'Ravi Samplestudent',
-      phone: '0700000042',
-      email: 'ravi.repeat@example.test',
-    };
-    const results = await Promise.all([register(body), register(body), register(body)]);
-    const statuses = results.map((r) => r.status).sort();
-    // At most one wins; every other request is refused (same ID, or the
-    // existing duplicate warning) and stores nothing.
-    assert.equal(statuses.filter((s) => s === 201).length, 1, JSON.stringify(statuses));
-    assert.ok(
-      statuses.every((s) => [201, 409, 422].includes(s)),
-      JSON.stringify(statuses),
-    );
-    const rows = await h.query('SELECT 1 FROM candidates WHERE lower(candidate_code) = $1', [
-      'cvx-repeat',
+  test('a link is read and offered as the CV Link; the save keeps it', async () => {
+    linkDocument = await buildPdf([
+      'Name: Link Samplelady',
+      'Phone: 070 000 0055',
+      'Email: link.sample@example.test',
     ]);
-    assert.equal(rows.length, 1);
-
-    // A later click on the same data is warned about, not saved again.
-    const again = await register({ ...body, candidateCode: 'CVX-REPEAT-2' });
-    assert.equal(again.status, 409);
-    const phoneRows = await h.query('SELECT 1 FROM candidates WHERE phone = $1', ['0700000042']);
-    assert.equal(phoneRows.length, 1);
+    const read = await extractLink('https://cv.example.test/link-sample.pdf');
+    assert.equal(read.body.cvUrl, 'https://cv.example.test/link-sample.pdf');
+    const saved = await register({
+      ...read.body.extraction.formDraft,
+      cvUrl: read.body.cvUrl,
+    });
+    assert.equal(saved.status, 201, JSON.stringify(saved.body));
+    assert.equal(saved.body.candidate.cvUrl, 'https://cv.example.test/link-sample.pdf');
   });
 
-  test('14. a failed extraction inserts no candidate', async () => {
-    const total = await count('candidates');
-    const res = await extractFile(Buffer.from('%PDF-1.4 damaged'));
-    assert.equal(res.status, 422);
-    assert.equal(await count('candidates'), total);
+  test('an uploaded file gives no CV link: none is invented', async () => {
+    const read = await extractFile(await buildPdf(SPARSE_CV.concat('Phone: 070 000 0099')));
+    assert.equal(read.body.cvUrl, null);
+    assert.equal(read.body.extraction.formDraft.cvUrl, undefined);
+  });
+
+  test('a save needs no Candidate ID and ignores one that is sent', async () => {
+    const res = await register({
+      fullName: 'Typed Sample',
+      phone: '0700000066',
+      candidateCode: 'MINE',
+    });
+    assert.equal(res.status, 201, JSON.stringify(res.body));
+    assert.notEqual(res.body.candidate.candidateCode, 'MINE');
+    assert.match(res.body.candidate.candidateCode, /^\d{10}$/);
   });
 });
 
@@ -328,5 +334,131 @@ describe('existing features are preserved', () => {
     const names = list.body.items.map((item) => item.candidateName);
     assert.ok(names.includes('Hist Sample Person'), JSON.stringify(names));
     assert.ok(names.includes('After Sample'), JSON.stringify(names));
+  });
+});
+
+describe('a CV link and an uploaded file give the same result', () => {
+  const SAMPLES = {
+    template: TEMPLATE_CV,
+    linkedin: [
+      'ANUSHA PERERA',
+      'Phone: 0771234567',
+      'Email: anusha.perera@example.test',
+      'LinkedIn: https://www.linkedin.com/in/example-profile',
+    ],
+    full: [
+      'ANUSHA PERERA',
+      'Phone: 0771234567',
+      'Email: anusha.perera@example.test',
+      'Address: 123 Example Road, Colombo, Sri Lanka, O/L Maths A, A/L Stream Commerce',
+      'Applied Position: Software Developer',
+      'Education',
+      'Bachelor of Science in Imaginary Computing',
+      'University of Example, Colombo',
+      '2019 - 2023',
+    ],
+  };
+
+  for (const [name, lines] of Object.entries(SAMPLES)) {
+    test(`${name}: the same PDF through the link route and the upload route`, async () => {
+      const buffer = await buildPdf([
+        ...lines,
+        'Fictional padding line to make the test file long enough.',
+      ]);
+      linkDocument = buffer;
+      const total = await count('candidates');
+
+      const fromFile = await extractFile(buffer);
+      const fromLink = await extractLink('https://cv.example.test/sample.pdf');
+
+      assert.equal(fromFile.status, 200, JSON.stringify(fromFile.body));
+      assert.equal(fromLink.status, 200, JSON.stringify(fromLink.body));
+      assert.deepEqual(fromLink.body.extraction, fromFile.body.extraction);
+      assert.deepEqual(fromLink.body.duplicates, fromFile.body.duplicates);
+      // Only the link route reports a link, and neither route saves anything.
+      assert.equal(fromFile.body.cvUrl, null);
+      assert.equal(fromLink.body.cvUrl, 'https://cv.example.test/sample.pdf');
+      assert.equal(await count('candidates'), total);
+    });
+  }
+
+  test('a template CV read through a link leaves the placeholders empty', async () => {
+    linkDocument = await buildPdf([
+      ...TEMPLATE_CV,
+      'Fictional padding line to make the test file long enough.',
+    ]);
+    const res = await extractLink('https://cv.example.test/template.pdf');
+    const { formDraft } = res.body.extraction;
+    assert.equal(formDraft.email, undefined);
+    assert.equal(formDraft.phone, undefined);
+    assert.equal(formDraft.fullName, undefined);
+    assert.equal(formDraft.address, 'Santa Ana, CA 92703');
+    assert.match(
+      formDraft.otherEducation,
+      /^Bachelor of Science, Computer Science, University of California, Irvine/,
+    );
+  });
+});
+
+describe('the LinkedIn profile through the routes', () => {
+  const LINES = [
+    'ANUSHA PERERA',
+    'Phone: 0771234567',
+    'Email: anusha.perera@example.test',
+    'LinkedIn: https://www.linkedin.com/in/example-profile',
+    'Fictional padding line to make the test file long enough.',
+  ];
+
+  test('an uploaded file and a pasted link both return it, and neither saves or sets a Source', async () => {
+    const buffer = await buildPdf(LINES);
+    linkDocument = buffer;
+    const total = await count('candidates');
+
+    const fromFile = await extractFile(buffer);
+    const fromLink = await extractLink('https://cv.example.test/linkedin.pdf');
+
+    for (const res of [fromFile, fromLink]) {
+      assert.equal(res.status, 200, JSON.stringify(res.body));
+      assert.equal(
+        res.body.extraction.formDraft.linkedinUrl,
+        'https://www.linkedin.com/in/example-profile',
+      );
+      assert.equal(res.body.extraction.hints.source, null);
+      assert.equal('sourceId' in res.body.extraction.formDraft, false);
+    }
+    assert.equal(await count('candidates'), total);
+  });
+
+  test('the save accepts the form with a LinkedIn value present but does not store it anywhere', async () => {
+    // The candidate record has no LinkedIn column, so the form never sends it. If
+    // something did send it, it is ignored rather than put in an unrelated column.
+    const res = await register({
+      fullName: 'Linkedin Sample',
+      phone: '0700000099',
+      linkedinUrl: 'https://www.linkedin.com/in/example-profile',
+    });
+    assert.equal(res.status, 201, JSON.stringify(res.body));
+    const [row] = await h.query(
+      'SELECT cv_url, company_cv_url, hr_comment, address FROM candidates WHERE id = $1',
+      [res.body.candidate.id],
+    );
+    assert.deepEqual(row, { cv_url: null, company_cv_url: null, hr_comment: null, address: null });
+    assert.equal(JSON.stringify(res.body).includes('linkedin.com'), false);
+  });
+});
+
+describe('a form-style PDF through both routes', () => {
+  test('an uploaded file and a pasted link give the same extraction', async () => {
+    const buffer = await buildPositionedPdf(formTablePlacements());
+    linkDocument = buffer;
+    const total = await count('candidates');
+    const fromFile = await extractFile(buffer);
+    const fromLink = await extractLink('https://cv.example.test/form.pdf');
+    assert.equal(fromFile.status, 200, JSON.stringify(fromFile.body));
+    assert.deepEqual(fromLink.body.extraction, fromFile.body.extraction);
+    assert.equal(fromFile.body.extraction.formDraft.fullName, 'Nimal Fernando');
+    assert.equal(fromFile.body.extraction.hints.appliedPosition, 'UI/UX Designer');
+    assert.equal(fromFile.body.extraction.hints.source, 'Referral');
+    assert.equal(await count('candidates'), total);
   });
 });
